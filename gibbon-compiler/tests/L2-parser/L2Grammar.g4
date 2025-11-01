@@ -18,7 +18,7 @@ locatedType
 typeScheme
     : (locatedType '->')* locatedType ;
 
-val : VAR | concreteLoc ;
+val : VAR | concreteLoc | lit ;
 
 express 
     : val 
@@ -28,6 +28,23 @@ express
     | 'letloc' locRegion '=' locExpress 'in' express
     | 'letregion' regionVar 'in' express
     | 'case' val 'of' pat*
+    | '(' express ')'
+    | express binaryOp express
+    ;
+
+lit 
+    : INTLIT
+    | FLOATLIT
+    | BOOLLIT
+    | STRINGLIT
+    ;
+
+binaryOp 
+    : '^' 
+    | '*' | '/' | '`div`' | '`mod`' | '.*.' | './.'
+    | '+' | '-' | '.+.' | '.-.'
+    | '==' | '.==.' | '*==*' | '>' | '<' | '.>.' | '.<.' | '>=' | '<=' | '.<=.' | '.>=.' | '/='
+    | '&&' | '||'
     ;
 
 pat : dataCon '(' (val ':' locatedType)* ')' '->' express ;
