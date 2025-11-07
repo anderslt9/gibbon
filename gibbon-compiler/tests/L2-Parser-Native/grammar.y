@@ -1,5 +1,6 @@
 {
-    module Main where
+module Main where
+import Data.Char (isSpace, isAlpha, isDigit)
 }
 
 %name l2ParserNative
@@ -136,7 +137,7 @@ LocRegions :: { [LocRegion ] }
 CombinedTypes :: { [CombinedType ] }
     : {- empty -}                        { [] }
     | CombinedType                       { [$1] }
-    | CombinedTypes '->' CombinedType    { $2 : $1 }
+    | CombinedTypes '->' CombinedType    { $3 : $1 }
 
 -- repeated productions to model + operator
 
@@ -145,30 +146,30 @@ CombinedTypes :: { [CombinedType ] }
 
 -- top-level program
 Program :: { Program }
-    : DataTypeDecls FuncDecls Expr { Program (DataTypeDecls $1) (FuncDecls $2) (Expr $3) }
+    : DataTypeDecls FuncDecls Expr { Program (DataTypeDecls $1) (FuncDecls $2) $3 }
 
 -- data type declarations
 DataTypeDecl :: { DataTypeDecl }
-    : data TypeCon '=' DataFields { DataTypeDecl $2 $4 }
+    : data TypeCon '=' DataFields { DataTypeDecl $2 (DataFields $4) }
 
 DataField :: { DataField }
-    : DataCon TypeCons { DataField $1 $2 }
+    : DataCon TypeCons { DataField $1 (TypeCons $2) }
 
 -- function declarations
 FuncDecl :: { FuncDecl }
     : FuncVar ':' TypeScheme FuncVar '[' LocRegions ']' Vars '=' Expr
-        { FuncDecl $1 $3 $4 $6 $8 $10 }
+        { FuncDecl $1 $3 $4 (LocRegions $6) (Vars $8) $10 }
 
 -- type expressions
 LocatedType :: { LocatedType } 
     : TypeCon '@' LocRegion { LocatedType $1 $3 }
 
 TypeScheme :: { TypeScheme }
-    : CombinedTypes { TypeScheme $1}
+    : CombinedTypes { TypeScheme (CombinedTypes $1)}
 
 CombinedType :: { CombinedType }
-    : LocatedType                     { LocatedType $1 }
-    | BaseType                        { BaseType $1 }
+    : LocatedType                     { CTLocated $1 }
+    | BaseType                        { CTBase $1 }
 
 BaseType :: { BaseType }
     : Int          { Int }
@@ -183,13 +184,13 @@ LocExpress :: { LocExpress }
     | '(' after LocatedType ')'        { LocExpressAfter $3 }
 
 LocRegion :: { LocRegion }
-    : '(' LocVar ',' RegionVar ')'              { LocRegion $2 $4 none }
+    : '(' LocVar ',' RegionVar ')'              { LocRegion $2 $4 (IndexVar "") }
     | '(' LocVar ',' RegionVar ',' IndexVar ')' { LocRegion $2 $4 $6 }  
 
 -- identifiers/literals
 Val :: { Val }
-    : Var                            { Var $1 }
-    | Lit                            { Lit $1 }
+    : Var                            { ValVar $1 }
+    | Lit                            { ValLit $1 }
 
 Lit :: { Lit }
     : INT_LIT        { IntLit $1 }
@@ -199,9 +200,9 @@ Lit :: { Lit }
 
 -- expressions
 Expr :: { Expr }
-    : Val                            { Val $1 }
+    : Val                            { ExprVal $1 }
     | '(' Expr ')'                   { $2 }
-    | Expr BinOp Expr                { BinOp $2 $1 $3 }
+    | Expr BinOp Expr                { ExprBinOp $2 $1 $3 }
 
 BinOp :: { BinOp }
     : '+'         { Add }
@@ -266,7 +267,7 @@ data CombinedType = CTLocated LocatedType | CTBase BaseType deriving Show
 data BaseType = Int | Float | Bool | String deriving Show
 
 -- location expressions
-data LocExpress = LocExpressStart RegionVar | LocExpressNext LocExpress Int | LocExpressAfter LocatedType deriving Show
+data LocExpress = LocExpressStart RegionVar | LocExpressNext LocExpress | LocExpressAfter LocatedType deriving Show
 data LocRegion = LocRegion LocVar RegionVar IndexVar deriving Show
 
 -- identifiers/literals
@@ -383,7 +384,7 @@ lexer ('&':'&':cs)   =  TokenAnd : lexer cs
 
 lexNum cs = 
     case span isDigit cs of
-        (num, rest) -> if fst rest == '.'
+        (num, rest) -> if head rest == '.'
                        then case span isDigit (tail rest) of
                             (num2, rest2) -> TokenFloatLit (read (num ++ "." ++ num2)) : lexer rest2
                             -- otherwise error
