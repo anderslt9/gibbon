@@ -1,11 +1,22 @@
 {
 module Main where
-import Data.Char (isSpace, isAlpha, isDigit)
+import Data.Char (isSpace, isAlpha, isDigit, isLower)
+import System.Environment (getArgs)
+import Control.Monad (forM_)
+import System.FilePath.Posix (takeBaseName)
 }
 
 %name l2ParserNative
 %tokentype { Token }
 %error { parseError }
+%monad { E } { thenE } { returnE }
+%right '||'
+%right '&&'
+%nonassoc '==' '.==.' '*==*' '>' '<' '.>.' '.<.' '>=' '<=' '.>=.' '.<=.' '/='
+%left '+' '-' '.-.' '.+.'
+%left '*' '/' '`div`' '`mod`' '.*.' './.'
+%left '^'
+
 -- %lexer { L2LexerNative }
 
 %token 
@@ -74,13 +85,109 @@ import Data.Char (isSpace, isAlpha, isDigit)
     BOOL_LIT    { TokenBoolLit $$ }
     STRING_LIT  { TokenStringLit $$ }
 
+    -- main
+    main        { TokenMain}
+
 
 
 
 %%
+-- top-level program
+Program :: { Program }
+    : DataTypeDecls FuncDecls MainExpr { Program (DataTypeDecls $1) (FuncDecls $2) $3 }
+
+MainExpr :: { Expr }
+    : main '=' Expr     { $3 }
+
+-- data type declarations
+DataTypeDecl :: { DataTypeDecl }
+    : data TypeCon '=' DataFields { DataTypeDecl $2 (DataFields $4) }
+
+DataField :: { DataField }
+    : DataCon TypeCons { DataField $1 (TypeCons $2) }
+
+-- function declarations
+FuncDecl :: { FuncDecl }
+    : Var FuncDeclRest
+        { $2 $1 }
+
+FuncDeclRest
+    : ':' TypeScheme Var '[' LocRegions ']' Vars '=' Expr
+        {\v -> FuncDecl v $2 $3 (LocRegions $5) (Vars $7) $9}
+
+-- type expressions
+LocatedType :: { LocatedType } 
+    : TypeCon '@' LocRegion { LocatedType $1 $3 }
+
+TypeScheme :: { TypeScheme }
+    : CombinedTypes { TypeScheme (CombinedTypes $1)}
+
+CombinedType :: { CombinedType }
+    : LocatedType                     { CTLocated $1 }
+    | BaseType                        { CTBase $1 }
+
+BaseType :: { BaseType }
+    : Int          { Int }
+    | Float        { Float }
+    | Bool         { Bool }
+    | String       { String }
+
+-- location expressions
+LocExpress :: { LocExpress }
+    : '(' start RegionVar ')'          { LocExpressStart $3 }
+    | '(' LocExpress '+' INT_LIT ')'    { LocExpressNext $2 }
+    | '(' after LocatedType ')'        { LocExpressAfter $3 }
+
+LocRegion :: { LocRegion }
+    : '(' LocVar ',' RegionVar ')'              { LocRegion $2 $4 (IndexVar "") }
+    | '(' LocVar ',' RegionVar ',' IndexVar ')' { LocRegion $2 $4 $6 }  
+
+-- identifiers/literals
+Val :: { Val }
+    : Var                            { ValVar $1 }
+    | Lit                            { ValLit $1 }
+
+Lit :: { Lit }
+    : INT_LIT        { IntLit $1 }
+    | FLOAT_LIT      { FloatLit $1 }
+    | BOOL_LIT       { BoolLit $1 }
+    | STRING_LIT     { StringLit $1 }
+
+-- expressions
+Expr :: { Expr }
+    : Expr BinOp Expr                { ExprBinOp $2 $1 $3 }
+    | Val                            { ExprVal $1 }
+    | '(' Expr ')'                   { $2 }
+
+BinOp :: { BinOp }
+    : '+'         { Add }
+    | '-'         { Sub }
+    | '.+.'       { FAdd }
+    | '.-.'       { FSub }
+    | '*'         { Mul }
+    | '/'         { Div }
+    | '.*.'       { FMul }
+    | './.'       { FDiv }
+    | '^'         { Pow }
+    | '=='        { Eq }
+    | '.==.'      { FEq }
+    | '*==*'      { CEq }
+    | '>'         { Gt }
+    | '<'         { Lt }
+    | '.>.'       { FGt }
+    | '.<.'       { FLt }
+    | '>='        { Ge }
+    | '<='        { Le }
+    | '.>=.'      { FGe }
+    | '.<=.'      { FLe }
+    | '/='        { Neq }
+    | '&&'        { And }
+    | '||'        { Or }
+
+
 -- specific variable types
-FuncVar :: { FuncVar }
-    : IDENT       { FuncVar $1 }
+-- FuncVar :: { FuncVar }
+--     : IDENT       { FuncVar $1 }
 
 RegionVar :: { RegionVar }
     : IDENT       { RegionVar $1 }
@@ -137,118 +244,39 @@ LocRegions :: { [LocRegion ] }
 CombinedTypes :: { [CombinedType ] }
     : {- empty -}                        { [] }
     | CombinedType                       { [$1] }
-    | CombinedTypes '->' CombinedType    { $3 : $1 }
+    | CombinedType '->' CombinedTypes    { $1 : $3 }
 
 -- repeated productions to model + operator
 
 
 
 
--- top-level program
-Program :: { Program }
-    : DataTypeDecls FuncDecls Expr { Program (DataTypeDecls $1) (FuncDecls $2) $3 }
 
--- data type declarations
-DataTypeDecl :: { DataTypeDecl }
-    : data TypeCon '=' DataFields { DataTypeDecl $2 (DataFields $4) }
-
-DataField :: { DataField }
-    : DataCon TypeCons { DataField $1 (TypeCons $2) }
-
--- function declarations
-FuncDecl :: { FuncDecl }
-    : FuncVar ':' TypeScheme FuncVar '[' LocRegions ']' Vars '=' Expr
-        { FuncDecl $1 $3 $4 (LocRegions $6) (Vars $8) $10 }
-
--- type expressions
-LocatedType :: { LocatedType } 
-    : TypeCon '@' LocRegion { LocatedType $1 $3 }
-
-TypeScheme :: { TypeScheme }
-    : CombinedTypes { TypeScheme (CombinedTypes $1)}
-
-CombinedType :: { CombinedType }
-    : LocatedType                     { CTLocated $1 }
-    | BaseType                        { CTBase $1 }
-
-BaseType :: { BaseType }
-    : Int          { Int }
-    | Float        { Float }
-    | Bool         { Bool }
-    | String       { String }
-
--- location expressions
-LocExpress :: { LocExpress }
-    : '(' start RegionVar ')'          { LocExpressStart $3 }
-    | '(' LocExpress '+' INT_LIT ')'    { LocExpressNext $2 }
-    | '(' after LocatedType ')'        { LocExpressAfter $3 }
-
-LocRegion :: { LocRegion }
-    : '(' LocVar ',' RegionVar ')'              { LocRegion $2 $4 (IndexVar "") }
-    | '(' LocVar ',' RegionVar ',' IndexVar ')' { LocRegion $2 $4 $6 }  
-
--- identifiers/literals
-Val :: { Val }
-    : Var                            { ValVar $1 }
-    | Lit                            { ValLit $1 }
-
-Lit :: { Lit }
-    : INT_LIT        { IntLit $1 }
-    | FLOAT_LIT      { FloatLit $1 }
-    | BOOL_LIT       { BoolLit $1 }
-    | STRING_LIT     { StringLit $1 }
-
--- expressions
-Expr :: { Expr }
-    : Val                            { ExprVal $1 }
-    | '(' Expr ')'                   { $2 }
-    | Expr BinOp Expr                { ExprBinOp $2 $1 $3 }
-
-BinOp :: { BinOp }
-    : '+'         { Add }
-    | '-'         { Sub }
-    | '.*.'       { FAdd }
-    | '.-.'       { FSub }
-    | '*'         { Mul }
-    | '/'         { Div }
-    | './.'       { FDiv }
-    | '^'         { Pow }
-    | '=='        { Eq }
-    | '.==.'      { FEq }
-    | '*==*'      { CEq }
-    | '>'         { Gt }
-    | '<'         { Lt }
-    | '.>.'       { FGt }
-    | '.<.'       { FLt }
-    | '>='        { Ge }
-    | '<='        { Le }
-    | '.>=.'      { FGe }
-    | '.<=.'      { FLe }
-    | '/='        { Neq }
-    | '&&'        { And }
-    | '||'        { Or }
 
 {
-parseError :: [Token] -> a
-parseError _ = error "Parse error"
+-- parseError :: [Token] -> a
+parseError tokens = failE "Parse error"
 
--- specific variable types
-newtype FuncVar = FuncVar String deriving Show
-newtype RegionVar = RegionVar String deriving Show
-newtype LocVar = LocVar String deriving Show
-newtype IndexVar = IndexVar String deriving Show
-newtype TypeCon = TypeCon String deriving Show
-newtype DataCon = DataCon String deriving Show
-newtype Var = Var String deriving Show
+data E a = Ok a | Failed String deriving Show
 
--- repeated productions to model * operator
-newtype Vars = Vars [Var] deriving Show
-newtype DataFields = DataFields [DataField] deriving Show
-newtype TypeCons = TypeCons [TypeCon] deriving Show
-newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving Show
-newtype FuncDecls = FuncDecls [FuncDecl] deriving Show
-newtype LocRegions = LocRegions [LocRegion] deriving Show
-newtype CombinedTypes = CombinedTypes [CombinedType] deriving Show
+thenE :: E a -> (a -> E b) -> E b
+m `thenE` k =
+    case m of
+        Ok a     -> k a
+        Failed e -> Failed e
+
+returnE :: a -> E a
+returnE a = Ok a
+
+failE :: String -> E a
+failE err = Failed err
+
+catchE :: E a -> (String -> E a) -> E a
+catchE m k =
+    case m of
+        Ok a     -> Ok a
+        Failed e -> k e
+
 
 -- top-level program
 data Program = Program DataTypeDecls FuncDecls Expr deriving Show
@@ -258,7 +286,8 @@ data DataTypeDecl = DataTypeDecl TypeCon DataFields deriving Show
 data DataField = DataField DataCon TypeCons deriving Show
 
 -- function declarations
-data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr deriving Show
+data FuncDecl = FuncDecl Var TypeScheme Var LocRegions Vars Expr deriving Show
+-- data FuncDeclRest = FuncDeclRest TypeScheme Var LocRegions Vars Expr deriving Show
 
 -- type expressions
 data LocatedType = LocatedType TypeCon LocRegion deriving Show
@@ -276,8 +305,28 @@ data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String derivin
 
 -- expressions
 data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr deriving Show
-data BinOp = Add | Sub | FAdd | FSub | Mul | Div | FDiv | Pow
+data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
            | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving Show
+
+-- specific variable types
+-- newtype FuncVar = FuncVar String deriving Show
+newtype RegionVar = RegionVar String deriving Show
+newtype LocVar = LocVar String deriving Show
+newtype IndexVar = IndexVar String deriving Show
+newtype TypeCon = TypeCon String deriving Show
+newtype DataCon = DataCon String deriving Show
+newtype Var = Var String deriving Show
+
+-- repeated productions to model * operator
+newtype Vars = Vars [Var] deriving Show
+newtype DataFields = DataFields [DataField] deriving Show
+newtype TypeCons = TypeCons [TypeCon] deriving Show
+newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving Show
+newtype FuncDecls = FuncDecls [FuncDecl] deriving Show
+newtype LocRegions = LocRegions [LocRegion] deriving Show
+newtype CombinedTypes = CombinedTypes [CombinedType] deriving Show
+
+
 
 -- list all tokens
 data Token 
@@ -334,6 +383,7 @@ data Token
     | TokenFloatLit Float
     | TokenBoolLit Bool
     | TokenStringLit String
+    | TokenMain
     deriving Show
 
 
@@ -384,12 +434,21 @@ lexer ('&':'&':cs)   =  TokenAnd : lexer cs
 
 lexNum cs = 
     case span isDigit cs of
+        (num, "")   -> [TokenIntLit (read num)]
         (num, rest) -> if head rest == '.'
                        then case span isDigit (tail rest) of
                             (num2, rest2) -> TokenFloatLit (read (num ++ "." ++ num2)) : lexer rest2
                             -- otherwise error
                        else TokenIntLit (read num) : lexer rest
 
+
+matchVar cs = 
+    case span isValidChar cs of
+        ((c:word), rest) -> if isLower c 
+                            then TokenIdent (c:word) : lexer rest
+                            else [] -- TODO ADD ERROR HERE
+        (_, rest) -> []   
+    where isValidChar = (\n -> n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`'] ++ ['0'..'9']))
 
 lexVar cs =
     case span isAlpha cs of
@@ -408,8 +467,32 @@ lexVar cs =
         ("String", rest) -> TokenStringType : lexer rest
         ("True", rest)  -> TokenBoolLit True : lexer rest
         ("False", rest) -> TokenBoolLit False : lexer rest
-        (var, rest)    -> TokenIdent var : lexer rest
+        ("main", rest) -> TokenMain : lexer rest
+        (var, rest)    -> matchVar cs
+
+printTest testFile = do
+    putStrLn $ "Running Test: " ++ (takeBaseName testFile)
+    contents <- readFile testFile
+    let tokens = lexer contents
+    putStrLn "== Tokens =="
+    print tokens
+
+    putStrLn "\n== Parse Result =="
+    let ast = l2ParserNative tokens
+    print ast
 
 
-main = getContents >>= print . l2ParserNative . lexer
+main = do 
+    args <- getArgs 
+    putStrLn $ show args
+    forM_ args printTest
+    -- contents <- readFile "/home/anderslt/gibbon-compiler/gibbon-compiler/tests/L2-Parser-Native/tests/0-Add1.hs" 
+    -- let tokens = lexer contents
+    -- putStrLn "== Tokens =="
+    -- print tokens
+    
+    -- putStrLn "\n== Parse Result =="
+    -- let ast = l2ParserNative tokens
+    -- print ast
+    -- getContents >>= print . l2ParserNative . lexer
 }
