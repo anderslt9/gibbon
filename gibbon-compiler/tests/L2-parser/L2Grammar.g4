@@ -3,14 +3,14 @@ grammar L2Grammar;
 
 // top level program
 program
-    : datatypeDecl* funcDecl* express EOF
+    : datatypeDecl* funcDecl* expr EOF
     ;
 
 datatypeDecl
-    : 'data' typeCon '=' (dataCon (typeCon)*)* ;
+    : 'data' typeCon '=' (dataCon (typeCon)*) ('|' (dataCon (typeCon)*))* ;
 
 funcDecl
-    : funcVar ':' typeScheme funcVar '[' locRegion* ']' VAR* '=' express ;
+    : funcVar ':' typeScheme funcVar '[' locRegion* ']' VAR* '=' expr ;
 
 locatedType
     : typeCon '@' locRegion ;
@@ -22,28 +22,60 @@ val : VAR | concreteLoc | lit ;     // value can be variable, concrete location,
 
 
 // expression types
-letExpress : 'let' VAR ':' locatedType '=' express 'in' express ;
+letExpress : 'let' VAR ':' locatedType '=' expr 'in' expr ;
 
-letLocExpress : 'letloc' locRegion '=' locExpress 'in' express ;
+letLocExpress : 'letloc' locRegion '=' locExpress 'in' expr ;
 
-letRegionExpress : 'letregion' regionVar 'in' express ;
+letRegionExpress : 'letregion' regionVar 'in' expr ;
 
-caseExpress : 'case' val 'of' pat* ;
+caseExpress : 'case' val 'of' pat+ ;
 
 funcAppExpress : funcVar '[' locRegion* ']' val* ;
 
 dataConAppExpress : dataCon locRegion val* ;
 
-express 
-    : val 
+// Expression grammar with operator precedence (avoid direct left recursion)
+expr
+    : logicalOrExpr
+    ;
+
+logicalOrExpr
+    : logicalAndExpr ( '||' logicalAndExpr )*
+    ;
+
+logicalAndExpr
+    : equalityExpr ( '&&' equalityExpr )*
+    ;
+
+equalityExpr
+    : relationalExpr ( ( '==' | '.==.' | '*==*' | '/=' ) relationalExpr )*
+    ;
+
+relationalExpr
+    : addExpr ( ( '>' | '<' | '.>.' | '.<.' | '>=' | '<=' | '.<=.' | '.>=.' ) addExpr )*
+    ;
+
+addExpr
+    : mulExpr ( ( '+' | '-' | '.+.' | '.-.' ) mulExpr )*
+    ;
+
+mulExpr
+    : powExpr ( ( '*' | '/' | '`div`' | '`mod`' | '.*.' | './.' ) powExpr )*
+    ;
+
+powExpr
+    : atom ( ( '^' ) powExpr )*
+    ;
+
+atom
+    : val
     | funcAppExpress                     // match function with located region(s)
     | dataConAppExpress                  // match data constructor with located region
     | letExpress                         // let expression
     | letLocExpress                      // letloc expression
     | letRegionExpress                   // letregion expression    
     | caseExpress                        // case expression
-    | '(' express ')'                    // parenthesized expression
-    | express binaryOp express           // binary operation
+    | '(' expr ')'                       // parenthesized expression
     ;
 
 baseType
@@ -51,16 +83,16 @@ baseType
     ;
 
 lit 
-    : int
-    | float
-    | bool
-    | string
+    : INT
+    | FLOAT
+    | BOOL
+    | STRING
     ;
 
-int : INT ;
-float : FLOAT ;
-bool : BOOL ;
-string : STRING ;
+// int : INT ;
+// float : FLOAT ;
+// bool : BOOL ;
+// string : STRING ;
 
 
 binaryOp 
@@ -71,11 +103,11 @@ binaryOp
     | '&&' | '||'
     ;
 
-pat : dataCon '(' (val ':' locatedType)* ')' '->' express ;
+pat : dataCon '(' (val ':' locatedType)* ')' '->' expr ;
 
 locExpress 
     : '(' 'start' regionVar ')'
-    | '(' locRegion '+' '1' ')'
+    | '(' locRegion '+' INT ')'    // must specifically match 1
     | '(' 'after' locatedType ')'
     ;
 

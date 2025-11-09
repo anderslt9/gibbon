@@ -4,6 +4,8 @@ import Data.Char (isSpace, isAlpha, isDigit, isLower)
 import System.Environment (getArgs)
 import Control.Monad (forM_)
 import System.FilePath.Posix (takeBaseName)
+import AST
+import Tokens
 }
 
 %name l2ParserNative
@@ -108,11 +110,11 @@ DataField :: { DataField }
 
 -- function declarations
 FuncDecl :: { FuncDecl }
-    : Var FuncDeclRest
+    : FuncVar FuncDeclRest
         { $2 $1 }
 
 FuncDeclRest
-    : ':' TypeScheme Var '[' LocRegions ']' Vars '=' Expr
+    : ':' TypeScheme FuncVar '[' LocRegions ']' Vars '=' Expr
         {\v -> FuncDecl v $2 $3 (LocRegions $5) (Vars $7) $9}
 
 -- type expressions
@@ -158,6 +160,10 @@ Expr :: { Expr }
     : Expr BinOp Expr                { ExprBinOp $2 $1 $3 }
     | Val                            { ExprVal $1 }
     | '(' Expr ')'                   { $2 }
+    | ExprFuncApp                    { $1 }
+
+ExprFuncApp :: { Expr }
+    : FuncVar '[' LocRegions ']' Vals   { ExprFuncApp $1 (LocRegions $3) (Vals $5)}
 
 BinOp :: { BinOp }
     : '+'         { Add }
@@ -186,8 +192,8 @@ BinOp :: { BinOp }
 
 
 -- specific variable types
--- FuncVar :: { FuncVar }
---     : IDENT       { FuncVar $1 }
+FuncVar :: { FuncVar }
+    : IDENT       { FuncVar $1 }
 
 RegionVar :: { RegionVar }
     : IDENT       { RegionVar $1 }
@@ -223,7 +229,11 @@ TypeCons :: { [TypeCon] }
     : {- empty -}                   { [] }
     | TypeCon                       { [$1] }
     | TypeCons TypeCon              { $2 : $1 }
-    
+
+Vals :: { [Val] }
+    : {- empty -}                   { [] }
+    | Val                           { [$1] }
+    | Vals Val                      { $2 : $1 }
 
     -- lists of other productions
 DataTypeDecls :: { [DataTypeDecl] }
@@ -278,113 +288,113 @@ catchE m k =
         Failed e -> k e
 
 
--- top-level program
-data Program = Program DataTypeDecls FuncDecls Expr deriving Show
+-- -- top-level program
+-- data Program = Program DataTypeDecls FuncDecls Expr deriving Show
 
--- data type declarations
-data DataTypeDecl = DataTypeDecl TypeCon DataFields deriving Show
-data DataField = DataField DataCon TypeCons deriving Show
+-- -- data type declarations
+-- data DataTypeDecl = DataTypeDecl TypeCon DataFields deriving Show
+-- data DataField = DataField DataCon TypeCons deriving Show
 
--- function declarations
-data FuncDecl = FuncDecl Var TypeScheme Var LocRegions Vars Expr deriving Show
--- data FuncDeclRest = FuncDeclRest TypeScheme Var LocRegions Vars Expr deriving Show
+-- -- function declarations
+-- data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr deriving Show
 
--- type expressions
-data LocatedType = LocatedType TypeCon LocRegion deriving Show
-newtype TypeScheme = TypeScheme CombinedTypes deriving Show
-data CombinedType = CTLocated LocatedType | CTBase BaseType deriving Show
-data BaseType = Int | Float | Bool | String deriving Show
+-- -- type expressions
+-- data LocatedType = LocatedType TypeCon LocRegion deriving Show
+-- newtype TypeScheme = TypeScheme CombinedTypes deriving Show
+-- data CombinedType = CTLocated LocatedType | CTBase BaseType deriving Show
+-- data BaseType = Int | Float | Bool | String deriving Show
 
--- location expressions
-data LocExpress = LocExpressStart RegionVar | LocExpressNext LocExpress | LocExpressAfter LocatedType deriving Show
-data LocRegion = LocRegion LocVar RegionVar IndexVar deriving Show
+-- -- location expressions
+-- data LocExpress = LocExpressStart RegionVar | LocExpressNext LocExpress | LocExpressAfter LocatedType deriving Show
+-- data LocRegion = LocRegion LocVar RegionVar IndexVar deriving Show
 
--- identifiers/literals
-data Val = ValVar Var | ValLit Lit deriving Show
-data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String deriving Show
+-- -- identifiers/literals
+-- data Val = ValVar Var | ValLit Lit deriving Show
+-- data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String deriving Show
 
--- expressions
-data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr deriving Show
-data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
-           | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving Show
+-- -- expressions
+-- data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Vals deriving Show
+-- data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
+--            | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving Show
 
--- specific variable types
+-- -- specific variable types
 -- newtype FuncVar = FuncVar String deriving Show
-newtype RegionVar = RegionVar String deriving Show
-newtype LocVar = LocVar String deriving Show
-newtype IndexVar = IndexVar String deriving Show
-newtype TypeCon = TypeCon String deriving Show
-newtype DataCon = DataCon String deriving Show
-newtype Var = Var String deriving Show
+-- newtype RegionVar = RegionVar String deriving Show
+-- newtype LocVar = LocVar String deriving Show
+-- newtype IndexVar = IndexVar String deriving Show
+-- newtype TypeCon = TypeCon String deriving Show
+-- newtype DataCon = DataCon String deriving Show
+-- newtype Var = Var String deriving Show
 
--- repeated productions to model * operator
-newtype Vars = Vars [Var] deriving Show
-newtype DataFields = DataFields [DataField] deriving Show
-newtype TypeCons = TypeCons [TypeCon] deriving Show
-newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving Show
-newtype FuncDecls = FuncDecls [FuncDecl] deriving Show
-newtype LocRegions = LocRegions [LocRegion] deriving Show
-newtype CombinedTypes = CombinedTypes [CombinedType] deriving Show
+-- -- repeated productions to model * operator
+-- newtype Vars = Vars [Var] deriving Show
+-- newtype DataFields = DataFields [DataField] deriving Show
+-- newtype TypeCons = TypeCons [TypeCon] deriving Show
+-- newtype Vals = Vals [Val] deriving Show
+-- newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving Show
+-- newtype FuncDecls = FuncDecls [FuncDecl] deriving Show
+-- newtype LocRegions = LocRegions [LocRegion] deriving Show
+-- newtype CombinedTypes = CombinedTypes [CombinedType] deriving Show
 
 
 
--- list all tokens
-data Token 
-    = TokenData
-    | TokenAssign
-    | TokenColon
-    | TokenLBracket
-    | TokenRBracket
-    | TokenAt
-    | TokenArrow
-    | TokenBar
-    | TokenComma
-    | TokenLParen
-    | TokenRParen
-    | TokenLet
-    | TokenIn
-    | TokenLetLoc
-    | TokenLetRegion
-    | TokenCase
-    | TokenOf
-    | TokenStart
-    | TokenAfter
-    | TokenPow
-    | TokenMul
-    | TokenDiv
-    | TokenDivInline
-    | TokenModInline
-    | TokenFMul
-    | TokenFDiv
-    | TokenAdd
-    | TokenSub
-    | TokenFAdd
-    | TokenFSub
-    | TokenEq
-    | TokenFEq
-    | TokenCEq
-    | TokenGt
-    | TokenLt
-    | TokenFGt
-    | TokenFLt
-    | TokenGe
-    | TokenLe
-    | TokenFGe
-    | TokenFLe
-    | TokenNeq
-    | TokenAnd
-    | TokenOr
-    | TokenIntType
-    | TokenFloatType
-    | TokenBoolType
-    | TokenStringType
-    | TokenIdent String
-    | TokenIntLit Int
-    | TokenFloatLit Float
-    | TokenBoolLit Bool
-    | TokenStringLit String
-    | TokenMain
-    deriving Show
+-- -- list all tokens
+-- data Token 
+--     = TokenData
+--     | TokenAssign
+--     | TokenColon
+--     | TokenLBracket
+--     | TokenRBracket
+--     | TokenAt
+--     | TokenArrow
+--     | TokenBar
+--     | TokenComma
+--     | TokenLParen
+--     | TokenRParen
+--     | TokenLet
+--     | TokenIn
+--     | TokenLetLoc
+--     | TokenLetRegion
+--     | TokenCase
+--     | TokenOf
+--     | TokenStart
+--     | TokenAfter
+--     | TokenPow
+--     | TokenMul
+--     | TokenDiv
+--     | TokenDivInline
+--     | TokenModInline
+--     | TokenFMul
+--     | TokenFDiv
+--     | TokenAdd
+--     | TokenSub
+--     | TokenFAdd
+--     | TokenFSub
+--     | TokenEq
+--     | TokenFEq
+--     | TokenCEq
+--     | TokenGt
+--     | TokenLt
+--     | TokenFGt
+--     | TokenFLt
+--     | TokenGe
+--     | TokenLe
+--     | TokenFGe
+--     | TokenFLe
+--     | TokenNeq
+--     | TokenAnd
+--     | TokenOr
+--     | TokenIntType
+--     | TokenFloatType
+--     | TokenBoolType
+--     | TokenStringType
+--     | TokenIdent String
+--     | TokenIntLit Int
+--     | TokenFloatLit Float
+--     | TokenBoolLit Bool
+--     | TokenStringLit String
+--     | TokenMain
+--     deriving Show
 
 
 -- actual lexer
