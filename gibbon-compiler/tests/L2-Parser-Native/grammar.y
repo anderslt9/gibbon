@@ -6,6 +6,7 @@ import Control.Monad (forM_)
 import System.FilePath.Posix (takeBaseName)
 import AST
 import Tokens
+import PrintAST
 }
 
 %name l2ParserNative
@@ -269,6 +270,20 @@ parseError tokens = failE "Parse error"
 
 data E a = Ok a | Failed String deriving Show
 
+instance Functor E where
+    fmap f (Ok x)      = Ok (f x)
+    fmap _ (Failed e)  = Failed e
+
+instance Applicative E where
+    pure = Ok
+    (Ok f) <*> (Ok x)     = Ok (f x)
+    (Failed e) <*> _      = Failed e
+    _ <*> (Failed e)      = Failed e
+
+instance Monad E where
+    (Ok x) >>= f = f x
+    (Failed e) >>= _ = Failed e
+
 thenE :: E a -> (a -> E b) -> E b
 m `thenE` k =
     case m of
@@ -286,116 +301,6 @@ catchE m k =
     case m of
         Ok a     -> Ok a
         Failed e -> k e
-
-
--- -- top-level program
--- data Program = Program DataTypeDecls FuncDecls Expr deriving Show
-
--- -- data type declarations
--- data DataTypeDecl = DataTypeDecl TypeCon DataFields deriving Show
--- data DataField = DataField DataCon TypeCons deriving Show
-
--- -- function declarations
--- data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr deriving Show
-
--- -- type expressions
--- data LocatedType = LocatedType TypeCon LocRegion deriving Show
--- newtype TypeScheme = TypeScheme CombinedTypes deriving Show
--- data CombinedType = CTLocated LocatedType | CTBase BaseType deriving Show
--- data BaseType = Int | Float | Bool | String deriving Show
-
--- -- location expressions
--- data LocExpress = LocExpressStart RegionVar | LocExpressNext LocExpress | LocExpressAfter LocatedType deriving Show
--- data LocRegion = LocRegion LocVar RegionVar IndexVar deriving Show
-
--- -- identifiers/literals
--- data Val = ValVar Var | ValLit Lit deriving Show
--- data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String deriving Show
-
--- -- expressions
--- data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Vals deriving Show
--- data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
---            | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving Show
-
--- -- specific variable types
--- newtype FuncVar = FuncVar String deriving Show
--- newtype RegionVar = RegionVar String deriving Show
--- newtype LocVar = LocVar String deriving Show
--- newtype IndexVar = IndexVar String deriving Show
--- newtype TypeCon = TypeCon String deriving Show
--- newtype DataCon = DataCon String deriving Show
--- newtype Var = Var String deriving Show
-
--- -- repeated productions to model * operator
--- newtype Vars = Vars [Var] deriving Show
--- newtype DataFields = DataFields [DataField] deriving Show
--- newtype TypeCons = TypeCons [TypeCon] deriving Show
--- newtype Vals = Vals [Val] deriving Show
--- newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving Show
--- newtype FuncDecls = FuncDecls [FuncDecl] deriving Show
--- newtype LocRegions = LocRegions [LocRegion] deriving Show
--- newtype CombinedTypes = CombinedTypes [CombinedType] deriving Show
-
-
-
--- -- list all tokens
--- data Token 
---     = TokenData
---     | TokenAssign
---     | TokenColon
---     | TokenLBracket
---     | TokenRBracket
---     | TokenAt
---     | TokenArrow
---     | TokenBar
---     | TokenComma
---     | TokenLParen
---     | TokenRParen
---     | TokenLet
---     | TokenIn
---     | TokenLetLoc
---     | TokenLetRegion
---     | TokenCase
---     | TokenOf
---     | TokenStart
---     | TokenAfter
---     | TokenPow
---     | TokenMul
---     | TokenDiv
---     | TokenDivInline
---     | TokenModInline
---     | TokenFMul
---     | TokenFDiv
---     | TokenAdd
---     | TokenSub
---     | TokenFAdd
---     | TokenFSub
---     | TokenEq
---     | TokenFEq
---     | TokenCEq
---     | TokenGt
---     | TokenLt
---     | TokenFGt
---     | TokenFLt
---     | TokenGe
---     | TokenLe
---     | TokenFGe
---     | TokenFLe
---     | TokenNeq
---     | TokenAnd
---     | TokenOr
---     | TokenIntType
---     | TokenFloatType
---     | TokenBoolType
---     | TokenStringType
---     | TokenIdent String
---     | TokenIntLit Int
---     | TokenFloatLit Float
---     | TokenBoolLit Bool
---     | TokenStringLit String
---     | TokenMain
---     deriving Show
-
 
 -- actual lexer
 lexer :: String -> [Token]
@@ -480,6 +385,7 @@ lexVar cs =
         ("main", rest) -> TokenMain : lexer rest
         (var, rest)    -> matchVar cs
 
+
 printTest testFile = do
     putStrLn $ "Running Test: " ++ (takeBaseName testFile)
     contents <- readFile testFile
@@ -487,9 +393,15 @@ printTest testFile = do
     putStrLn "== Tokens =="
     print tokens
 
-    putStrLn "\n== Parse Result =="
     let ast = l2ParserNative tokens
+        parsed_str = fmap (printAST 0) ast
+    putStrLn "\n== Raw Parse Result =="
     print ast
+    
+    putStrLn "\n== Pretty Parse Result =="
+    case parsed_str of
+        Ok x -> putStrLn x
+        Failed e -> print e
 
 
 main = do 
