@@ -43,13 +43,21 @@ instance PrintAST Program where
         in mergeStrings2 [header, e1, e2, e3, footer]
 
 --------- data type and function declarations --------- 
--- TODO
 instance PrintAST DataTypeDecl where
-    printAST depth dataTypeDecl = indent depth (show dataTypeDecl)
+    printAST depth (DataTypeDecl typeCon dataFields) =
+        let header = indent depth "Data Type Declaration ("
+            e1 = printAST (depth + 1) typeCon
+            e2 = printAST (depth + 1) dataFields
+            footer = indent depth ")"
+        in mergeStrings2 [header, e1, e2, footer]
 
--- TODO
 instance PrintAST DataField where
-    printAST depth temp = indent depth (show temp)
+    printAST depth (DataField dataCon combinedTypeCons) =
+        let header = indent depth "Data Field ("
+            e1 = printAST (depth + 1) dataCon
+            e2 = printAST (depth + 1) combinedTypeCons
+            footer = indent depth ")"
+        in mergeStrings2 [header, e1, e2, footer]
 
 -- TODO
 instance PrintAST CombinedTypeCon where
