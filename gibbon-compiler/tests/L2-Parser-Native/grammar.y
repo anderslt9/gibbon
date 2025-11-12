@@ -359,9 +359,7 @@ lexNum cs =
 
 matchVar cs = 
     case span isValidChar cs of
-        ((c:word), rest) -> if isLower c 
-                            then TokenIdent (c:word) : lexer rest
-                            else [] -- TODO ADD ERROR HERE
+        (var, rest) -> TokenIdent var : lexer rest
         (_, rest) -> []   
     where isValidChar = (\n -> n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`'] ++ ['0'..'9']))
 
