@@ -13,6 +13,7 @@ data Token
     | TokenComma
     | TokenLParen
     | TokenRParen
+    | TokenComment
     | TokenLet
     | TokenIn
     | TokenLetLoc
@@ -56,4 +57,5 @@ data Token
     | TokenBoolLit Bool
     | TokenStringLit String
     | TokenMain
+    | TokenNewLine
     deriving Show

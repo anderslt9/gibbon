@@ -1,6 +1,7 @@
 {
 module Main where
 import Data.Char (isSpace, isAlpha, isDigit, isLower)
+import Data.List (break)
 import System.Environment (getArgs)
 import Control.Monad (forM_)
 import System.FilePath.Posix (takeBaseName)
@@ -37,6 +38,7 @@ import PrintAST
     ','         { TokenComma }
     '('         { TokenLParen }
     ')'         { TokenRParen }
+    '--'        { TokenComment }
     
     -- common expr keywords
     let         { TokenLet }
@@ -88,9 +90,9 @@ import PrintAST
     BOOL_LIT    { TokenBoolLit $$ }
     STRING_LIT  { TokenStringLit $$ }
 
-    -- main
-    main        { TokenMain}
-
+    -- other
+    main        { TokenMain }
+    '\n'        { TokenNewLine }
 
 
 
@@ -107,7 +109,11 @@ DataTypeDecl :: { DataTypeDecl }
     : data TypeCon '=' DataFields { DataTypeDecl $2 (DataFields $4) }
 
 DataField :: { DataField }
-    : DataCon TypeCons { DataField $1 (TypeCons $2) }
+    : DataCon CombinedTypeCons { DataField $1 (CombinedTypeCons $2) }
+
+CombinedTypeCon :: { CombinedTypeCon }
+    : TypeCon   { CTCTypeCon $1 }
+    | BaseType  { CTCBase $1 }
 
 -- function declarations
 FuncDecl :: { FuncDecl }
@@ -226,10 +232,15 @@ DataFields :: { [DataField] }
     | DataField                     { [ $1 ] }
     | DataFields '|' DataField      { $3 : $1 }
 
-TypeCons :: { [TypeCon] }
-    : {- empty -}                   { [] }
-    | TypeCon                       { [$1] }
-    | TypeCons TypeCon              { $2 : $1 }
+CombinedTypeCons :: { [CombinedTypeCon] }
+    : {- empty -}                           { [] }
+    | CombinedTypeCon                       { [$1] }
+    | CombinedTypeCons CombinedTypeCon      { $2 : $1 }
+
+-- TypeCons :: { [TypeCon] }
+--     : {- empty -}                   { [] }
+--     | TypeCon                       { [$1] }
+--     | TypeCons TypeCon              { $2 : $1 }
 
 Vals :: { [Val] }
     : {- empty -}                   { [] }
@@ -324,6 +335,7 @@ lexer ('|':cs)       =  TokenBar : lexer cs
 lexer (',':cs)       =  TokenComma : lexer cs
 lexer ('(':cs)       =  TokenLParen : lexer cs
 lexer (')':cs)       =  TokenRParen : lexer cs
+lexer ('-':'-':cs)   =  lexer ( lexComment cs )
 lexer ('^':cs)       =  TokenPow : lexer cs
 lexer ('*':'=':'=':'*':cs) = TokenCEq : lexer cs
 lexer ('*':cs)       =  TokenMul : lexer cs
@@ -346,6 +358,12 @@ lexer ('.':'<':'.':cs) = TokenFLt : lexer cs
 lexer ('.':'>':'=':'.':cs) = TokenFGe : lexer cs
 lexer ('.':'<':'=':'.':cs) = TokenFLe : lexer cs
 lexer ('&':'&':cs)   =  TokenAnd : lexer cs
+
+lexComment :: String -> String
+lexComment cs =
+    case break (== '\n') cs of 
+        (_, [])     -> ""
+        (_, _:rest) -> rest
 
 lexNum cs = 
     case span isDigit cs of

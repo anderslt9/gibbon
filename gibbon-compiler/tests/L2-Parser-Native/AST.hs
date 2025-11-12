@@ -5,7 +5,8 @@ data Program = Program DataTypeDecls FuncDecls Expr deriving Show
 
 -- data type declarations
 data DataTypeDecl = DataTypeDecl TypeCon DataFields deriving Show
-data DataField = DataField DataCon TypeCons deriving Show
+data DataField = DataField DataCon CombinedTypeCons deriving Show
+data CombinedTypeCon = CTCTypeCon TypeCon | CTCBase BaseType deriving Show
 
 -- function declarations
 data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr deriving Show
@@ -41,7 +42,8 @@ newtype Var = Var String deriving Show
 -- repeated productions to model * operator
 newtype Vars = Vars [Var] deriving Show
 newtype DataFields = DataFields [DataField] deriving Show
-newtype TypeCons = TypeCons [TypeCon] deriving Show
+-- newtype TypeCons = TypeCons [TypeCon] deriving Show
+newtype CombinedTypeCons = CombinedTypeCons [CombinedTypeCon] deriving Show
 newtype Vals = Vals [Val] deriving Show
 newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving Show
 newtype FuncDecls = FuncDecls [FuncDecl] deriving Show

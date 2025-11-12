@@ -10,14 +10,14 @@ indent :: Depth -> String -> String
 indent depth line = replicate (depth * 4) ' ' ++ line
 
 mergeStrings :: [String] -> String
-mergeStrings strings = foldl (\acc c -> acc ++ c ++ "\n") "" strings
+mergeStrings = foldl (\acc c -> acc ++ c ++ "\n") ""
 
 mergeStrings2 :: [String] -> String
-mergeStrings2 strings = intercalate "\n" strings
+mergeStrings2 = intercalate "\n"
 
 addList :: PrintAST a => Depth -> ListName -> [a] -> String
-addList depth listName items = 
-    if length items == 0
+addList depth listName items =
+    if null items
     then indent depth $ listName ++ " []\n"
     else
         let header = indent depth $ listName ++ " ["
@@ -29,27 +29,31 @@ class PrintAST a where
     printAST :: Int -> a -> String
 
 instance PrintAST a => PrintAST [a] where
-    printAST depth xs = mergeStrings2 $ map (\x -> printAST depth x) xs
+    printAST depth xs = mergeStrings2 $ map (printAST depth) xs
 
 --------- top-level program --------- 
 -- program defined
 instance PrintAST Program where
-    printAST depth (Program dataTypeDecls funcDecls expr) = 
+    printAST depth (Program dataTypeDecls funcDecls expr) =
         let header = indent depth "Program ("
             e1 = printAST (depth + 1) dataTypeDecls
             e2 = printAST (depth + 1) funcDecls
-            e3 = printAST (depth + 1) expr 
+            e3 = printAST (depth + 1) expr
             footer = indent depth ")"
         in mergeStrings2 [header, e1, e2, e3, footer]
 
 --------- data type and function declarations --------- 
 -- TODO
 instance PrintAST DataTypeDecl where
-    printAST depth dataTypeDecl = indent depth $ (show dataTypeDecl)
+    printAST depth dataTypeDecl = indent depth (show dataTypeDecl)
 
 -- TODO
 instance PrintAST DataField where
-    printAST depth temp = indent depth $ (show temp)
+    printAST depth temp = indent depth (show temp)
+
+-- TODO
+instance PrintAST CombinedTypeCon where
+    printAST depth temp = indent depth (show temp)    
 
 -- TODO (maybe update by separating out parts of function declaration)
 instance PrintAST FuncDecl where
@@ -67,43 +71,43 @@ instance PrintAST FuncDecl where
 --------- type expressions ---------
 -- TODO
 instance PrintAST LocatedType where
-    printAST depth temp = indent depth $ (show temp)
+    printAST depth temp = indent depth (show temp)
 
 -- TODO
 instance PrintAST TypeScheme where
-    printAST depth temp = indent depth $ (show temp)
+    printAST depth temp = indent depth (show temp)
 
 -- TODO
 instance PrintAST CombinedType where
-    printAST depth temp = indent depth $ (show temp)
+    printAST depth temp = indent depth (show temp)
 
 -- TODO
 instance PrintAST BaseType where
-    printAST depth temp = indent depth $ (show temp)
+    printAST depth temp = indent depth (show temp)
 
 --------- location expressions ---------
 -- TODO
 instance PrintAST LocExpress where
-    printAST depth temp = indent depth $ (show temp)
+    printAST depth temp = indent depth (show temp)
 
 -- TODO
 instance PrintAST LocRegion where
-    printAST depth temp = indent depth $ (show temp)
+    printAST depth temp = indent depth (show temp)
 
 --------- identifiers/literals ---------
 -- TODO
 instance PrintAST Val where
-    printAST depth temp = indent depth $ (show temp)
+    printAST depth temp = indent depth (show temp)
 
 -- TODO
 instance PrintAST Lit where
-    printAST depth temp = indent depth $ (show temp)
+    printAST depth temp = indent depth (show temp)
 
 --------- expressions ---------
-instance PrintAST Expr where 
+instance PrintAST Expr where
     printAST depth (ExprVal val) = printAST depth val
-    printAST depth (ExprBinOp binOp expr1 expr2) = 
-        let header = indent depth "Binary Operation [" ++ (printAST 0 binOp) ++ "] ("
+    printAST depth (ExprBinOp binOp expr1 expr2) =
+        let header = indent depth "Binary Operation [" ++ printAST 0 binOp ++ "] ("
             e1 = printAST (depth + 1) expr1
             e2 = printAST (depth + 1) expr2
             footer = indent depth ")"
@@ -118,7 +122,7 @@ instance PrintAST Expr where
     -- printAST depth expr = indent depth $ (show expr)
 
 instance PrintAST BinOp where
-    printAST depth binOp = indent depth $ (show binOp)
+    printAST depth binOp = indent depth (show binOp)
 
 --------- specific variable types ---------
 instance PrintAST FuncVar where
@@ -149,8 +153,11 @@ instance PrintAST Vars where
 instance PrintAST DataFields where
     printAST depth (DataFields dataFields) = addList depth "Data Fields" dataFields
 
-instance PrintAST TypeCons where
-    printAST depth (TypeCons typeCons) = addList depth "Type Constructors" typeCons
+-- instance PrintAST TypeCons where
+--     printAST depth (TypeCons typeCons) = addList depth "Type Constructors" typeCons
+
+instance PrintAST CombinedTypeCons where
+    printAST depth (CombinedTypeCons combinedTypeCons) = addList depth "Combined Type Constructor" combinedTypeCons
 
 instance PrintAST Vals where
     printAST depth (Vals vals) = addList depth "Vals" vals
@@ -158,7 +165,7 @@ instance PrintAST Vals where
 instance PrintAST DataTypeDecls where
     printAST depth (DataTypeDecls dataTypeDecls) = addList depth "Data Type Declarations" dataTypeDecls
 
-instance PrintAST FuncDecls where 
+instance PrintAST FuncDecls where
     printAST depth (FuncDecls funcDecls) = addList depth "Function Declarations" funcDecls
 
 instance PrintAST LocRegions where
