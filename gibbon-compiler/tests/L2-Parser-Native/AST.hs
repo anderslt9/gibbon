@@ -26,9 +26,12 @@ data Val = ValVar Var | ValLit Lit deriving Show
 data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String deriving Show
 
 -- expressions
-data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Vals deriving Show
+data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Vals | ExprDataConApp DataCon LocRegion Vals
+            | ExprCase Val Pats deriving Show
+data Pat = Pat DataCon PatMatches Expr deriving Show
+data PatMatch = PatMatch Val LocatedType deriving Show
 data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
-           | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving Show
+            | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving Show
 
 -- specific variable types
 newtype FuncVar = FuncVar String deriving Show
@@ -45,6 +48,8 @@ newtype DataFields = DataFields [DataField] deriving Show
 -- newtype TypeCons = TypeCons [TypeCon] deriving Show
 newtype CombinedTypeCons = CombinedTypeCons [CombinedTypeCon] deriving Show
 newtype Vals = Vals [Val] deriving Show
+newtype Pats = Pats [Pat] deriving Show
+newtype PatMatches = PatMatches [PatMatch] deriving Show
 newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving Show
 newtype FuncDecls = FuncDecls [FuncDecl] deriving Show
 newtype LocRegions = LocRegions [LocRegion] deriving Show

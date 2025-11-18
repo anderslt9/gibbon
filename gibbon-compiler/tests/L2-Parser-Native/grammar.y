@@ -14,6 +14,7 @@ import PrintAST
 %tokentype { Token }
 %error { parseError }
 %monad { E } { thenE } { returnE }
+-- %lexer { lexer } { TokenEOF }
 %right '||'
 %right '&&'
 %nonassoc '==' '.==.' '*==*' '>' '<' '.>.' '.<.' '>=' '<=' '.>=.' '.<=.' '/='
@@ -25,81 +26,82 @@ import PrintAST
 
 %token 
     -- data constructor
-    data        { TokenData }
+    data        { TokenData _ }
     
     -- symbols
-    '='         { TokenAssign }
-    ':'         { TokenColon }
-    '['         { TokenLBracket }
-    ']'         { TokenRBracket }
-    '@'         { TokenAt }
-    '->'        { TokenArrow }
-    '|'         { TokenBar }
-    ','         { TokenComma }
-    '('         { TokenLParen }
-    ')'         { TokenRParen }
-    '--'        { TokenComment }
+    '='         { TokenAssign _ }
+    ':'         { TokenColon _ }
+    '['         { TokenLBracket _ }
+    ']'         { TokenRBracket _ }
+    '@'         { TokenAt _ }
+    '->'        { TokenArrow _ }
+    '|'         { TokenBar _ }
+    ','         { TokenComma _ }
+    '('         { TokenLParen _ }
+    ')'         { TokenRParen _ }
+    '--'        { TokenComment _ }
     
     -- common expr keywords
-    let         { TokenLet }
-    in          { TokenIn }
-    letloc      { TokenLetLoc }
-    letregion   { TokenLetRegion }
-    case        { TokenCase }
-    of          { TokenOf }
-    start       { TokenStart }
-    after       { TokenAfter }
+    let         { TokenLet _ }
+    in          { TokenIn _ }
+    letloc      { TokenLetLoc _ }
+    letregion   { TokenLetRegion _ }
+    case        { TokenCase _ }
+    of          { TokenOf _ }
+    start       { TokenStart _ }
+    after       { TokenAfter _ }
 
     -- binary operations
-    '^'         { TokenPow }
-    '*'         { TokenMul }
-    '/'         { TokenDiv }
-    '`div`'     { TokenDivInline }
-    '`mod`'     { TokenModInline }
-    '.*.'       { TokenFMul } 
-    './.'       { TokenFDiv }
-    '+'         { TokenAdd }
-    '-'         { TokenSub }
-    '.+.'       { TokenFAdd }
-    '.-.'       { TokenFSub }
-    '=='        { TokenEq }
-    '.==.'      { TokenFEq }
-    '*==*'      { TokenCEq }
-    '>'         { TokenGt }
-    '<'         { TokenLt }
-    '.>.'       { TokenFGt }
-    '.<.'       { TokenFLt }
-    '>='        { TokenGe }
-    '<='        { TokenLe }
-    '.>=.'      { TokenFGe }
-    '.<=.'      { TokenFLe }
-    '/='        { TokenNeq }
-    '&&'        { TokenAnd }
-    '||'        { TokenOr }
+    '^'         { TokenPow _ }
+    '*'         { TokenMul _ }
+    '/'         { TokenDiv _ }
+    '`div`'     { TokenDivInline _ }
+    '`mod`'     { TokenModInline _ }
+    '.*.'       { TokenFMul _ } 
+    './.'       { TokenFDiv _ }
+    '+'         { TokenAdd _ }
+    '-'         { TokenSub _ }
+    '.+.'       { TokenFAdd _ }
+    '.-.'       { TokenFSub _ }
+    '=='        { TokenEq _ }
+    '.==.'      { TokenFEq _ }
+    '*==*'      { TokenCEq _ }
+    '>'         { TokenGt _ }
+    '<'         { TokenLt _ }
+    '.>.'       { TokenFGt _ }
+    '.<.'       { TokenFLt _ }
+    '>='        { TokenGe _ }
+    '<='        { TokenLe _ }
+    '.>=.'      { TokenFGe _ }
+    '.<=.'      { TokenFLe _ }
+    '/='        { TokenNeq _ }
+    '&&'        { TokenAnd _ }
+    '||'        { TokenOr _ }
 
     -- base types
-    Int         { TokenIntType }
-    Float       { TokenFloatType }
-    Bool        { TokenBoolType }
-    String      { TokenStringType }
+    Int         { TokenIntType _ }
+    Float       { TokenFloatType _ }
+    Bool        { TokenBoolType _ }
+    String      { TokenStringType _ }
 
     -- variable tokens
-    IDENT       { TokenIdent $$ }
-    INT_LIT     { TokenIntLit $$ }
-    FLOAT_LIT   { TokenFloatLit $$ }
-    BOOL_LIT    { TokenBoolLit $$ }
-    STRING_LIT  { TokenStringLit $$ }
+    IDENT       { TokenIdent _ $$ }
+    INT_LIT     { TokenIntLit _ $$ }
+    FLOAT_LIT   { TokenFloatLit _ $$ }
+    BOOL_LIT    { TokenBoolLit _ $$ }
+    STRING_LIT  { TokenStringLit _ $$ }
 
     -- other
-    main        { TokenMain }
-    '\n'        { TokenNewLine }
+    main        { TokenMain _ }
+    '\n'        { TokenNewLine _ }
+    EOF         { TokenEOF _ }
 
 
 
 %%
 -- top-level program
 Program :: { Program }
-    : DataTypeDecls FuncDecls MainExpr { Program (DataTypeDecls $1) (FuncDecls $2) $3 }
+    : DataTypeDecls FuncDecls MainExpr EOF { Program (DataTypeDecls $1) (FuncDecls $2) $3 }
 
 MainExpr :: { Expr }
     : main '=' Expr     { $3 }
@@ -168,9 +170,23 @@ Expr :: { Expr }
     | Val                            { ExprVal $1 }
     | '(' Expr ')'                   { $2 }
     | ExprFuncApp                    { $1 }
+    | ExprDataConApp                 { $1 }
+    | ExprCase                       { $1 }
 
 ExprFuncApp :: { Expr }
     : FuncVar '[' LocRegions ']' Vals   { ExprFuncApp $1 (LocRegions $3) (Vals $5)}
+
+ExprDataConApp :: { Expr }
+    : DataCon LocRegion Vals    { ExprDataConApp $1 $2 (Vals $3)}
+
+ExprCase :: { Expr }
+    : case Val of Pats    { ExprCase $2 (Pats $4) }
+
+Pat :: { Pat }
+    : DataCon '(' PatMatches ')' '->' Expr      { Pat $1 (PatMatches $3) $6 }
+
+PatMatch :: { PatMatch }
+    : Val ':' LocatedType       { PatMatch $1 $3}
 
 BinOp :: { BinOp }
     : '+'         { Add }
@@ -196,7 +212,6 @@ BinOp :: { BinOp }
     | '/='        { Neq }
     | '&&'        { And }
     | '||'        { Or }
-
 
 -- specific variable types
 FuncVar :: { FuncVar }
@@ -247,6 +262,15 @@ Vals :: { [Val] }
     | Val                           { [$1] }
     | Vals Val                      { $2 : $1 }
 
+Pats :: { [Pat] }
+    : Pat           { [$1] }
+    | Pats Pat      { $2 : $1 }
+
+PatMatches :: { [PatMatch] }
+    : {- empty -}                   { [] }
+    | PatMatch                      { [$1] }
+    | PatMatches PatMatch           { $2 : $1 }
+
     -- lists of other productions
 DataTypeDecls :: { [DataTypeDecl] }
     : {- empty -}                      { [] }
@@ -268,18 +292,16 @@ CombinedTypes :: { [CombinedType ] }
     | CombinedType                       { [$1] }
     | CombinedType '->' CombinedTypes    { $1 : $3 }
 
--- repeated productions to model + operator
-
-
-
-
-
-
 {
--- parseError :: [Token] -> a
-parseError tokens = failE "Parse error"
+parseError :: [Token] -> E a
+parseError [] = failE "Parse error"
+parseError (tok:_) = failE $
+        "Parse error at " ++ showPos (pos tok) ++
+        "\nUnexpected token: " ++ show tok
 
 data E a = Ok a | Failed String deriving Show
+-- data ParseResult a = Ok a | Failed String deriving Show
+-- type E a = String -> ParseResult a
 
 instance Functor E where
     fmap f (Ok x)      = Ok (f x)
@@ -301,63 +323,92 @@ m `thenE` k =
         Ok a     -> k a
         Failed e -> Failed e
 
+-- thenE :: E a -> (a -> E b) -> E b
+-- m `thenE` k = \s ->
+--    case m s of
+--        Ok a     -> k a s
+--        Failed e -> Failed e
+
 returnE :: a -> E a
 returnE a = Ok a
+-- returnE :: a -> E a
+-- returnE a = \s -> Ok a
+
 
 failE :: String -> E a
 failE err = Failed err
+-- failE :: String -> E a
+-- failE err = \s -> Failed err
+
 
 catchE :: E a -> (String -> E a) -> E a
 catchE m k =
     case m of
         Ok a     -> Ok a
         Failed e -> k e
+-- catchE :: E a -> (String -> E a) -> E a
+-- catchE m k = \s ->
+--    case m s of
+--       Ok a     -> Ok a
+--       Failed e -> k e s
+
+
+lexer :: String -> [Token]
+lexer input = lexer' (Pos 1 1) input
 
 -- actual lexer
-lexer :: String -> [Token]
-lexer [] = []
-lexer (c:cs) 
-    | isSpace c = lexer cs
-    | isAlpha c = lexVar (c:cs)
-    | isDigit c = lexNum (c:cs)
+lexer' :: Pos -> String -> [Token]
+lexer' p [] = [TokenEOF p]
+lexer' p (c:cs)
+    | isSpace c = lexer' (advance p c) cs
+    | isAlpha c = lexVar p (c:cs)
+    | isDigit c = lexNum p (c:cs)
     | c == '"' = 
         let (str, rest) = span (/= '"') cs
-        in TokenStringLit str : lexer (tail rest)
-lexer ('=':'=':cs)   =  TokenEq : lexer cs
-lexer ('=':cs)       =  TokenAssign : lexer cs
-lexer (':':cs)       =  TokenColon : lexer cs
-lexer ('[':cs)       =  TokenLBracket : lexer cs
-lexer (']':cs)       =  TokenRBracket : lexer cs
-lexer ('@':cs)       =  TokenAt : lexer cs
-lexer ('-':'>':cs)   =  TokenArrow : lexer cs
-lexer ('|':'|':cs)   =  TokenOr : lexer cs
-lexer ('|':cs)       =  TokenBar : lexer cs
-lexer (',':cs)       =  TokenComma : lexer cs
-lexer ('(':cs)       =  TokenLParen : lexer cs
-lexer (')':cs)       =  TokenRParen : lexer cs
-lexer ('-':'-':cs)   =  lexer ( lexComment cs )
-lexer ('^':cs)       =  TokenPow : lexer cs
-lexer ('*':'=':'=':'*':cs) = TokenCEq : lexer cs
-lexer ('*':cs)       =  TokenMul : lexer cs
-lexer ('/':'=':cs)   =  TokenNeq : lexer cs
-lexer ('/':cs)       =  TokenDiv : lexer cs
-lexer ('`':'d':'i':'v':'`':cs) = TokenDivInline : lexer cs
-lexer ('`':'m':'o':'d':'`':cs) = TokenModInline : lexer cs
-lexer ('.':'*':'.':cs) = TokenFMul : lexer cs
-lexer ('.':'/':'.':cs) = TokenFDiv : lexer cs
-lexer ('+':cs)       =  TokenAdd : lexer cs
-lexer ('-':cs)       =  TokenSub : lexer cs
-lexer ('.':'+':'.':cs) = TokenFAdd : lexer cs
-lexer ('.':'-':'.':cs) = TokenFSub : lexer cs
-lexer ('>':'=':cs)   =  TokenGe : lexer cs
-lexer ('>':cs)       =  TokenGt : lexer cs
-lexer ('<':'=':cs)   =  TokenLe : lexer cs
-lexer ('<':cs)       =  TokenLt : lexer cs
-lexer ('.':'>':'.':cs) = TokenFGt : lexer cs
-lexer ('.':'<':'.':cs) = TokenFLt : lexer cs
-lexer ('.':'>':'=':'.':cs) = TokenFGe : lexer cs
-lexer ('.':'<':'=':'.':cs) = TokenFLe : lexer cs
-lexer ('&':'&':cs)   =  TokenAnd : lexer cs
+        in TokenStringLit p str : lexer' (advance p c) (tail rest)
+lexer' p ('=':'=':cs)   =  TokenEq p : lexer' (advanceStr p "==") cs
+lexer' p ('=':cs)       =  TokenAssign p : lexer' (advance p '=') cs
+lexer' p (':':cs)       =  TokenColon p : lexer' (advance p ':') cs
+lexer' p ('[':cs)       =  TokenLBracket p : lexer' (advance p '[') cs
+lexer' p (']':cs)       =  TokenRBracket p : lexer' (advance p ']') cs
+lexer' p ('@':cs)       =  TokenAt p : lexer' (advance p '@') cs
+lexer' p ('-':'>':cs)   =  TokenArrow p : lexer' (advanceStr p "->") cs
+lexer' p ('|':'|':cs)   =  TokenOr p : lexer' (advanceStr p "||") cs
+lexer' p ('|':cs)       =  TokenBar p : lexer' (advance p '|') cs
+lexer' p (',':cs)       =  TokenComma p : lexer' (advance p ',') cs
+lexer' p ('(':cs)       =  TokenLParen p : lexer' (advance p '(') cs
+lexer' p (')':cs)       =  TokenRParen p : lexer' (advance p ')') cs
+lexer' p ('-':'-':cs)   =  lexer' (advance p '\n') (lexComment cs)
+lexer' p ('^':cs)       =  TokenPow p : lexer' (advance p '^') cs
+lexer' p ('*':'=':'=':'*':cs) = TokenCEq p : lexer' (advanceStr p "*===") cs
+lexer' p ('*':cs)       =  TokenMul p : lexer' (advance p '*') cs
+lexer' p ('/':'=':cs)   =  TokenNeq p : lexer' (advanceStr p "/=") cs
+lexer' p ('/':cs)       =  TokenDiv p : lexer' (advance p '/') cs
+lexer' p ('`':'d':'i':'v':'`':cs) = TokenDivInline p : lexer' (advanceStr p "`div`") cs
+lexer' p ('`':'m':'o':'d':'`':cs) = TokenModInline p : lexer' (advanceStr p "`mod`") cs
+lexer' p ('.':'*':'.':cs) = TokenFMul p : lexer' (advanceStr p ".*.") cs
+lexer' p ('.':'/':'.':cs) = TokenFDiv p : lexer' (advanceStr p "./.") cs
+lexer' p ('+':cs)       =  TokenAdd p : lexer' (advance p '+') cs
+lexer' p ('-':cs)       =  TokenSub p : lexer' (advance p '-') cs
+lexer' p ('.':'+':'.':cs) = TokenFAdd p : lexer' (advanceStr p ".*.") cs
+lexer' p ('.':'-':'.':cs) = TokenFSub p : lexer' (advanceStr p ".*.") cs
+lexer' p ('>':'=':cs)   =  TokenGe p : lexer' (advanceStr p ">=") cs
+lexer' p ('>':cs)       =  TokenGt p : lexer' (advance p '>') cs
+lexer' p ('<':'=':cs)   =  TokenLe p : lexer' (advanceStr p "<=") cs
+lexer' p ('<':cs)       =  TokenLt p : lexer' (advance p '<') cs
+lexer' p ('.':'>':'.':cs) = TokenFGt p : lexer' (advanceStr p ".>.") cs
+lexer' p ('.':'<':'.':cs) = TokenFLt p : lexer' (advanceStr p ".<.") cs
+lexer' p ('.':'>':'=':'.':cs) = TokenFGe p : lexer' (advanceStr p ".>=") cs
+lexer' p ('.':'<':'=':'.':cs) = TokenFLe p : lexer' (advanceStr p ".<=") cs
+lexer' p ('&':'&':cs)   =  TokenAnd p : lexer' (advanceStr p "&&") cs
+
+advanceStr :: Pos -> String -> Pos
+advanceStr p [] = p
+advanceStr p (c:cs) = advanceStr (advance p c) cs
+
+advance :: Pos -> Char -> Pos
+advance (Pos l c) '\n' = Pos (l + 1) 1
+advance (Pos l c) _    = Pos l (c + 1)
 
 lexComment :: String -> String
 lexComment cs =
@@ -365,41 +416,44 @@ lexComment cs =
         (_, [])     -> ""
         (_, _:rest) -> rest
 
-lexNum cs = 
+lexNum p cs = 
     case span isDigit cs of
-        (num, "")   -> [TokenIntLit (read num)]
+        (num, "")   -> TokenIntLit p (read num) : [TokenEOF (advanceStr p num)]
         (num, rest) -> if head rest == '.'
                        then case span isDigit (tail rest) of
-                            (num2, rest2) -> TokenFloatLit (read (num ++ "." ++ num2)) : lexer rest2
+                            (num2, rest2) -> TokenFloatLit p (read (num ++ "." ++ num2)) : lexer' (advanceStr p (num ++ "." ++ num2)) rest2
                             -- otherwise error
-                       else TokenIntLit (read num) : lexer rest
+                       else TokenIntLit p (read num) : lexer' (advanceStr p num) rest
 
 
-matchVar cs = 
+matchVar p cs = 
     case span isValidChar cs of
-        (var, rest) -> TokenIdent var : lexer rest
-        (_, rest) -> []   
+        (var, rest) -> TokenIdent p var : lexer' (advanceStr p var) rest
+        (var, _) -> [TokenEOF (advanceStr p var)]
+        (_,_) -> []
     where isValidChar = (\n -> n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`'] ++ ['0'..'9']))
 
-lexVar cs =
+lexVar p cs =
     case span isAlpha cs of
-        ("data", rest) -> TokenData : lexer rest
-        ("let", rest)  -> TokenLet : lexer rest
-        ("in", rest)   -> TokenIn : lexer rest
-        ("letloc", rest) -> TokenLetLoc : lexer rest
-        ("letregion", rest) -> TokenLetRegion : lexer rest
-        ("case", rest) -> TokenCase : lexer rest
-        ("of", rest)   -> TokenOf : lexer rest
-        ("start", rest) -> TokenStart : lexer rest
-        ("after", rest) -> TokenAfter : lexer rest
-        ("Int", rest)  -> TokenIntType : lexer rest
-        ("Float", rest) -> TokenFloatType : lexer rest
-        ("Bool", rest) -> TokenBoolType : lexer rest
-        ("String", rest) -> TokenStringType : lexer rest
-        ("True", rest)  -> TokenBoolLit True : lexer rest
-        ("False", rest) -> TokenBoolLit False : lexer rest
-        ("main", rest) -> TokenMain : lexer rest
-        (var, rest)    -> matchVar cs
+        ("data", rest) -> TokenData p : lexer' (advanceStr p "data") rest
+        ("let", rest)  -> TokenLet p : lexer' (advanceStr p "let") rest
+        ("in", rest)   -> TokenIn p : lexer' (advanceStr p "in") rest
+        ("letloc", rest) -> TokenLetLoc p : lexer' (advanceStr p "letloc") rest
+        ("letregion", rest) -> TokenLetRegion p : lexer' (advanceStr p "letregion") rest
+        ("case", rest) -> TokenCase p : lexer' (advanceStr p "case") rest
+        ("of", rest)   -> TokenOf p : lexer' (advanceStr p "of") rest
+        ("start", rest) -> TokenStart p : lexer' (advanceStr p "start") rest
+        ("after", rest) -> TokenAfter p : lexer' (advanceStr p "after") rest
+        ("Int", rest)  -> TokenIntType p : lexer' (advanceStr p "Int") rest
+        ("Float", rest) -> TokenFloatType p : lexer' (advanceStr p "Float") rest
+        ("Bool", rest) -> TokenBoolType p : lexer' (advanceStr p "Bool") rest
+        ("String", rest) -> TokenStringType p : lexer' (advanceStr p "String") rest
+        ("True", rest)  -> TokenBoolLit p True : lexer' (advanceStr p "True") rest
+        ("False", rest) -> TokenBoolLit p False : lexer' (advanceStr p "False") rest
+        ("main", rest) -> TokenMain p : lexer' (advanceStr p "main") rest
+        (var, rest)    -> matchVar p cs
+        (var, _)     -> [TokenEOF (advanceStr p var)]
+        (_,_)       -> []
 
 
 printTest testFile = do
@@ -407,7 +461,8 @@ printTest testFile = do
     contents <- readFile testFile
     let tokens = lexer contents
     putStrLn "== Tokens =="
-    print tokens
+    forM_ tokens $ \token -> putStrLn (show token)
+    -- print tokens
 
     let ast = l2ParserNative tokens
         parsed_str = fmap (printAST 0) ast
@@ -417,7 +472,7 @@ printTest testFile = do
     putStrLn "\n== Pretty Parse Result =="
     case parsed_str of
         Ok x -> putStrLn x
-        Failed e -> print e
+        Failed e -> putStrLn e
 
 
 main = do 
