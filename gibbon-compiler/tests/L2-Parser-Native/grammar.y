@@ -123,8 +123,8 @@ FuncDecl :: { FuncDecl }
         { $2 $1 }
 
 FuncDeclRest
-    : ':' TypeScheme FuncVar '[' LocRegions ']' Vars '=' Expr
-        {\v -> FuncDecl v $2 $3 (LocRegions $5) (Vars $7) $9}
+    : ':' TypeScheme '\n' FuncVar '[' LocRegions ']' Vars '=' Expr
+        {\v -> FuncDecl v $2 $4 (LocRegions $6) (Vars $8) $10}
 
 -- type expressions
 LocatedType :: { LocatedType } 
@@ -274,13 +274,13 @@ PatMatches :: { [PatMatch] }
     -- lists of other productions
 DataTypeDecls :: { [DataTypeDecl] }
     : {- empty -}                      { [] }
-    | DataTypeDecl                       { [$1] }
-    | DataTypeDecls DataTypeDecl       { $2 : $1 }
+    | DataTypeDecl '\n'                { [$1] }
+    | DataTypeDecls DataTypeDecl '\n'  { $2 : $1 }
 
 FuncDecls :: { [FuncDecl] }
     : {- empty -}                   { [] }
-    | FuncDecl                      { [$1] }
-    | FuncDecls FuncDecl            { $2 : $1 }
+    | FuncDecl '\n'                 { [$1] }
+    | FuncDecls FuncDecl '\n'       { $2 : $1 }
 
 LocRegions :: { [LocRegion ] }
     : {- empty -}                   { [] }
@@ -360,6 +360,10 @@ lexer input = lexer' (Pos 1 1) input
 lexer' :: Pos -> String -> [Token]
 lexer' p [] = [TokenEOF p]
 lexer' p (c:cs)
+    | c == '\n' = 
+        if isSpace $ head cs 
+        then lexer' (advance p c) cs
+        else TokenNewLine p : lexer' (advance p c) cs
     | isSpace c = lexer' (advance p c) cs
     | isAlpha c = lexVar p (c:cs)
     | isDigit c = lexNum p (c:cs)
