@@ -84,8 +84,9 @@ import PrintAST
     Bool        { TokenBoolType _ }
     String      { TokenStringType _ }
 
-    -- variable tokens
-    IDENT       { TokenIdent _ $$ }
+    -- variable tokens (lowercase identifiers vs uppercase constructors)
+    IDENT_LC    { TokenIdentLower _ $$ }
+    IDENT_UC    { TokenIdentUpper _ $$ }
     INT_LIT     { TokenIntLit _ $$ }
     FLOAT_LIT   { TokenFloatLit _ $$ }
     BOOL_LIT    { TokenBoolLit _ $$ }
@@ -128,7 +129,11 @@ FuncDeclRest
 
 -- type expressions
 LocatedType :: { LocatedType } 
-    : TypeCon '@' LocRegion { LocatedType $1 $3 }
+    : CombinedLocType '@' LocRegion { LocatedType $1 $3 }
+
+CombinedLocType :: { CombinedLocType }
+    : TypeCon   { CLTTypeCon $1 }
+    | BaseType  { CLTBase $1 }
 
 TypeScheme :: { TypeScheme }
     : CombinedTypes { TypeScheme (CombinedTypes $1)}
@@ -174,16 +179,16 @@ Expr :: { Expr }
     | ExprCase                       { $1 }
 
 ExprFuncApp :: { Expr }
-    : FuncVar '[' LocRegions ']' Vals   { ExprFuncApp $1 (LocRegions $3) (Vals $5)}
+    : FuncVar '[' LocRegions ']' Exprs   { ExprFuncApp $1 (LocRegions $3) (Exprs $5)}
 
 ExprDataConApp :: { Expr }
-    : DataCon LocRegion Vals    { ExprDataConApp $1 $2 (Vals $3)}
+    : DataCon LocRegion Exprs    { ExprDataConApp $1 $2 (Exprs $3)}
 
 ExprCase :: { Expr }
     : case Val of Pats    { ExprCase $2 (Pats $4) }
 
 Pat :: { Pat }
-    : DataCon '(' PatMatches ')' '->' Expr      { Pat $1 (PatMatches $3) $6 }
+    : DataCon PatMatches '->' Expr      { Pat $1 (PatMatches $2) $4 }
 
 PatMatch :: { PatMatch }
     : Val ':' LocatedType       { PatMatch $1 $3}
@@ -215,25 +220,25 @@ BinOp :: { BinOp }
 
 -- specific variable types
 FuncVar :: { FuncVar }
-    : IDENT       { FuncVar $1 }
+    : IDENT_LC       { FuncVar $1 }
 
 RegionVar :: { RegionVar }
-    : IDENT       { RegionVar $1 }
+    : IDENT_LC       { RegionVar $1 }
 
 LocVar :: { LocVar }
-    : IDENT       { LocVar $1 }
+    : IDENT_LC       { LocVar $1 }
 
 IndexVar :: { IndexVar }
-    : IDENT       { IndexVar $1 }
+    : IDENT_LC       { IndexVar $1 }
 
 TypeCon :: { TypeCon }
-    : IDENT       { TypeCon $1 }
+    : IDENT_UC       { TypeCon $1 }
 
 DataCon :: { DataCon }
-    : IDENT       { DataCon $1 }
+    : IDENT_UC       { DataCon $1 }
 
 Var :: { Var }
-    : IDENT       { Var $1 }
+    : IDENT_LC       { Var $1 }
 
 -- repeated productions to model * operator
     -- lists of identifiers
@@ -257,6 +262,10 @@ CombinedTypeCons :: { [CombinedTypeCon] }
 --     | TypeCon                       { [$1] }
 --     | TypeCons TypeCon              { $2 : $1 }
 
+Exprs :: { [Expr] }
+    : Expr                          { [$1] }
+    | Exprs Expr                    { $2 : $1 }
+
 Vals :: { [Val] }
     : {- empty -}                   { [] }
     | Val                           { [$1] }
@@ -268,8 +277,8 @@ Pats :: { [Pat] }
 
 PatMatches :: { [PatMatch] }
     : {- empty -}                   { [] }
-    | PatMatch                      { [$1] }
-    | PatMatches PatMatch           { $2 : $1 }
+    | '(' PatMatch ')'              { [$2] }
+    | PatMatches '(' PatMatch ')'   { $3 : $1 }
 
     -- lists of other productions
 DataTypeDecls :: { [DataTypeDecl] }
@@ -423,19 +432,23 @@ lexComment cs =
 lexNum p cs = 
     case span isDigit cs of
         (num, "")   -> TokenIntLit p (read num) : [TokenEOF (advanceStr p num)]
-        (num, rest) -> if head rest == '.'
-                       then case span isDigit (tail rest) of
+        (num, rest) ->  if head rest == '.'
+                        then case span isDigit (tail rest) of
                             (num2, rest2) -> TokenFloatLit p (read (num ++ "." ++ num2)) : lexer' (advanceStr p (num ++ "." ++ num2)) rest2
                             -- otherwise error
-                       else TokenIntLit p (read num) : lexer' (advanceStr p num) rest
+                        else TokenIntLit p (read num) : lexer' (advanceStr p num) rest
 
-
-matchVar p cs = 
+matchVar p cs =  
     case span isValidChar cs of
-        (var, rest) -> TokenIdent p var : lexer' (advanceStr p var) rest
+        (var, rest) ->  if isLower . head $ var
+                        then TokenIdentLower p var : lexer' (advanceStr p var) rest
+                        else if isValidStartChar (head var) 
+                            then TokenIdentUpper p var : lexer' (advanceStr p var) rest
+                            else []
         (var, _) -> [TokenEOF (advanceStr p var)]
         (_,_) -> []
-    where isValidChar = (\n -> n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`'] ++ ['0'..'9']))
+    where   isValidChar = (\n -> n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`'] ++ ['0'..'9']))
+            isValidStartChar = (\n -> n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`']))
 
 lexVar p cs =
     case span isAlpha cs of

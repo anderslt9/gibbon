@@ -12,7 +12,8 @@ data CombinedTypeCon = CTCTypeCon TypeCon | CTCBase BaseType deriving Show
 data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr deriving Show
 
 -- type expressions
-data LocatedType = LocatedType TypeCon LocRegion deriving Show
+data LocatedType = LocatedType CombinedLocType LocRegion deriving Show
+data CombinedLocType = CLTTypeCon TypeCon | CLTBase BaseType deriving Show
 newtype TypeScheme = TypeScheme CombinedTypes deriving Show
 data CombinedType = CTLocated LocatedType | CTBase BaseType deriving Show
 data BaseType = Int | Float | Bool | String deriving Show
@@ -26,7 +27,7 @@ data Val = ValVar Var | ValLit Lit deriving Show
 data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String deriving Show
 
 -- expressions
-data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Vals | ExprDataConApp DataCon LocRegion Vals
+data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Exprs | ExprDataConApp DataCon LocRegion Exprs
             | ExprCase Val Pats deriving Show
 data Pat = Pat DataCon PatMatches Expr deriving Show
 data PatMatch = PatMatch Val LocatedType deriving Show
@@ -47,6 +48,7 @@ newtype Vars = Vars [Var] deriving Show
 newtype DataFields = DataFields [DataField] deriving Show
 -- newtype TypeCons = TypeCons [TypeCon] deriving Show
 newtype CombinedTypeCons = CombinedTypeCons [CombinedTypeCon] deriving Show
+newtype Exprs = Exprs [Expr] deriving Show
 newtype Vals = Vals [Val] deriving Show
 newtype Pats = Pats [Pat] deriving Show
 newtype PatMatches = PatMatches [PatMatch] deriving Show

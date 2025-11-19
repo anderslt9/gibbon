@@ -94,6 +94,10 @@ instance PrintAST LocatedType where
     printAST depth temp = indent depth (show temp)
 
 -- TODO
+instance PrintAST CombinedLocType where
+    printAST depth temp = indent depth (show temp)
+
+-- TODO
 instance PrintAST TypeScheme where
     printAST depth temp = indent depth (show temp)
 
@@ -130,12 +134,12 @@ instance PrintAST Expr where
     printAST depth (ExprBinOp binOp expr1 expr2) =
         getFullExpr depth "Binary Operation" (getChildren depth binOp expr1 expr2)
     
-    printAST depth (ExprFuncApp funcVar locRegions vals) =
-        getFullExpr depth "Function Application" (getChildren depth funcVar locRegions vals)
-    
-    printAST depth (ExprDataConApp dataCon locRegion vals) = 
-        getFullExpr depth "Data Constructor Application" (getChildren depth dataCon locRegion vals)
-        
+    printAST depth (ExprFuncApp funcVar locRegions exprs) =
+        getFullExpr depth "Function Application" (getChildren depth funcVar locRegions exprs)
+
+    printAST depth (ExprDataConApp dataCon locRegion exprs) =
+        getFullExpr depth "Data Constructor Application" (getChildren depth dataCon locRegion exprs)
+
     printAST depth (ExprCase val pats) =
         getFullExpr depth "Case Statement" (getChildren depth val pats)
 
@@ -184,6 +188,9 @@ instance PrintAST DataFields where
 
 instance PrintAST CombinedTypeCons where
     printAST depth (CombinedTypeCons combinedTypeCons) = addList depth "Combined Type Constructor" combinedTypeCons
+
+instance PrintAST Exprs where
+    printAST depth (Exprs exprs) = addList depth "Expressions" exprs
 
 instance PrintAST Vals where
     printAST depth (Vals vals) = addList depth "Vals" vals

@@ -52,7 +52,8 @@ data Token
     | TokenFloatType Pos
     | TokenBoolType Pos
     | TokenStringType Pos
-    | TokenIdent Pos String
+    | TokenIdentLower Pos String
+    | TokenIdentUpper Pos String
     | TokenIntLit Pos Int
     | TokenFloatLit Pos Float
     | TokenBoolLit Pos Bool
@@ -115,7 +116,8 @@ pos (TokenIntType p)    = p
 pos (TokenFloatType p)  = p
 pos (TokenBoolType p)   = p
 pos (TokenStringType p) = p
-pos (TokenIdent p _)    = p
+pos (TokenIdentLower p _)    = p
+pos (TokenIdentUpper p _)    = p
 pos (TokenIntLit p _)   = p
 pos (TokenFloatLit p _) = p
 pos (TokenBoolLit p _)  = p
