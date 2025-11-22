@@ -151,7 +151,7 @@ BaseType :: { BaseType }
 -- location expressions
 LocExpress :: { LocExpress }
     : '(' start RegionVar ')'          { LocExpressStart $3 }
-    | '(' LocExpress '+' INT_LIT ')'    { LocExpressNext $2 }
+    | '(' LocRegion '+' INT_LIT ')'    { LocExpressNext $2 }
     | '(' after LocatedType ')'        { LocExpressAfter $3 }
 
 LocRegion :: { LocRegion }
@@ -177,6 +177,18 @@ Expr :: { Expr }
     | ExprFuncApp                    { $1 }
     | ExprDataConApp                 { $1 }
     | ExprCase                       { $1 }
+    | ExprLet                        { $1 }
+    | ExprLetLoc                     { $1 }
+    | ExprLetRegion                  { $1 }
+
+ExprLetRegion :: { Expr }
+    : letregion RegionVar in Expr   { ExprLetRegion $2 $4 }
+
+ExprLetLoc :: { Expr }
+    : letloc LocRegion '=' LocExpress in Expr   { ExprLetLoc $2 $4 $6 }
+
+ExprLet :: { Expr }
+    : let Var ':' CombinedType '=' Expr in Expr   { ExprLet $2 $4 $6 $8 }
 
 ExprFuncApp :: { Expr }
     : FuncVar '[' LocRegions ']' Exprs   { ExprFuncApp $1 (LocRegions $3) (Exprs $5)}

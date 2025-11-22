@@ -142,14 +142,24 @@ instance PrintAST Expr where
 
     printAST depth (ExprCase val pats) =
         getFullExpr depth "Case Statement" (getChildren depth val pats)
+    
+    -- TODO maybe rework to look better and not just be super nested
+    printAST depth (ExprLet var combinedType expr1 expr2) =
+        getFullExpr depth "Let Expression" (getChildren depth var combinedType expr1 expr2)
 
--- TODO
+    printAST depth (ExprLetLoc locRegion locExpress expr) =
+        getFullExpr depth "Let Location Expression" (getChildren depth locRegion locExpress expr)
+
+    printAST depth (ExprLetRegion regionVar expr) =
+        getFullExpr depth "Let Region Expression" (getChildren depth regionVar expr)
+
 instance PrintAST Pat where
-    printAST depth temp = indent depth (show temp)
+    printAST depth (Pat dataCon patMatches expr) = 
+        getFullExpr depth "Pattern" (getChildren depth dataCon patMatches expr)
 
--- TODO
 instance PrintAST PatMatch where
-    printAST depth temp = indent depth (show temp)
+    printAST depth (PatMatch val locatedType) = 
+        getFullExpr depth "Pattern Match" (getChildren depth val locatedType)
 
 instance PrintAST BinOp where
     printAST depth binOp = indent depth (show binOp)

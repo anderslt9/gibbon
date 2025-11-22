@@ -19,7 +19,7 @@ data CombinedType = CTLocated LocatedType | CTBase BaseType deriving Show
 data BaseType = Int | Float | Bool | String deriving Show
 
 -- location expressions
-data LocExpress = LocExpressStart RegionVar | LocExpressNext LocExpress | LocExpressAfter LocatedType deriving Show
+data LocExpress = LocExpressStart RegionVar | LocExpressNext LocRegion | LocExpressAfter LocatedType deriving Show
 data LocRegion = LocRegion LocVar RegionVar IndexVar deriving Show
 
 -- identifiers/literals
@@ -28,7 +28,8 @@ data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String derivin
 
 -- expressions
 data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Exprs | ExprDataConApp DataCon LocRegion Exprs
-            | ExprCase Val Pats deriving Show
+            | ExprCase Val Pats | ExprLet Var CombinedType Expr Expr | ExprLetLoc LocRegion LocExpress Expr
+            | ExprLetRegion RegionVar Expr deriving Show
 data Pat = Pat DataCon PatMatches Expr deriving Show
 data PatMatch = PatMatch Val LocatedType deriving Show
 data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
