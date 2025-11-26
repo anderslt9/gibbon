@@ -1,13 +1,15 @@
 {
 module Main where
-import Data.Char (isSpace, isAlpha, isDigit, isLower)
-import Data.List (break)
+-- import Data.Char (isSpace, isAlpha, isDigit, isLower)
+import Data.List (break, isPrefixOf, isSuffixOf)
 import System.Environment (getArgs)
-import Control.Monad (forM_)
+import Control.Monad (forM_, when)
 import System.FilePath.Posix (takeBaseName)
+import System.IO (writeFile, appendFile)
 import AST
 import Tokens
 import PrintAST
+import Lexer
 }
 
 %name l2ParserNative
@@ -373,148 +375,117 @@ catchE m k =
 --       Ok a     -> Ok a
 --       Failed e -> k e s
 
+type Args = [String]
+type LastParsed = String
+data Result a = Success a | Failure String deriving Show
 
-lexer :: String -> [Token]
-lexer input = lexer' (Pos 1 1) input
+data SimpleCfg = SimpleCfg {
+                    inFiles :: [String],
+                    outFiles :: [String],
+                    showTokens :: Bool,
+                    showRaw :: Bool
+                    } deriving Show
 
--- actual lexer
-lexer' :: Pos -> String -> [Token]
-lexer' p [] = [TokenEOF p]
-lexer' p (c:cs)
-    | c == '\n' = 
-        if isSpace $ head cs 
-        then lexer' (advance p c) cs
-        else TokenNewLine p : lexer' (advance p c) cs
-    | isSpace c = lexer' (advance p c) cs
-    | isAlpha c = lexVar p (c:cs)
-    | isDigit c = lexNum p (c:cs)
-    | c == '"' = 
-        let (str, rest) = span (/= '"') cs
-        in TokenStringLit p str : lexer' (advance p c) (tail rest)
-lexer' p ('=':'=':cs)   =  TokenEq p : lexer' (advanceStr p "==") cs
-lexer' p ('=':cs)       =  TokenAssign p : lexer' (advance p '=') cs
-lexer' p (':':cs)       =  TokenColon p : lexer' (advance p ':') cs
-lexer' p ('[':cs)       =  TokenLBracket p : lexer' (advance p '[') cs
-lexer' p (']':cs)       =  TokenRBracket p : lexer' (advance p ']') cs
-lexer' p ('@':cs)       =  TokenAt p : lexer' (advance p '@') cs
-lexer' p ('-':'>':cs)   =  TokenArrow p : lexer' (advanceStr p "->") cs
-lexer' p ('|':'|':cs)   =  TokenOr p : lexer' (advanceStr p "||") cs
-lexer' p ('|':cs)       =  TokenBar p : lexer' (advance p '|') cs
-lexer' p (',':cs)       =  TokenComma p : lexer' (advance p ',') cs
-lexer' p ('(':cs)       =  TokenLParen p : lexer' (advance p '(') cs
-lexer' p (')':cs)       =  TokenRParen p : lexer' (advance p ')') cs
-lexer' p ('-':'-':cs)   =  lexer' (advance p '\n') (lexComment cs)
-lexer' p ('^':cs)       =  TokenPow p : lexer' (advance p '^') cs
-lexer' p ('*':'=':'=':'*':cs) = TokenCEq p : lexer' (advanceStr p "*===") cs
-lexer' p ('*':cs)       =  TokenMul p : lexer' (advance p '*') cs
-lexer' p ('/':'=':cs)   =  TokenNeq p : lexer' (advanceStr p "/=") cs
-lexer' p ('/':cs)       =  TokenDiv p : lexer' (advance p '/') cs
-lexer' p ('`':'d':'i':'v':'`':cs) = TokenDivInline p : lexer' (advanceStr p "`div`") cs
-lexer' p ('`':'m':'o':'d':'`':cs) = TokenModInline p : lexer' (advanceStr p "`mod`") cs
-lexer' p ('.':'*':'.':cs) = TokenFMul p : lexer' (advanceStr p ".*.") cs
-lexer' p ('.':'/':'.':cs) = TokenFDiv p : lexer' (advanceStr p "./.") cs
-lexer' p ('+':cs)       =  TokenAdd p : lexer' (advance p '+') cs
-lexer' p ('-':cs)       =  TokenSub p : lexer' (advance p '-') cs
-lexer' p ('.':'+':'.':cs) = TokenFAdd p : lexer' (advanceStr p ".*.") cs
-lexer' p ('.':'-':'.':cs) = TokenFSub p : lexer' (advanceStr p ".*.") cs
-lexer' p ('>':'=':cs)   =  TokenGe p : lexer' (advanceStr p ">=") cs
-lexer' p ('>':cs)       =  TokenGt p : lexer' (advance p '>') cs
-lexer' p ('<':'=':cs)   =  TokenLe p : lexer' (advanceStr p "<=") cs
-lexer' p ('<':cs)       =  TokenLt p : lexer' (advance p '<') cs
-lexer' p ('.':'>':'.':cs) = TokenFGt p : lexer' (advanceStr p ".>.") cs
-lexer' p ('.':'<':'.':cs) = TokenFLt p : lexer' (advanceStr p ".<.") cs
-lexer' p ('.':'>':'=':'.':cs) = TokenFGe p : lexer' (advanceStr p ".>=") cs
-lexer' p ('.':'<':'=':'.':cs) = TokenFLe p : lexer' (advanceStr p ".<=") cs
-lexer' p ('&':'&':cs)   =  TokenAnd p : lexer' (advanceStr p "&&") cs
+baseCfg :: SimpleCfg 
+baseCfg = SimpleCfg {   inFiles = [],
+                        outFiles = [],
+                        showTokens = True,
+                        showRaw = False
+}
 
-advanceStr :: Pos -> String -> Pos
-advanceStr p [] = p
-advanceStr p (c:cs) = advanceStr (advance p c) cs
+printTest:: SimpleCfg -> IO ()
+printTest config = do
+    forM_ (zip [1..] (inFiles config)) $ \(i, testFile) -> do
+        when (i <= length (outFiles config)) $ writeFile (outFiles config !! (i - 1)) ""
+        
+        let testName = takeBaseName testFile
+        putStrLn $ "Running Test " ++ show i ++ ": " ++ testName
 
-advance :: Pos -> Char -> Pos
-advance (Pos l c) '\n' = Pos (l + 1) 1
-advance (Pos l c) _    = Pos l (c + 1)
+        -- read given file
+        contents <- readFile testFile
+        
+        -- gets/prints tokens
+        let tokens = lexer contents
+        when (showTokens config) $ do
+            if length (outFiles config) >= i
+                then do
+                    appendFile (outFiles config !! (i - 1)) "== Tokens ==\n"
+                    forM_ tokens $ \token -> appendFile (outFiles config !! (i - 1)) (show token ++ "\n")
+                    putStrLn $ "Wrote Tokens to: " ++ (outFiles config !! (i - 1))
+                else do
+                    putStrLn "\n== Tokens =="
+                    forM_ tokens $ \token -> putStrLn (show token)
+                    putStrLn $ "Tokens written to console (no file specified)."
 
-lexComment :: String -> String
-lexComment cs =
-    case break (== '\n') cs of 
-        (_, [])     -> ""
-        (_, _:rest) -> rest
-
-lexNum p cs = 
-    case span isDigit cs of
-        (num, "")   -> TokenIntLit p (read num) : [TokenEOF (advanceStr p num)]
-        (num, rest) ->  if head rest == '.'
-                        then case span isDigit (tail rest) of
-                            (num2, rest2) -> TokenFloatLit p (read (num ++ "." ++ num2)) : lexer' (advanceStr p (num ++ "." ++ num2)) rest2
-                            -- otherwise error
-                        else TokenIntLit p (read num) : lexer' (advanceStr p num) rest
-
-matchVar p cs =  
-    case span isValidChar cs of
-        (var, rest) ->  if isLower . head $ var
-                        then TokenIdentLower p var : lexer' (advanceStr p var) rest
-                        else if isValidStartChar (head var) 
-                            then TokenIdentUpper p var : lexer' (advanceStr p var) rest
-                            else []
-        (var, _) -> [TokenEOF (advanceStr p var)]
-        (_,_) -> []
-    where   isValidChar = (\n -> n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`'] ++ ['0'..'9']))
-            isValidStartChar = (\n -> n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`']))
-
-lexVar p cs =
-    case span isAlpha cs of
-        ("data", rest) -> TokenData p : lexer' (advanceStr p "data") rest
-        ("let", rest)  -> TokenLet p : lexer' (advanceStr p "let") rest
-        ("in", rest)   -> TokenIn p : lexer' (advanceStr p "in") rest
-        ("letloc", rest) -> TokenLetLoc p : lexer' (advanceStr p "letloc") rest
-        ("letregion", rest) -> TokenLetRegion p : lexer' (advanceStr p "letregion") rest
-        ("case", rest) -> TokenCase p : lexer' (advanceStr p "case") rest
-        ("of", rest)   -> TokenOf p : lexer' (advanceStr p "of") rest
-        ("start", rest) -> TokenStart p : lexer' (advanceStr p "start") rest
-        ("after", rest) -> TokenAfter p : lexer' (advanceStr p "after") rest
-        ("Int", rest)  -> TokenIntType p : lexer' (advanceStr p "Int") rest
-        ("Float", rest) -> TokenFloatType p : lexer' (advanceStr p "Float") rest
-        ("Bool", rest) -> TokenBoolType p : lexer' (advanceStr p "Bool") rest
-        ("String", rest) -> TokenStringType p : lexer' (advanceStr p "String") rest
-        ("True", rest)  -> TokenBoolLit p True : lexer' (advanceStr p "True") rest
-        ("False", rest) -> TokenBoolLit p False : lexer' (advanceStr p "False") rest
-        ("main", rest) -> TokenMain p : lexer' (advanceStr p "main") rest
-        (var, rest)    -> matchVar p cs
-        (var, _)     -> [TokenEOF (advanceStr p var)]
-        (_,_)       -> []
+        -- runs/prints parser
+        let ast = l2ParserNative tokens
+            parsed_str = fmap (printAST 0) ast
+        when (showRaw config) $ do
+            if length (outFiles config) >= i
+                then do
+                    appendFile (outFiles config !! (i - 1)) "\n== Raw Parse Result ==\n"
+                    appendFile (outFiles config !! (i - 1)) (show ast)
+                    putStrLn $ "Wrote Raw Parse Result to: " ++ (outFiles config !! (i - 1))
+                else do 
+                    putStrLn "\n== Raw Parse Result =="
+                    print ast
+                    putStrLn $ "Raw Parse Result written to console (no file specified)."
+        
+        case parsed_str of
+            Ok x -> if length (outFiles config) >= i
+                        then do
+                            appendFile (outFiles config !! (i - 1)) "\n== Pretty Parse Result ==\n"
+                            appendFile (outFiles config !! (i - 1)) x
+                            putStrLn $ "Wrote Pretty Parse Result to: " ++ (outFiles config !! (i - 1))
+                        else do 
+                            putStrLn "\n== Pretty Parse Result =="
+                            putStrLn x
+                            putStrLn $ "Pretty Parse Result written to console (no file specified)."
+            Failed e -> putStrLn e
 
 
-printTest testFile = do
-    putStrLn $ "Running Test: " ++ (takeBaseName testFile)
-    contents <- readFile testFile
-    let tokens = lexer contents
-    putStrLn "== Tokens =="
-    forM_ tokens $ \token -> putStrLn (show token)
-    -- print tokens
+setConfig :: Args -> Result SimpleCfg
+setConfig [] = Success baseCfg
+setConfig args = setConfig' args baseCfg ""
+    where   
+        setConfig' :: Args -> SimpleCfg -> LastParsed -> Result SimpleCfg
+        -- empty arg list means we're done
+        setConfig' [] cfg _ = if length (inFiles cfg) < length (outFiles cfg)
+                                then Failure "Error: Number of input files is less than number of output files."
+                                else Success cfg 
+        
+        -- if -i or -o seen, set this flag
+        setConfig' ("-i":rest) cfg _ = setConfig' rest cfg "-i"
+        setConfig' ("-o":rest) cfg _ = setConfig' rest cfg "-o"
+        
+        setConfig' (arg:rest) cfg lastParsed
+            -- boolean flags
+            | "--show-tokens" `isPrefixOf` arg = setConfig' rest (cfg {showTokens = getBoolean arg}) ""
+            | "--show-raw" `isPrefixOf` arg = setConfig' rest (cfg {showRaw = getBoolean arg}) "" 
+            
+            -- file arguments
+            | lastParsed == "-i" = if checkValidFile arg
+                                    then setConfig' rest (cfg {inFiles = inFiles cfg ++ [arg]}) "-i"
+                                    else Failure $ "Invalid input file: " ++ arg
+            | lastParsed == "-o" = setConfig' rest (cfg {outFiles = outFiles cfg ++ [arg]}) "-o"
+            | otherwise = if checkValidFile arg
+                                    then setConfig' rest (cfg {inFiles = inFiles cfg ++ [arg]}) "-i"
+                                    else Failure $ "Unknown command line argument: " ++ arg
 
-    let ast = l2ParserNative tokens
-        parsed_str = fmap (printAST 0) ast
-    putStrLn "\n== Raw Parse Result =="
-    print ast
-    
-    putStrLn "\n== Pretty Parse Result =="
-    case parsed_str of
-        Ok x -> putStrLn x
-        Failed e -> putStrLn e
-
+        getBoolean :: String -> Bool
+        getBoolean s
+            | "=true" `isSuffixOf` s = True
+            | "=false" `isSuffixOf` s = False
+            | otherwise = True
+        
+        checkValidFile :: String -> Bool
+        checkValidFile f = ".hs" `isSuffixOf` f || ".gib" `isSuffixOf` f
 
 main = do 
-    args <- getArgs 
+    args <- getArgs
+    let config = setConfig args
     putStrLn $ show args
-    forM_ args printTest
-    -- contents <- readFile "/home/anderslt/gibbon-compiler/gibbon-compiler/tests/L2-Parser-Native/tests/0-Add1.hs" 
-    -- let tokens = lexer contents
-    -- putStrLn "== Tokens =="
-    -- print tokens
-    
-    -- putStrLn "\n== Parse Result =="
-    -- let ast = l2ParserNative tokens
-    -- print ast
-    -- getContents >>= print . l2ParserNative . lexer
+    case config of
+        Failure e -> putStrLn $ "Error in command line arguments: " ++ e
+        Success cfg -> printTest cfg
 }
