@@ -97,7 +97,6 @@ matchVar p cs =
 
 lexVar p cs =
     case span isAlpha cs of
-        (var, "")     -> [TokenEOF (advanceStr p var)]
         ("data", rest) -> TokenData p : lexer' (advanceStr p "data") rest
         ("let", rest)  -> TokenLet p : lexer' (advanceStr p "let") rest
         ("in", rest)   -> TokenIn p : lexer' (advanceStr p "in") rest

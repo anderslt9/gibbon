@@ -318,7 +318,7 @@ CombinedTypes :: { [CombinedType ] }
 {
 parseError :: [Token] -> E a
 parseError [] = failE "Parse error"
-parseError (tok:_) = failE $
+parseError (tok:_) = failE . makeRed $
         "Parse error at " ++ showPos (pos tok) ++
         "\nUnexpected token: " ++ show tok
 
@@ -375,6 +375,15 @@ catchE m k =
 --       Ok a     -> Ok a
 --       Failed e -> k e s
 
+makeGreen :: String -> String
+makeGreen s = "\x1b[32m" ++ s ++ "\x1b[0m"
+
+makeRed :: String -> String
+makeRed s = "\x1b[31m" ++ s ++ "\x1b[0m"
+
+makeBold :: String -> String
+makeBold s = "\x1b[1m" ++ s ++ "\x1b[0m"
+
 type Args = [String]
 type LastParsed = String
 data Result a = Success a | Failure String deriving Show
@@ -399,7 +408,7 @@ printTest config = do
         when (i <= length (outFiles config)) $ writeFile (outFiles config !! (i - 1)) ""
         
         let testName = takeBaseName testFile
-        putStrLn $ "Running Test " ++ show i ++ ": " ++ testName
+        putStrLn . makeBold $ "\nRunning Test " ++ show i ++ ": " ++ testName
 
         -- read given file
         contents <- readFile testFile
@@ -411,7 +420,7 @@ printTest config = do
                 then do
                     appendFile (outFiles config !! (i - 1)) "== Tokens ==\n"
                     forM_ tokens $ \token -> appendFile (outFiles config !! (i - 1)) (show token ++ "\n")
-                    putStrLn $ "Wrote Tokens to: " ++ (outFiles config !! (i - 1))
+                    putStrLn $ "Wrote Tokens to: " ++ (makeBold $ outFiles config !! (i - 1))
                 else do
                     putStrLn "\n== Tokens =="
                     forM_ tokens $ \token -> putStrLn (show token)
@@ -425,7 +434,7 @@ printTest config = do
                 then do
                     appendFile (outFiles config !! (i - 1)) "\n== Raw Parse Result ==\n"
                     appendFile (outFiles config !! (i - 1)) (show ast)
-                    putStrLn $ "Wrote Raw Parse Result to: " ++ (outFiles config !! (i - 1))
+                    putStrLn $ "Wrote Raw Parse Result to: " ++ (makeBold $ outFiles config !! (i - 1))
                 else do 
                     putStrLn "\n== Raw Parse Result =="
                     print ast
@@ -436,12 +445,12 @@ printTest config = do
                         then do
                             appendFile (outFiles config !! (i - 1)) "\n== Pretty Parse Result ==\n"
                             appendFile (outFiles config !! (i - 1)) x
-                            putStrLn $ "Wrote Pretty Parse Result to: " ++ (outFiles config !! (i - 1))
+                            putStrLn $ "Wrote Pretty Parse Result to: " ++ (makeBold $ outFiles config !! (i - 1))
                         else do 
                             putStrLn "\n== Pretty Parse Result =="
                             putStrLn x
                             putStrLn $ "Pretty Parse Result written to console (no file specified)."
-            Failed e -> putStrLn e
+            Failed e -> putStrLn . makeRed $ e
 
 
 setConfig :: Args -> Result SimpleCfg
