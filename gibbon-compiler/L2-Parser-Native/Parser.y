@@ -1,11 +1,12 @@
 {
-module Main where
+module Parser where
 -- import Data.Char (isSpace, isAlpha, isDigit, isLower)
-import Data.List (break, isPrefixOf, isSuffixOf)
-import System.Environment (getArgs)
-import Control.Monad (forM_, when)
-import System.FilePath.Posix (takeBaseName)
-import System.IO (writeFile, appendFile)
+-- import Data.List (isPrefixOf, isSuffixOf)
+-- import System.Environment (getArgs)
+-- import Control.Monad (forM_, when)
+-- import System.FilePath.Posix (takeBaseName)
+-- import System.IO (writeFile, appendFile)
+import Helper (makeRed, E(Ok, Failed))
 import AST
 import Tokens
 import PrintAST
@@ -322,23 +323,23 @@ parseError (tok:_) = failE . makeRed $
         "Parse error at " ++ showPos (pos tok) ++
         "\nUnexpected token: " ++ show tok
 
-data E a = Ok a | Failed String deriving Show
--- data ParseResult a = Ok a | Failed String deriving Show
--- type E a = String -> ParseResult a
+-- data E a = Ok a | Failed String deriving Show
+-- -- data ParseResult a = Ok a | Failed String deriving Show
+-- -- type E a = String -> ParseResult a
 
-instance Functor E where
-    fmap f (Ok x)      = Ok (f x)
-    fmap _ (Failed e)  = Failed e
+-- instance Functor E where
+--     fmap f (Ok x)      = Ok (f x)
+--     fmap _ (Failed e)  = Failed e
 
-instance Applicative E where
-    pure = Ok
-    (Ok f) <*> (Ok x)     = Ok (f x)
-    (Failed e) <*> _      = Failed e
-    _ <*> (Failed e)      = Failed e
+-- instance Applicative E where
+--     pure = Ok
+--     (Ok f) <*> (Ok x)     = Ok (f x)
+--     (Failed e) <*> _      = Failed e
+--     _ <*> (Failed e)      = Failed e
 
-instance Monad E where
-    (Ok x) >>= f = f x
-    (Failed e) >>= _ = Failed e
+-- instance Monad E where
+--     (Ok x) >>= f = f x
+--     (Failed e) >>= _ = Failed e
 
 thenE :: E a -> (a -> E b) -> E b
 m `thenE` k =
@@ -375,126 +376,126 @@ catchE m k =
 --       Ok a     -> Ok a
 --       Failed e -> k e s
 
-makeGreen :: String -> String
-makeGreen s = "\x1b[32m" ++ s ++ "\x1b[0m"
+-- makeGreen :: String -> String
+-- makeGreen s = "\x1b[32m" ++ s ++ "\x1b[0m"
 
-makeRed :: String -> String
-makeRed s = "\x1b[31m" ++ s ++ "\x1b[0m"
+-- makeRed :: String -> String
+-- makeRed s = "\x1b[31m" ++ s ++ "\x1b[0m"
 
-makeBold :: String -> String
-makeBold s = "\x1b[1m" ++ s ++ "\x1b[0m"
+-- makeBold :: String -> String
+-- makeBold s = "\x1b[1m" ++ s ++ "\x1b[0m"
 
-type Args = [String]
-type LastParsed = String
-data Result a = Success a | Failure String deriving Show
+-- type Args = [String]
+-- type LastParsed = String
+-- data Result a = Success a | Failure String deriving Show
 
-data SimpleCfg = SimpleCfg {
-                    inFiles :: [String],
-                    outFiles :: [String],
-                    showTokens :: Bool,
-                    showRaw :: Bool
-                    } deriving Show
+-- data SimpleCfg = SimpleCfg {
+--                     inFiles :: [String],
+--                     outFiles :: [String],
+--                     showTokens :: Bool,
+--                     showRaw :: Bool
+--                     } deriving Show
 
-baseCfg :: SimpleCfg 
-baseCfg = SimpleCfg {   inFiles = [],
-                        outFiles = [],
-                        showTokens = True,
-                        showRaw = False
-}
+-- baseCfg :: SimpleCfg 
+-- baseCfg = SimpleCfg {   inFiles = [],
+--                         outFiles = [],
+--                         showTokens = True,
+--                         showRaw = False
+-- }
 
-printTest:: SimpleCfg -> IO ()
-printTest config = do
-    forM_ (zip [1..] (inFiles config)) $ \(i, testFile) -> do
-        when (i <= length (outFiles config)) $ writeFile (outFiles config !! (i - 1)) ""
+-- printTest:: SimpleCfg -> IO ()
+-- printTest config = do
+--     forM_ (zip [1..] (inFiles config)) $ \(i, testFile) -> do
+--         when (i <= length (outFiles config)) $ writeFile (outFiles config !! (i - 1)) ""
         
-        let testName = takeBaseName testFile
-        putStrLn . makeBold $ "\nRunning Test " ++ show i ++ ": " ++ testName
+--         let testName = takeBaseName testFile
+--         putStrLn . makeBold $ "\nRunning Test " ++ show i ++ ": " ++ testName
 
-        -- read given file
-        contents <- readFile testFile
+--         -- read given file
+--         contents <- readFile testFile
         
-        -- gets/prints tokens
-        let tokens = lexer contents
-        when (showTokens config) $ do
-            if length (outFiles config) >= i
-                then do
-                    appendFile (outFiles config !! (i - 1)) "== Tokens ==\n"
-                    forM_ tokens $ \token -> appendFile (outFiles config !! (i - 1)) (show token ++ "\n")
-                    putStrLn $ "Wrote Tokens to: " ++ (makeBold $ outFiles config !! (i - 1))
-                else do
-                    putStrLn "\n== Tokens =="
-                    forM_ tokens $ \token -> putStrLn (show token)
-                    putStrLn $ "Tokens written to console (no file specified)."
+--         -- gets/prints tokens
+--         let tokens = lexer contents
+--         when (showTokens config) $ do
+--             if length (outFiles config) >= i
+--                 then do
+--                     appendFile (outFiles config !! (i - 1)) "== Tokens ==\n"
+--                     forM_ tokens $ \token -> appendFile (outFiles config !! (i - 1)) (show token ++ "\n")
+--                     putStrLn $ "Wrote Tokens to: " ++ (makeBold $ outFiles config !! (i - 1))
+--                 else do
+--                     putStrLn "\n== Tokens =="
+--                     forM_ tokens $ \token -> putStrLn (show token)
+--                     putStrLn $ "Tokens written to console (no file specified)."
 
-        -- runs/prints parser
-        let ast = l2ParserNative tokens
-            parsed_str = fmap (printAST 0) ast
-        when (showRaw config) $ do
-            if length (outFiles config) >= i
-                then do
-                    appendFile (outFiles config !! (i - 1)) "\n== Raw Parse Result ==\n"
-                    appendFile (outFiles config !! (i - 1)) (show ast)
-                    putStrLn $ "Wrote Raw Parse Result to: " ++ (makeBold $ outFiles config !! (i - 1))
-                else do 
-                    putStrLn "\n== Raw Parse Result =="
-                    print ast
-                    putStrLn $ "Raw Parse Result written to console (no file specified)."
+--         -- runs/prints parser
+--         let ast = l2ParserNative tokens
+--             parsed_str = fmap (printAST 0) ast
+--         when (showRaw config) $ do
+--             if length (outFiles config) >= i
+--                 then do
+--                     appendFile (outFiles config !! (i - 1)) "\n== Raw Parse Result ==\n"
+--                     appendFile (outFiles config !! (i - 1)) (show ast)
+--                     putStrLn $ "Wrote Raw Parse Result to: " ++ (makeBold $ outFiles config !! (i - 1))
+--                 else do 
+--                     putStrLn "\n== Raw Parse Result =="
+--                     print ast
+--                     putStrLn $ "Raw Parse Result written to console (no file specified)."
         
-        case parsed_str of
-            Ok x -> if length (outFiles config) >= i
-                        then do
-                            appendFile (outFiles config !! (i - 1)) "\n== Pretty Parse Result ==\n"
-                            appendFile (outFiles config !! (i - 1)) x
-                            putStrLn $ "Wrote Pretty Parse Result to: " ++ (makeBold $ outFiles config !! (i - 1))
-                        else do 
-                            putStrLn "\n== Pretty Parse Result =="
-                            putStrLn x
-                            putStrLn $ "Pretty Parse Result written to console (no file specified)."
-            Failed e -> putStrLn . makeRed $ e
+--         case parsed_str of
+--             Ok x -> if length (outFiles config) >= i
+--                         then do
+--                             appendFile (outFiles config !! (i - 1)) "\n== Pretty Parse Result ==\n"
+--                             appendFile (outFiles config !! (i - 1)) x
+--                             putStrLn $ "Wrote Pretty Parse Result to: " ++ (makeBold $ outFiles config !! (i - 1))
+--                         else do 
+--                             putStrLn "\n== Pretty Parse Result =="
+--                             putStrLn x
+--                             putStrLn $ "Pretty Parse Result written to console (no file specified)."
+--             Failed e -> putStrLn . makeRed $ e
 
 
-setConfig :: Args -> Result SimpleCfg
-setConfig [] = Success baseCfg
-setConfig args = setConfig' args baseCfg ""
-    where   
-        setConfig' :: Args -> SimpleCfg -> LastParsed -> Result SimpleCfg
-        -- empty arg list means we're done
-        setConfig' [] cfg _ = if length (inFiles cfg) < length (outFiles cfg)
-                                then Failure "Error: Number of input files is less than number of output files."
-                                else Success cfg 
+-- setConfig :: Args -> Result SimpleCfg
+-- setConfig [] = Success baseCfg
+-- setConfig args = setConfig' args baseCfg ""
+--     where   
+--         setConfig' :: Args -> SimpleCfg -> LastParsed -> Result SimpleCfg
+--         -- empty arg list means we're done
+--         setConfig' [] cfg _ = if length (inFiles cfg) < length (outFiles cfg)
+--                                 then Failure "Error: Number of input files is less than number of output files."
+--                                 else Success cfg 
         
-        -- if -i or -o seen, set this flag
-        setConfig' ("-i":rest) cfg _ = setConfig' rest cfg "-i"
-        setConfig' ("-o":rest) cfg _ = setConfig' rest cfg "-o"
+--         -- if -i or -o seen, set this flag
+--         setConfig' ("-i":rest) cfg _ = setConfig' rest cfg "-i"
+--         setConfig' ("-o":rest) cfg _ = setConfig' rest cfg "-o"
         
-        setConfig' (arg:rest) cfg lastParsed
-            -- boolean flags
-            | "--show-tokens" `isPrefixOf` arg = setConfig' rest (cfg {showTokens = getBoolean arg}) ""
-            | "--show-raw" `isPrefixOf` arg = setConfig' rest (cfg {showRaw = getBoolean arg}) "" 
+--         setConfig' (arg:rest) cfg lastParsed
+--             -- boolean flags
+--             | "--show-tokens" `isPrefixOf` arg = setConfig' rest (cfg {showTokens = getBoolean arg}) ""
+--             | "--show-raw" `isPrefixOf` arg = setConfig' rest (cfg {showRaw = getBoolean arg}) "" 
             
-            -- file arguments
-            | lastParsed == "-i" = if checkValidFile arg
-                                    then setConfig' rest (cfg {inFiles = inFiles cfg ++ [arg]}) "-i"
-                                    else Failure $ "Invalid input file: " ++ arg
-            | lastParsed == "-o" = setConfig' rest (cfg {outFiles = outFiles cfg ++ [arg]}) "-o"
-            | otherwise = if checkValidFile arg
-                                    then setConfig' rest (cfg {inFiles = inFiles cfg ++ [arg]}) "-i"
-                                    else Failure $ "Unknown command line argument: " ++ arg
+--             -- file arguments
+--             | lastParsed == "-i" = if checkValidFile arg
+--                                     then setConfig' rest (cfg {inFiles = inFiles cfg ++ [arg]}) "-i"
+--                                     else Failure $ "Invalid input file: " ++ arg
+--             | lastParsed == "-o" = setConfig' rest (cfg {outFiles = outFiles cfg ++ [arg]}) "-o"
+--             | otherwise = if checkValidFile arg
+--                                     then setConfig' rest (cfg {inFiles = inFiles cfg ++ [arg]}) "-i"
+--                                     else Failure $ "Unknown command line argument: " ++ arg
 
-        getBoolean :: String -> Bool
-        getBoolean s
-            | "=true" `isSuffixOf` s = True
-            | "=false" `isSuffixOf` s = False
-            | otherwise = True
+--         getBoolean :: String -> Bool
+--         getBoolean s
+--             | "=true" `isSuffixOf` s = True
+--             | "=false" `isSuffixOf` s = False
+--             | otherwise = True
         
-        checkValidFile :: String -> Bool
-        checkValidFile f = ".hs" `isSuffixOf` f || ".gib" `isSuffixOf` f
+--         checkValidFile :: String -> Bool
+--         checkValidFile f = ".hs" `isSuffixOf` f || ".gib" `isSuffixOf` f
 
-main = do 
-    args <- getArgs
-    let config = setConfig args
-    putStrLn $ show args
-    case config of
-        Failure e -> putStrLn $ "Error in command line arguments: " ++ e
-        Success cfg -> printTest cfg
+-- main = do 
+--     args <- getArgs
+--     let config = setConfig args
+--     putStrLn $ show args
+--     case config of
+--         Failure e -> putStrLn $ "Error in command line arguments: " ++ e
+--         Success cfg -> printTest cfg
 }

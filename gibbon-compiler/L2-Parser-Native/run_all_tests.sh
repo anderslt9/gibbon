@@ -8,4 +8,5 @@ for file in $input_files; do
 done
 
 mkdir -p test_results
-runhaskell grammar.hs -i $input_files -o ${output_files[@]} $@
+# runhaskell Main.hs -i $input_files -o ${output_files[@]} $@
+cabal v2-run gibbon-l2 -- -i $input_files -o ${output_files[@]} "$@"

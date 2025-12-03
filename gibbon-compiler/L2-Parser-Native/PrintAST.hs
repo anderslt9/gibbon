@@ -1,6 +1,6 @@
--- {-# LANGUAGE FlexibleInstances #-}
--- {-# LANGUAGE UndecidableInstances #-}
--- {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module PrintAST where
 import AST

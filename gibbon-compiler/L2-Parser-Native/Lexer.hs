@@ -3,7 +3,7 @@ import Data.Char (isAlpha, isDigit, isSpace, isLower)
 import Tokens
 
 lexer :: String -> [Token]
-lexer input = lexer' (Pos 1 1) input
+lexer = lexer' (Pos 1 1)
 
 -- actual lexer
 lexer' :: Pos -> String -> [Token]
@@ -57,13 +57,15 @@ lexer' p ('.':'<':'.':cs) = TokenFLt p : lexer' (advanceStr p ".<.") cs
 lexer' p ('.':'>':'=':'.':cs) = TokenFGe p : lexer' (advanceStr p ".>=") cs
 lexer' p ('.':'<':'=':'.':cs) = TokenFLe p : lexer' (advanceStr p ".<=") cs
 lexer' p ('&':'&':cs)   =  TokenAnd p : lexer' (advanceStr p "&&") cs
+lexer' p _ = []  -- unrecognized character, could also raise an error
 
 advanceStr :: Pos -> String -> Pos
-advanceStr p [] = p
-advanceStr p (c:cs) = advanceStr (advance p c) cs
+advanceStr p cs = foldl advance p cs
+-- advanceStr p [] = p
+-- advanceStr p (c:cs) = advanceStr (advance p c) cs
 
 advance :: Pos -> Char -> Pos
-advance (Pos l c) '\n' = Pos (l + 1) 1
+advance (Pos l _) '\n' = Pos (l + 1) 1
 advance (Pos l c) _    = Pos l (c + 1)
 
 lexComment :: String -> String
@@ -72,6 +74,7 @@ lexComment cs =
         (_, [])     -> ""
         (_, _:rest) -> rest
 
+lexNum :: Pos -> [Char] -> [Token]
 lexNum p cs = 
     case span isDigit cs of
         (num, "")   -> TokenIntLit p (read num) : [TokenEOF (advanceStr p num)]
@@ -83,6 +86,7 @@ lexNum p cs =
                             -- otherwise error
             _ -> TokenIntLit p (read num) : lexer' (advanceStr p num) rest
 
+matchVar :: Pos -> [Char] -> [Token]
 matchVar p cs =  
     case span isValidChar cs of
         (v@(c:_), rest) ->  
@@ -92,9 +96,10 @@ matchVar p cs =
                             then TokenIdentUpper p v : lexer' (advanceStr p v) rest
                             else []
         _ -> []
-    where   isValidChar = (\n -> n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`'] ++ ['0'..'9']))
-            isValidStartChar = (\n -> n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`']))
+    where   isValidChar n = n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`'] ++ ['0'..'9'])
+            isValidStartChar n = n `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['_'] ++ ['`'])
 
+lexVar :: Pos -> [Char] -> [Token]
 lexVar p cs =
     case span isAlpha cs of
         ("data", rest) -> TokenData p : lexer' (advanceStr p "data") rest
