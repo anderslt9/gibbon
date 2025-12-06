@@ -1,3 +1,5 @@
+module ConvertToL2AST where
+
 import Gibbon.Common as C
 import Gibbon.L2.Syntax as L2
 import Gibbon.Language.Syntax as S
@@ -47,11 +49,17 @@ convertBaseType Float  = S.FloatTy
 convertBaseType Bool   = S.BoolTy
 -- convertBaseType String = S.StringTy   Unsure how to deal with this for now
 
-
-convertExpr :: Expr -> L2.Exp2
+-- TODO continue this
+convertExpr :: Expr -> L2.PreExp L2.E2Ext L2.LocVar L2.Ty2
 convertExpr (ExprVal val) = convertVal val
 convertExpr (ExprBinOp binOp e1 e2) =
-    L2.EBinOp (convertBinOp binOp) (convertExpr e1) (convertExpr e2)
+    L2.PrimAppE (convertBinOp binOp) [convertExpr e1, convertExpr e2]
+
+convertVal :: Val -> L2.PreExp L2.E2Ext L2.LocVar L2.Ty2
+convertVal (ValVar (Var v)) = L2.VarE (C.toVar v)
+convertVal (ValLit lit) = convertLit lit
+
+convertBinOp :: BinOp -> C.Prim2
 
 
 convertTypeCon :: TypeCon -> C.Var
