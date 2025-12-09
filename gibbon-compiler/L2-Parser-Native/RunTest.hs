@@ -10,6 +10,7 @@ import PrintAST (printAST)
 import Helper (makeRed, makeBold, E(Ok, Failed))
 -- import L2ParserNative (l2ParserNative)
 import Parser (l2ParserNative)
+import ConvertToL2AST (convertToL2AST)
 
 type Args = [String]
 type LastParsed = String
