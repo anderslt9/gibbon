@@ -215,8 +215,8 @@ executable gibbon-l2
   hs-source-dirs:      L2-Parser-Native
   main-is:             Main.hs
   build-tool-depends:  happy:happy >= 1.20
-  build-depends:       base, gibbon, filepath, array, containers
-  other-modules:       PrintAST, AST, Lexer, Tokens, RunTest, Helper, Parser, ConvertToL2AST
+  build-depends:       base, gibbon, filepath, array, containers, mtl
+  other-modules:       PrintAST, AST, Lexer, Tokens, RunTest, Helper, Parser, ConvertToTypedAST
   default-language:    Haskell2010
   ghc-options:         -Wall -rtsopts -fdefer-typed-holes
   default-extensions:  OverloadedStrings NamedFieldPuns

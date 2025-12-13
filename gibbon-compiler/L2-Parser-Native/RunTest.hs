@@ -7,10 +7,11 @@ import System.FilePath.Posix (takeBaseName)
 import System.IO (writeFile, appendFile)
 import Lexer (lexer)
 import PrintAST (printAST)
-import Helper (makeRed, makeBold, E(Ok, Failed))
+import Helper (makeRed, makeBold, makeGreen, E(Ok, Failed))
 -- import L2ParserNative (l2ParserNative)
 import Parser (l2ParserNative)
-import ConvertToL2AST (convertToL2AST)
+-- import ConvertToL2AST (convertToL2AST)
+import ConvertToTypedAST (inferProgram)
 
 type Args = [String]
 type LastParsed = String
@@ -57,6 +58,10 @@ printTest config = do
         -- runs/prints parser
         let ast = l2ParserNative tokens
             parsed_str = fmap (printAST 0) ast
+            typed_ast = ast >>= inferProgram
+        case typed_ast of
+            Ok t_ast -> putStrLn . makeGreen $ show t_ast
+            Failed e -> putStrLn . makeRed $ "Type Inference Failed: " ++ e
         when (showRaw config) $ do
             if length (outFiles config) >= i
                 then do

@@ -122,6 +122,7 @@ CombinedTypeCon :: { CombinedTypeCon }
     | BaseType  { CTCBase $1 }
 
 -- function declarations
+-- TODO make sure function variables match and modify FuncDecl to only have one FuncVar
 FuncDecl :: { FuncDecl }
     : FuncVar FuncDeclRest
         { $2 $1 }

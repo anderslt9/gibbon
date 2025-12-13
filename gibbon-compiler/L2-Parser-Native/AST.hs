@@ -36,13 +36,13 @@ data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
             | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving Show
 
 -- specific variable types
-newtype FuncVar = FuncVar String deriving Show
-newtype RegionVar = RegionVar String deriving Show
-newtype LocVar = LocVar String deriving Show
-newtype IndexVar = IndexVar String deriving Show
-newtype TypeCon = TypeCon String deriving Show
-newtype DataCon = DataCon String deriving Show
-newtype Var = Var String deriving Show
+newtype FuncVar = FuncVar String deriving (Show, Eq, Ord)
+newtype RegionVar = RegionVar String deriving (Show, Eq, Ord)
+newtype LocVar = LocVar String deriving (Show, Eq, Ord)
+newtype IndexVar = IndexVar String deriving (Show, Eq, Ord)
+newtype TypeCon = TypeCon String deriving (Show, Eq, Ord)
+newtype DataCon = DataCon String deriving (Show, Eq, Ord)
+newtype Var = Var String deriving (Show, Eq, Ord)
 
 -- repeated productions to model * operator
 newtype Vars = Vars [Var] deriving Show

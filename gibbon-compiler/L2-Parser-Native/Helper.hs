@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs #-}
 module Helper where
 
 makeGreen :: String -> String
@@ -24,5 +25,6 @@ instance Applicative E where
     _ <*> (Failed e)      = Failed e
 
 instance Monad E where
+    (>>=) :: E a -> (a -> E b) -> E b
     (Ok x) >>= f = f x
     (Failed e) >>= _ = Failed e

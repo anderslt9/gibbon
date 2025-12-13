@@ -1,3 +1,3 @@
 data Tree = Leaf Int | Node Int Tree Tree
 
-main = x 
+main = 1 + 2
