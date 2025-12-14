@@ -14,6 +14,12 @@ data E a = Ok a | Failed String deriving Show
 -- data ParseResult a = Ok a | Failed String deriving Show
 -- type E a = String -> ParseResult a
 
+takeAlphaNum :: String -> String
+takeAlphaNum [] = []
+takeAlphaNum (x:xs)
+    | elem x (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ "_") = x : takeAlphaNum xs
+    | otherwise = []
+
 instance Functor E where
     fmap f (Ok x)      = Ok (f x)
     fmap _ (Failed e)  = Failed e

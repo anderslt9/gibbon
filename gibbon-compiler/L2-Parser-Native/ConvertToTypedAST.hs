@@ -2,8 +2,9 @@
 module ConvertToTypedAST where
 
 import AST
-import Helper (E(..))
+import Helper (E(..), takeAlphaNum)
 -- import Gibbon.Language.Syntax as S
+import Control.Monad (foldM)
 import Control.Monad.Reader
 import qualified Data.Map as M
 
@@ -79,9 +80,10 @@ emptyEnv = MyEnv emptyTyEnv emptyTyEnv emptyTyEnv
 inferProgram :: Program -> E (TypedNode Expr)
 inferProgram (Program dataDecls funcDecls mainExpr) = do
     env1 <- loadDataDecls dataDecls emptyEnv
+    env2 <- loadFuncDecls funcDecls env1
     -- print dataTypeEnv
     -- env2 <- createTypedNode IntTy (Program dataDecls funcDecls mainExpr)
-    runReaderT (inferExpr mainExpr) env1
+    runReaderT (inferExpr mainExpr) env2
     
     -- Failed (show env1) -- temporary to see env1
 
@@ -117,7 +119,15 @@ inferExpr expr = case expr of
         if argTys == fieldTys
             then return $ createTypedNode resTy iDataConApp
             else lift . Failed $ "Type mismatch in data constructor application: " ++ show argTys ++ " vs " ++ show fieldTys
-    _ -> lift . Failed $ "inferExpr: Not implemented for this expression type"
+    iCase@(ExprCase val pats) -> do
+        typedVal <- inferVal val
+        -- TODO infer patterns and ensure types match
+        -- For now, just return the type of the value being matched on
+        return $ createTypedNode (tType typedVal) iCase
+
+    _ -> lift . Failed $ "inferExpr: Not implemented for this expression type: " ++ takeAlphaNum (show expr)
+
+
 
 inferVal :: Val -> InferM (TypedNode Val)
 inferVal val = case val of 
@@ -143,7 +153,7 @@ extractDataCons (DataTypeDecl typeCon (DataFields dataFields)) = map extractData
     where
         extractDataField :: DataField -> (DataCon, ([MyTy], MyTy))
         extractDataField (DataField dataCon (CombinedTypeCons combinedTypeCons)) =
-            (dataCon, (map combinedToType combinedTypeCons, PackedTy typeCon))
+            (dataCon, (map combinedTCToType combinedTypeCons, PackedTy typeCon))
 
 loadDataDecls :: DataTypeDecls -> MyEnv -> E MyEnv
 loadDataDecls (DataTypeDecls decls) env = foldM loadDataDecl env decls
@@ -163,10 +173,28 @@ extractFuncDecls (FuncDecls decls) = map extractFuncDecl decls
     where
         -- TODO deal with location regions
         extractFuncDecl :: FuncDecl -> (FuncVar, ([MyTy], MyTy))
-        extractFuncDecl (FuncDecl funcVar1 typeScheme funcVar2 locRegions vars expr) = do
+        extractFuncDecl (FuncDecl funcVar1 (TypeScheme combinedTypes) funcVar2 locRegions vars expr) = 
             -- GET ARG TYPES AND RETURN TYPE FROM TYPESCHEME, ignore everything else
-            (funcVar1, (argTys, retTy))
-            
+            case separateArgs combinedTypes of
+                Nothing -> error $ "extractFuncDecl: Function " ++ show funcVar1 ++ " has invalid type scheme"
+                Just (argTys, retTy) -> (funcVar1, (argTys, retTy))
+        
+        separateArgs :: CombinedTypes -> Maybe ([MyTy], MyTy)
+        separateArgs (CombinedTypes []) = Nothing
+        separateArgs (CombinedTypes [x]) = Just ([], combinedTToType x)
+        separateArgs (CombinedTypes (x:xs)) = case separateArgs (CombinedTypes xs) of
+            Nothing -> Nothing
+            Just (argTys, retTy) -> Just (combinedTToType x : argTys, retTy)
+
+loadFuncDecls :: FuncDecls -> MyEnv -> E MyEnv
+loadFuncDecls (FuncDecls decls) env = foldM loadFuncDecl env decls
+    where
+        loadFuncDecl :: MyEnv -> FuncDecl -> E MyEnv
+        loadFuncDecl env2 decl = 
+            let (funcVar, (argTys, retTy)) = extractFuncDecls (FuncDecls [decl]) !! 0
+            in if M.member funcVar (fEnv env2)
+                then Failed $ "Function " ++ show funcVar ++ " already defined in environment"
+                else Ok env2 { fEnv = M.insert funcVar (argTys, retTy) (fEnv env2) }
 
 
 -- loadDataDecls :: DataTypeDecls -> InferM Type
@@ -194,8 +222,15 @@ convertBaseType Float = FloatTy
 convertBaseType Bool = BoolTy
 convertBaseType String = StringTy
 
-combinedToType :: CombinedTypeCon -> MyTy
-combinedToType (CTCTypeCon tc) = PackedTy tc
-combinedToType (CTCBase baseType) = convertBaseType baseType
+combinedTCToType :: CombinedTypeCon -> MyTy
+combinedTCToType (CTCTypeCon tc) = PackedTy tc
+combinedTCToType (CTCBase baseType) = convertBaseType baseType
+
+combinedTToType :: CombinedType -> MyTy
+combinedTToType (CTLocated (LocatedType combinedLocType locRegion)) = case combinedLocType of
+    CLTTypeCon tc -> PackedTy tc
+    CLTBase baseType -> convertBaseType baseType
+combinedTToType (CTBase baseType) = convertBaseType baseType
+
 
 -- convertToTypedAST :: Program -> S.Prog S.Ty2

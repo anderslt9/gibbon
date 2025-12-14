@@ -200,6 +200,7 @@ ExprFuncApp :: { Expr }
 ExprDataConApp :: { Expr }
     : DataCon LocRegion Exprs    { ExprDataConApp $1 $2 (Exprs $3)}
 
+-- TODO change this so Val is Expr
 ExprCase :: { Expr }
     : case Val of Pats    { ExprCase $2 (Pats $4) }
 
