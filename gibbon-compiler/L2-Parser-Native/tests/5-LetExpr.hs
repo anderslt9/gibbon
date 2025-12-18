@@ -1,0 +1,1 @@
+main = let x : Int = 5 in x

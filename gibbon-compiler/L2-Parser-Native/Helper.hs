@@ -20,6 +20,13 @@ takeAlphaNum (x:xs)
     | elem x (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ "_") = x : takeAlphaNum xs
     | otherwise = []
 
+checkAllSame :: (Eq a) => [a] -> Bool 
+checkAllSame [] = True
+checkAllSame (x:xs) = all (== x) xs
+
+safeHead :: [a] -> E a
+safeHead []    = Failed "Empty list"
+safeHead (x:_) = Ok x
 instance Functor E where
     fmap f (Ok x)      = Ok (f x)
     fmap _ (Failed e)  = Failed e
