@@ -7,17 +7,32 @@ import Helper
 import Control.Monad (foldM)
 import Control.Monad.Reader
 import qualified Data.Map as M
-import System.Environment (getEnv)
+import qualified Data.Set as S
+-- import System.Environment (getEnv)
 
 type TyEnv a b = M.Map a b
 
 emptyTyEnv :: TyEnv a b
 emptyTyEnv = M.empty
 
-data MyEnv = MyEnv   { dcEnv :: TyEnv String ([MyTy], MyTy) -- Data constructor maps to type constructors and result type
-                     , vEnv  :: TyEnv String MyTy
-                     , fEnv  :: TyEnv String ([MyTy], MyTy) -- Function maps to argument types and return type
+data MyEnv = MyEnv   { dcEnv  :: TyEnv String ([MyTy], MyTy) -- Data constructor maps to type constructors and result type
+                     , vEnv   :: TyEnv String MyTy
+                     , fEnv   :: TyEnv String ([MyTy], MyTy) -- Function maps to argument types and return type
+                     , locEnv :: TyEnv String LocInfo -- Location variable maps to (type, region variable)
+                     , regEnv :: TyEnv String RegInfo -- Region variable maps to type
                      } deriving Show
+
+-- TODO maybe rework tuples into this style
+data RegInfo = RegInfo
+    { regStarted    :: Bool
+    , regLocsUsed   :: S.Set String
+    } deriving Show
+
+data LocInfo = LocInfo
+    { getLocType :: MyTy
+    , locInitialized    :: Bool
+    , getRegionFromLoc  :: String
+    } deriving Show
 
 type InferM = ReaderT MyEnv E
 
@@ -27,20 +42,24 @@ data TypedNode a = TypedNode
     } deriving Show
 
 -- all types
-data MyTy 
+data MyTy
     = IntTy
     | FloatTy
     | BoolTy
     | StringTy
-    | PackedTy TypeCon
+    | PackedTy TypeCon -- loc (I will add loc at some point, but it will break a lot right now)
+    | NoneTy
     deriving (Show, Eq, Ord)
 
--- deriving instance Show MyTy
+emptyLocRegion :: LocRegion
+emptyLocRegion = LocRegion (LocVar "") (RegionVar "") (IndexVar "")
 
 data EnvType
     = EnvDataCon
     | EnvVar
     | EnvFunc
+    | EnvLoc 
+    | EnvReg
     deriving (Show, Eq)
 
 -- Lookup Functions
@@ -65,7 +84,22 @@ lookupFunc fv = do
         Just ty -> return ty
         Nothing -> lift . Failed $ "Function " ++ show fv ++ " not found in environment"
 
+lookupLoc :: String -> InferM LocInfo
+lookupLoc lv = do
+    env <- asks locEnv
+    case M.lookup lv env of
+        Just ty -> return ty
+        Nothing -> lift . Failed $ "Location variable " ++ show lv ++ " not found in environment"
+
+lookupReg :: String -> InferM RegInfo
+lookupReg rv = do
+    env <- asks regEnv
+    case M.lookup rv env of
+        Just ty -> return ty
+        Nothing -> lift . Failed $ "Region variable " ++ show rv ++ " not found in environment"
+
 -- Extension Functions
+-- TODO go through and make sure variable not already in environment for all additions to environment
 extendDataConEnv :: String -> ([MyTy], MyTy) -> InferM a -> InferM a
 extendDataConEnv dc ty = local (\env -> env { dcEnv = M.insert dc ty (dcEnv env) })
 
@@ -78,6 +112,12 @@ extendVEnvs ((v, ty):rest) action = extendVEnv v ty (extendVEnvs rest action)
 
 extendFEnv :: String -> ([MyTy], MyTy) -> InferM a -> InferM a
 extendFEnv fv ty = local (\env -> env { fEnv = M.insert fv ty (fEnv env) })
+
+extendLocEnv :: String -> LocInfo -> InferM a -> InferM a
+extendLocEnv lv ty = local (\env -> env { locEnv = M.insert lv ty (locEnv env) })
+
+extendRegEnv :: String -> RegInfo -> InferM a -> InferM a
+extendRegEnv rv ty = local (\env -> env { regEnv = M.insert rv ty (regEnv env) })
 
 getEnvType :: String -> InferM (Maybe EnvType)
 getEnvType v = do
@@ -92,7 +132,15 @@ getEnvType v = do
                     envDC <- asks dcEnv
                     case M.lookup v envDC of
                         Just _ -> return $ Just EnvDataCon
-                        Nothing -> return Nothing
+                        Nothing -> do
+                            envL <- asks locEnv
+                            case M.lookup v envL of
+                                Just _ -> return $ Just EnvLoc
+                                Nothing -> do
+                                    envR <- asks regEnv
+                                    case M.lookup v envR of
+                                        Just _ -> return $ Just EnvReg
+                                        Nothing -> return Nothing
 
 checkVarNameExists :: String -> InferM Bool
 checkVarNameExists v = do
@@ -106,7 +154,7 @@ createTypedNode :: MyTy -> a -> TypedNode a
 createTypedNode ty node = TypedNode { tType = ty, tNode = node }
 
 emptyEnv :: MyEnv
-emptyEnv = MyEnv emptyTyEnv emptyTyEnv emptyTyEnv
+emptyEnv = MyEnv emptyTyEnv emptyTyEnv emptyTyEnv emptyTyEnv emptyTyEnv
 
 -- Program Type Inference
 inferProgram :: Program -> E (TypedNode Program)
@@ -155,19 +203,18 @@ inferExpr expr = case expr of
     iBinApp@(ExprBinOp binOp e1 e2) -> do
         typedE1 <- inferExpr e1
         typedE2 <- inferExpr e2
+        let (arg1Ty, arg2Ty, retTy) = binOpToType binOp
         -- TODO
-        -- Can extend to support type promotion later
-        -- Also, need to ensure operator is valid for types
-        if tType typedE1 == tType typedE2
-            then return $ createTypedNode (tType typedE1) iBinApp
-            else lift . Failed $ "Type mismatch in binary operation: " ++ show (tType typedE1) ++ " vs " ++ show (tType typedE2)
+            -- Can extend to support type promotion later
+            -- maybe change to nested if statement where separate error for binary operation being wrong
+        if tType typedE1 == tType typedE2 && tType typedE1 == arg1Ty && tType typedE2 == arg2Ty
+            then return $ createTypedNode retTy iBinApp
+            else lift . Failed $ "Type mismatch in binary operation" ++ show binOp ++ ": " ++ show (tType typedE1) ++ " vs " ++ show (tType typedE2)
     -- TODO deal with location region stuff (may consider type promotion too)
     iFuncApp@(ExprFuncApp (FuncVar funcVar) locRegions (Exprs exprs)) -> do
         typedExprs <- mapM inferExpr exprs
         (fArgTypes, retTy) <- lookupFunc funcVar 
         let argTys = map tType typedExprs
-            -- retTy = snd funcTy
-            -- fArgTypes = fst funcTy
         if argTys == fArgTypes
             then return $ createTypedNode retTy iFuncApp
             else lift . Failed $ "Type mismatch in function application: " ++ show argTys ++ " vs " ++ show fArgTypes
@@ -195,15 +242,45 @@ inferExpr expr = case expr of
         -- For now, just return the type of the value being matched on
     iLet@(ExprLet (Var var) combinedType expr1 expr2) -> do        
         typedExpr1 <- inferExpr expr1
-        let typedCombinedType = combinedTToType combinedType
+        let typedCombinedType = combinedTypeToType combinedType
             expr1Type = tType typedExpr1
         typedExpr2 <- extendVEnv var expr1Type (inferExpr expr2) 
         if typedCombinedType == expr1Type
             then return $ createTypedNode (tType typedExpr2) iLet
             else lift . Failed $ "Type mismatch in let binding: " ++ show typedCombinedType ++ " vs " ++ show expr1Type
-    
-    -- TODO deal with letloc and letregion
-        -- return $ createTypedNode (tType typedExpr2) iLet
+    iLetRegion@(ExprLetRegion (RegionVar rv) expr1) -> do
+        typedExpr <- extendRegEnv rv (RegInfo { regStarted = False, regLocsUsed = S.empty }) (inferExpr expr1)
+        return $ createTypedNode (tType typedExpr) iLetRegion
+    -- TODO still need to check index variables (just make sure they're in environment), may be too complicated for this
+    iLetLoc@(ExprLetLoc (LocRegion (LocVar locVar) (RegionVar regVar) (IndexVar indexVar)) locExpress expr1) -> do
+        -- let locType = tType typedExpr1
+        case locExpress of 
+            LocExpressStart (RegionVar regVar2) -> do
+                if regVar2 /= regVar
+                    then lift . Failed $ "inferExpr: Region variable mismatch in letloc: " ++ show regVar2 ++ " vs " ++ show regVar
+                    else do
+                        typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
+                        return $ createTypedNode (tType typedExpr) iLetLoc
+            LocExpressNext (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2)) -> do
+                if regVar2 /= regVar
+                    then lift . Failed $ "inferExpr: Region variable mismatch in letloc: " ++ show regVar2 ++ " vs " ++ show regVar
+                    else do
+                        -- locInfo2 <- lookupLoc locVar2
+                        typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
+                        return $ createTypedNode (tType typedExpr) iLetLoc
+            -- TODO need to check with others/paper if different types can be in same region (if not, more work is needed)
+            LocExpressAfter (LocatedType _ (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2))) -> do
+                -- TODO make sure locVar2 is in same region
+                -- let locatedType = locatedTypeToType locatedType
+                --     locRegion = getLocRegionFromLocType locatedType
+                if regVar2 /= regVar
+                    then lift . Failed $ "inferExpr: Region variable mismatch in letloc: " ++ show regVar2 ++ " vs " ++ show regVar
+                    else do
+                        typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
+                        return $ createTypedNode (tType typedExpr) iLetLoc
+                        -- locInfo2 <- lookupLoc locVar2
+                    
+    -- [x]TODO deal with letloc and letregion
 
     _ -> lift . Failed $ "inferExpr: Not implemented for this expression type: " ++ takeAlphaNum (show expr)
 
@@ -217,8 +294,8 @@ inferPatMatch pm@(PatMatch (ValVar (Var var)) (LocatedType combinedLocType locRe
     if varExists
         then lift . Failed $ "inferPatMatch: Variable " ++ show var ++ " already defined in environment"
         else do
-            -- let typedVal = createTypedNode (combinedLocToType combinedLocType) (ValVar (AST.Var var))
-            let ty = combinedLocToType combinedLocType
+            -- let typedVal = createTypedNode (combinedLocTypeToType combinedLocType) (ValVar (AST.Var var))
+            let ty = combinedLocTypeToType combinedLocType
             -- if tType typedVal == ty
             return $ createTypedNode ty pm
                 -- else lift . Failed $ "inferPatMatch: Type mismatch in pattern match: " ++ show (tType typedVal) ++ " vs " ++ show ty
@@ -240,7 +317,7 @@ inferPat myTy p@(Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
                 then lift . Failed $ "inferPat: Result type mismatch in pattern for data constructor " ++ show dataCon ++ ": " ++ show result ++ " vs " ++ show myTy
                 else do
                     -- TODO need to change PatMatch to have var, not val
-                    let varTypePairs = map (\(PatMatch (ValVar (Var v)) (LocatedType combinedLocType locRegion)) -> (v, combinedLocToType combinedLocType)) patMatches
+                    let varTypePairs = map (\(PatMatch (ValVar (Var v)) (LocatedType combinedLocType locRegion)) -> (v, combinedLocTypeToType combinedLocType)) patMatches
                     typedExpr <- extendVEnvs varTypePairs (inferExpr expr)
                     return $ createTypedNode (tType typedExpr) p
     -- --
@@ -251,7 +328,7 @@ inferPat myTy p@(Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
         -- getPatMatchPairs :: PatMatches -> [(Val, MyTy)]
         -- getPatMatchPairs (PatMatches []) = []
         -- getPatMatchPairs (PatMatches (pm@(PatMatch val (LocatedType combinedLocType locRegion)):rest)) =
-        --     let ty = combinedLocToType combinedLocType
+        --     let ty = combinedLocTypeToType combinedLocType
         --     in (val, ty) : getPatMatchPairs (PatMatches rest)
 
 
@@ -279,7 +356,7 @@ extractDataCons (DataTypeDecl typeCon (DataFields dataFields)) = map extractData
     where
         extractDataField :: DataField -> (DataCon, ([MyTy], MyTy))
         extractDataField (DataField dataCon (CombinedTypeCons combinedTypeCons)) =
-            (dataCon, (map combinedTCToType combinedTypeCons, PackedTy typeCon))
+            (dataCon, (map combinedTypeConToType combinedTypeCons, PackedTy typeCon))
 
 loadDataDecls :: DataTypeDecls -> MyEnv -> E MyEnv
 loadDataDecls (DataTypeDecls decls) env = foldM loadDataDecl env decls
@@ -307,10 +384,10 @@ extractFuncDecls (FuncDecls decls) = map extractFuncDecl decls
         
         separateArgs :: CombinedTypes -> Maybe ([MyTy], MyTy)
         separateArgs (CombinedTypes []) = Nothing
-        separateArgs (CombinedTypes [x]) = Just ([], combinedTToType x)
+        separateArgs (CombinedTypes [x]) = Just ([], combinedTypeToType x)
         separateArgs (CombinedTypes (x:xs)) = case separateArgs (CombinedTypes xs) of
             Nothing -> Nothing
-            Just (argTys, retTy) -> Just (combinedTToType x : argTys, retTy)
+            Just (argTys, retTy) -> Just (combinedTypeToType x : argTys, retTy)
 
 loadFuncDecls :: FuncDecls -> MyEnv -> E MyEnv
 loadFuncDecls (FuncDecls decls) env = foldM loadFuncDecl env decls
@@ -339,26 +416,55 @@ loadFuncDecls (FuncDecls decls) env = foldM loadFuncDecl env decls
 
 --           getTypeFromCombinedTypeCon :: CombinedTypeCon -> Type
 --           getTypeFromCombinedTypeCon (CTCTypeCon tc) = PackedTy tc
---           getTypeFromCombinedTypeCon (CTCBase baseType) = convertBaseType baseType 
+--           getTypeFromCombinedTypeCon (CTCBase baseType) = baseTypeToType baseType 
 
 -- Type Conversion Helpers
-convertBaseType :: BaseType -> MyTy
-convertBaseType Int = IntTy
-convertBaseType Float = FloatTy
-convertBaseType Bool = BoolTy
-convertBaseType String = StringTy
+baseTypeToType :: BaseType -> MyTy
+baseTypeToType Int = IntTy
+baseTypeToType Float = FloatTy
+baseTypeToType Bool = BoolTy
+baseTypeToType String = StringTy
 
-combinedTCToType :: CombinedTypeCon -> MyTy
-combinedTCToType (CTCTypeCon tc) = PackedTy tc
-combinedTCToType (CTCBase baseType) = convertBaseType baseType
+combinedTypeConToType :: CombinedTypeCon -> MyTy
+combinedTypeConToType (CTCTypeCon tc) = PackedTy tc
+combinedTypeConToType (CTCBase baseType) = baseTypeToType baseType
 
-combinedTToType :: CombinedType -> MyTy
-combinedTToType (CTLocated (LocatedType combinedLocType locRegion)) = case combinedLocType of
+combinedTypeToType :: CombinedType -> MyTy
+combinedTypeToType (CTLocated (LocatedType combinedLocType locRegion)) = case combinedLocType of
     CLTTypeCon tc -> PackedTy tc
-    CLTBase baseType -> convertBaseType baseType
-combinedTToType (CTBase baseType) = convertBaseType baseType
+    CLTBase baseType -> baseTypeToType baseType
+combinedTypeToType (CTBase baseType) = baseTypeToType baseType
 
-combinedLocToType :: CombinedLocType -> MyTy
-combinedLocToType (CLTTypeCon tc) = PackedTy tc
-combinedLocToType (CLTBase baseType) = convertBaseType baseType    
+combinedLocTypeToType :: CombinedLocType -> MyTy
+combinedLocTypeToType (CLTTypeCon tc) = PackedTy tc
+combinedLocTypeToType (CLTBase baseType) = baseTypeToType baseType    
 -- convertToTypedAST :: Program -> S.Prog S.Ty2
+
+locatedTypeToType :: LocatedType -> MyTy
+locatedTypeToType (LocatedType combinedLocType locRegion) = combinedLocTypeToType combinedLocType -- deal with adding location at some point
+
+binOpToType :: BinOp -> (MyTy, MyTy, MyTy)
+binOpToType op = case op of
+    Add -> (IntTy, IntTy, IntTy)
+    Sub -> (IntTy, IntTy, IntTy)
+    Mul -> (IntTy, IntTy, IntTy)
+    Div -> (IntTy, IntTy, IntTy)
+    FAdd -> (FloatTy, FloatTy, FloatTy)
+    FSub -> (FloatTy, FloatTy, FloatTy)
+    FMul -> (FloatTy, FloatTy, FloatTy)
+    FDiv -> (FloatTy, FloatTy, FloatTy)
+    Pow -> (FloatTy, FloatTy, FloatTy)
+    Eq  -> (IntTy, IntTy, BoolTy)
+    FEq -> (FloatTy, FloatTy, BoolTy)
+    CEq -> (BoolTy, BoolTy, BoolTy)
+    Gt  -> (IntTy, IntTy, BoolTy)
+    Lt  -> (IntTy, IntTy, BoolTy)
+    FGt -> (FloatTy, FloatTy, BoolTy)
+    FLt -> (FloatTy, FloatTy, BoolTy)
+    Ge  -> (IntTy, IntTy, BoolTy)
+    Le  -> (IntTy, IntTy, BoolTy)
+    FGe -> (FloatTy, FloatTy, BoolTy)
+    FLe -> (FloatTy, FloatTy, BoolTy)
+    Neq -> (IntTy, IntTy, BoolTy)
+    And -> (BoolTy, BoolTy, BoolTy)
+    Or  -> (BoolTy, BoolTy, BoolTy)

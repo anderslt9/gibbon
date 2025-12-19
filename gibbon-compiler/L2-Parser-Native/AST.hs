@@ -20,7 +20,7 @@ data BaseType = Int | Float | Bool | String deriving Show
 
 -- location expressions
 data LocExpress = LocExpressStart RegionVar | LocExpressNext LocRegion | LocExpressAfter LocatedType deriving Show
-data LocRegion = LocRegion LocVar RegionVar IndexVar deriving Show
+data LocRegion = LocRegion LocVar RegionVar IndexVar deriving (Show, Eq, Ord)
 
 -- identifiers/literals
 data Val = ValVar Var | ValLit Lit deriving Show
