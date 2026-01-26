@@ -20,7 +20,14 @@ data BaseType = Int | Float | Bool | String deriving Show
 
 -- location expressions
 data LocExpress = LocExpressStart RegionVar | LocExpressNext LocRegion | LocExpressAfter LocatedType deriving Show
-data LocRegion = LocRegion LocVar RegionVar IndexVar deriving (Show, Eq, Ord)
+data LocRegion = LocRegion LocVar RegionVar IndexVar | EmptyLocRegion deriving (Show, Ord)
+
+instance Eq LocRegion where
+    (==) EmptyLocRegion EmptyLocRegion = True
+    (==) (LocRegion _ _ _) EmptyLocRegion = True
+    (==) EmptyLocRegion (LocRegion _ _ _) = True
+    (==) (LocRegion lv1 rv1 iv1) (LocRegion lv2 rv2 iv2) =
+        lv1 == lv2 && rv1 == rv2 && iv1 == iv2
 
 -- identifiers/literals
 data Val = ValVar Var | ValLit Lit deriving Show

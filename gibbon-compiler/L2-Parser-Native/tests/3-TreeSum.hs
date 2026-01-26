@@ -6,4 +6,4 @@ sum [(l,r)] t = case t of
                     Node (a : Tree@(l,r,a)) (b : Tree@(l,r,b)) ->
                         (sum [(l,r,a)] a) + (sum [(l,r,b)] b)
 
-main = sum [(l,r)] (Leaf (l,r) 1)
+main = sum [(l,r)] (Leaf (l,r) 3)

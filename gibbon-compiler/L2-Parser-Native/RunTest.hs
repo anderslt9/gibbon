@@ -10,8 +10,8 @@ import PrintAST (printAST)
 import Helper (makeRed, makeBold, makeGreen, E(Ok, Failed))
 -- import L2ParserNative (l2ParserNative)
 import Parser (l2ParserNative)
--- import ConvertToL2AST (convertToL2AST)
-import ConvertToTypedAST (inferProgram)
+import ConvertToTypedAST (inferProgram, tType)
+import ConvertToL2AST (convertToL2AST)
 
 type Args = [String]
 type LastParsed = String
@@ -58,10 +58,18 @@ printTest config = do
         -- runs/prints parser
         let ast = l2ParserNative tokens
             parsed_str = fmap (printAST 0) ast
+            -- gets typed AST
             typed_ast = ast >>= inferProgram
+            -- gets L2 AST
+            l2_ast = typed_ast >>= convertToL2AST
+        
         case typed_ast of
-            Ok t_ast -> putStrLn . makeGreen $ show t_ast
+            Ok t_ast -> putStrLn . makeGreen $ "Type Inference Succeeded with type: " ++ show (tType t_ast)
             Failed e -> putStrLn . makeRed $ "Type Inference Failed: " ++ e
+        case l2_ast of
+            Ok _ -> putStrLn . makeGreen $ "Conversion to L2 AST Succeeded."
+            Failed e -> putStrLn . makeRed $ "Conversion to L2 AST Failed: " ++ e
+        
         when (showRaw config) $ do
             if length (outFiles config) >= i
                 then do
