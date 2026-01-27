@@ -4,7 +4,7 @@ import Gibbon.Common as C
 import Gibbon.L2.Syntax as L2
 import Gibbon.Language.Syntax as S
 import AST
-import Data.Map (empty)
+import Data.Map (empty, fromList)
 import ConvertToTypedAST as My
 import Helper
 import GHC.Float ( float2Double )
@@ -77,6 +77,16 @@ convertBaseType baseType = case baseType of
     _      -> Failed "convertBaseType: Unsupported base type"
 -- convertBaseType String = S.StringTy   Unsure how to deal with this for now
 
+-- convertFuncDecls :: FuncDecls -> E (L2.FunDefs C.Var L2.Exp2)
+-- convertFuncDecls (FuncDecls funcDecls) = do
+--     newDecls <- mapM convertFuncDecl funcDecls
+--     return $ fromList newDecls
+
+-- convertFuncDecl :: FuncDecl -> E (C.Var, L2.FunDef C.Var L2.Exp2)
+-- convertFuncDecl (FuncDecl (FuncVar f) typeScheme (FuncVar innerF) locRegions vars expr) = do
+--     newTypeScheme <- convertTypeScheme typeScheme
+
+
 -- TODO continue this
 convertExpr :: Expr -> E L2.Exp2
 convertExpr expr = do
@@ -87,10 +97,21 @@ convertExpr expr = do
             newE2 <- convertExpr e2
             primOp <- convertBinOp binOp
             return $ S.PrimAppE primOp [newE1, newE2]
-        (ExprFuncApp (FuncVar f) locRegions exprs) -> do
-            newExprs <- mapM convertExpr (let (Exprs es) = exprs in es)
+        (ExprFuncApp (FuncVar f) locRegions (Exprs exprs)) -> do
+            newExprs <- mapM convertExpr exprs
             -- TODO insert locRegions into []
             return $ S.AppE (C.toVar f) [] newExprs
+        (ExprDataConApp (DataCon dataCon) (LocRegion (LocVar locVar) regVar iVar) (Exprs exprs)) -> do
+            newExprs <- mapM convertExpr exprs
+            return $ S.DataConE (C.Single . C.toVar $ locVar) dataCon newExprs
+        (ExprCase val pats) -> do
+            Failed "convertExpr: Not implemented for case expressions"
+        (ExprLet var combinedType e1 e2) -> do
+            Failed "convertExpr: Not implemented for let expressions"
+        (ExprLetLoc locRegion locExpress e) -> do
+            Failed "convertExpr: Not implemented for letloc expressions"
+        (ExprLetRegion regionVar e) -> do
+            Failed "convertExpr: Not implemented for letregion expressions"
         _ -> Failed "convertExpr: Not implemented for this expression type"
 
 
@@ -135,7 +156,7 @@ convertBinOp b = case b of
 
 convertTypeCon :: TypeCon -> E S.TyCon
 convertTypeCon (TypeCon typeCon) = do
-    return $ typeCon
+    return typeCon
 
 convertDataCon :: AST.DataCon -> E C.DataCon
 convertDataCon (AST.DataCon dataCon) = return dataCon

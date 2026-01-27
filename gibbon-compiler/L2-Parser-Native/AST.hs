@@ -24,8 +24,12 @@ data LocRegion = LocRegion LocVar RegionVar IndexVar | EmptyLocRegion deriving (
 
 instance Eq LocRegion where
     (==) EmptyLocRegion EmptyLocRegion = True
-    (==) (LocRegion _ _ _) EmptyLocRegion = True
-    (==) EmptyLocRegion (LocRegion _ _ _) = True
+    (==) (LocRegion {}) EmptyLocRegion = True
+    (==) EmptyLocRegion (LocRegion {}) = True
+    (==) (LocRegion lv1 rv1 (IndexVar "")) (LocRegion lv2 rv2 _) =
+        lv1 == lv2 && rv1 == rv2
+    (==) (LocRegion lv1 rv1 _) (LocRegion lv2 rv2 (IndexVar "")) =
+        lv1 == lv2 && rv1 == rv2
     (==) (LocRegion lv1 rv1 iv1) (LocRegion lv2 rv2 iv2) =
         lv1 == lv2 && rv1 == rv2 && iv1 == iv2
 

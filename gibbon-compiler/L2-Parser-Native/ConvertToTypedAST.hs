@@ -17,10 +17,16 @@ emptyTyEnv = M.empty
 
 data MyEnv a = MyEnv   { dcEnv  :: TyEnv String ([MyTy a], MyTy a) -- Data constructor maps to type constructors and result type
                      , vEnv   :: TyEnv String (MyTy a)
-                     , fEnv   :: TyEnv String ([MyTy a], MyTy a) -- Function maps to argument types and return type
+                     , fEnv   :: TyEnv String (FuncInfo a) -- Function maps to argument types and return type
                      , locEnv :: TyEnv String (LocInfo a) -- Location variable maps to (type, region variable)
                      , regEnv :: TyEnv String RegInfo -- Region variable maps to type
                      } deriving Show
+
+data FuncInfo a = FuncInfo
+    { funcArgTypes :: [MyTy a]
+    , funcRetType  :: MyTy a
+    , funcInside   :: Bool
+    } deriving Show
 
 -- TODO maybe rework tuples into this style
 data RegInfo = RegInfo
@@ -64,8 +70,8 @@ instance Eq a => Eq (MyTy a) where
 -- instance Eq a => Eq [MyTy a] where
 
 
-emptyLocRegion :: LocRegion
-emptyLocRegion = LocRegion (LocVar "") (RegionVar "") (IndexVar "")
+-- emptyLocRegion :: LocRegion
+-- emptyLocRegion = LocRegion (LocVar "") (RegionVar "") (IndexVar "")
 
 data EnvType
     = EnvDataCon
@@ -101,7 +107,7 @@ lookupModDataCon dc loc = do
             return (argTys, newResTy)
         Nothing -> lift . Failed $ "Data constructor " ++ show dc ++ " not found in environment"
 
-lookupFunc :: String -> InferM a ([MyTy a], MyTy a)
+lookupFunc :: String -> InferM a (FuncInfo a)
 lookupFunc fv = do
     env <- asks fEnv
     case M.lookup fv env of
@@ -134,8 +140,16 @@ extendVEnvs :: [(String, MyTy a)] -> (InferM a) b -> (InferM a) b
 extendVEnvs [] action = action
 extendVEnvs ((v, ty):rest) action = extendVEnv v ty (extendVEnvs rest action)
 
-extendFEnv :: String -> ([MyTy a], MyTy a) -> (InferM a) b -> (InferM a) b
+extendFEnv :: String -> FuncInfo a -> (InferM a) b -> (InferM a) b
 extendFEnv fv ty = local (\env -> env { fEnv = M.insert fv ty (fEnv env) })
+
+setAsCurrentFunc :: String -> (InferM a) b -> (InferM a) b
+setAsCurrentFunc fv = local (\env -> 
+    case M.lookup fv (fEnv env) of
+        Just funcInfo -> let newFuncInfo = funcInfo { funcInside = True }
+                         in env { fEnv = M.insert fv newFuncInfo (fEnv env) }
+        Nothing -> env -- should never happen, but just in case
+    )
 
 extendLocEnv :: String -> LocInfo a -> (InferM a) b -> (InferM a) b
 extendLocEnv lv ty = local (\env -> env { locEnv = M.insert lv ty (locEnv env) })
@@ -186,6 +200,8 @@ checkVarNameExists v = do
         Just _  -> return True
         Nothing -> return False
 
+
+
 -- Helper Construction Functions
 createTypedNode :: MyTy LocRegion -> b -> (TypedNode LocRegion) b
 createTypedNode ty node = TypedNode { tType = ty, tNode = node }
@@ -198,6 +214,7 @@ inferProgram :: Program -> E ((TypedNode LocRegion) Program)
 inferProgram (Program dataDecls funcDecls@(FuncDecls funcs) mainExpr) = do
     env1 <- loadDataDecls dataDecls emptyEnv
     env2 <- loadFuncDecls funcDecls env1
+    
     -- print dataTypeEnv
     -- env2 <- createTypedNode IntTy (Program dataDecls funcDecls mainExpr)
     runReaderT (do
@@ -214,18 +231,18 @@ inferFunc :: FuncDecl -> (InferM LocRegion) ((TypedNode LocRegion) FuncDecl)
 inferFunc func@(FuncDecl (FuncVar funcVar) typeScheme funcVar2 locRegions v@(Vars vars) expr) = do
     -- case lookupFunc funcVar of 
     --     Nothing -> lift . Failed $ "inferFunc: Function " ++ show funcVar ++ " not found in environment"
-    (argTys, retTy) <- lookupFunc funcVar
+    funcInfo <- lookupFunc funcVar
     -- -- this should never happen, but for completeness, I include it
     -- if length argTys /= length vars
     --     then lift . Failed $ "inferFunc: Argument length mismatch in function " ++ show funcVar
     --     else do
     let varsNames = map (\(Var vname) -> vname) vars
-        varTyPairs = zip varsNames argTys
-    typeExpr <- extendVEnvs varTyPairs (inferExpr expr) 
-    if tType typeExpr == retTy
-    then return $ createTypedNode retTy func
-    else lift . Failed $ "inferFunc: Return type mismatch in function " ++ show funcVar ++ ": expected " ++ show retTy ++ ", got " ++ show (tType typeExpr)
-                    
+        varTyPairs = zip varsNames (funcArgTypes funcInfo)
+    typeExpr <- setAsCurrentFunc funcVar (extendVEnvs varTyPairs (inferExpr expr)) 
+    if tType typeExpr == funcRetType funcInfo
+    then return $ createTypedNode (funcRetType funcInfo) func
+    else lift . Failed $ "inferFunc: Return type mismatch in function " ++ show funcVar ++ ": expected " ++ show (funcRetType funcInfo) ++ ", got " ++ show (tType typeExpr)
+
                     -- >>= \typedExpr -> 
                     --     if tType typedExpr == retTy
                     --         then return $ createTypedNode retTy (FuncDecl funcVar typeScheme funcVar2 locRegions vars (tNode typedExpr))
@@ -251,12 +268,36 @@ inferExpr expr = case expr of
     -- TODO deal with location region stuff (may consider type promotion too)
     iFuncApp@(ExprFuncApp (FuncVar funcVar) locRegions (Exprs exprs)) -> do
         typedExprs <- mapM inferExpr exprs
-        (fArgTypes, retTy) <- lookupFunc funcVar 
+        funcInfo <- lookupFunc funcVar
         let argTys = map tType typedExprs
-        if argTys == fArgTypes
-        then return $ createTypedNode retTy iFuncApp
-        else lift . Failed $ "Type mismatch in function application: " ++ show argTys ++ " vs " ++ show fArgTypes
-    
+            oldFuncRetType = funcRetType funcInfo 
+        
+        -- TODO may need to check if recursive function requires same region for types, but for now, ignore
+        -- check if function not being recursively called
+        -- if not (funcInside funcInfo)
+        -- then 
+            -- check if arguments match (ignoring location regions)
+        if checkArgTys argTys (funcArgTypes funcInfo)
+        then return $ createTypedNode (modRetType oldFuncRetType) iFuncApp
+        else lift . Failed $ "Type mismatch in function application: " ++ show argTys ++ " vs " ++ show (funcArgTypes funcInfo)
+        -- else
+        --     if argTys == funcArgTypes funcInfo
+        --     then return $ createTypedNode (funcRetType funcInfo) iFuncApp
+        --     else lift . Failed $ "Type mismatch in function application: " ++ show argTys ++ " vs " ++ show (funcArgTypes funcInfo)
+        where
+            -- removes location region from return type
+            modRetType :: MyTy LocRegion -> MyTy LocRegion
+            modRetType (PackedTy ty _) = PackedTy ty EmptyLocRegion
+            modRetType ty = ty
+
+            checkArgTys :: [MyTy LocRegion] -> [MyTy LocRegion] -> Bool
+            checkArgTys [] [] = True
+            checkArgTys (x:xs) (y:ys) = checkArgTy x y && checkArgTys xs ys
+            checkArgTys _ _ = False
+
+            checkArgTy :: MyTy LocRegion -> MyTy LocRegion -> Bool
+            checkArgTy (PackedTy ty1 _) (PackedTy ty2 _) = ty1 == ty2
+            checkArgTy ty1 ty2 = ty1 == ty2
     -- TODO deal with location region stuff
     iDataConApp@(ExprDataConApp (DataCon dataCon) locRegion (Exprs exprs)) -> do
         typedExprs <- mapM inferExpr exprs
@@ -427,7 +468,7 @@ extractDataCons (DataTypeDecl typeCon (DataFields dataFields)) = map extractData
     where
         extractDataField :: DataField -> (DataCon, ([MyTy LocRegion], MyTy LocRegion))
         extractDataField (DataField dataCon (CombinedTypeCons combinedTypeCons)) =
-            (dataCon, (map combinedTypeConToType combinedTypeCons, PackedTy typeCon emptyLocRegion))
+            (dataCon, (map combinedTypeConToType combinedTypeCons, PackedTy typeCon EmptyLocRegion))
 
 loadDataDecls :: DataTypeDecls -> MyEnv LocRegion -> E (MyEnv LocRegion)
 loadDataDecls (DataTypeDecls decls) env = foldM loadDataDecl env decls
@@ -436,39 +477,39 @@ loadDataDecls (DataTypeDecls decls) env = foldM loadDataDecl env decls
         loadDataDecl env2 decl = foldM loadCon env2 (extractDataCons decl)
 
         loadCon :: MyEnv LocRegion -> (DataCon, ([MyTy LocRegion], MyTy LocRegion)) -> E (MyEnv LocRegion)
-        loadCon env2 ((DataCon dataCon), (fieldTys, resTy)) 
+        loadCon env2 (DataCon dataCon, (fieldTys, resTy)) 
             | M.member dataCon (dcEnv env2) = 
                 Failed $ "Data constructor " ++ show dataCon ++ " already defined in environment"
             | otherwise = Ok env2 { dcEnv = M.insert dataCon (fieldTys, resTy) (dcEnv env2) }
 
 -- Function Declaration Loading
-extractFuncDecls :: FuncDecls -> [(FuncVar, ([MyTy LocRegion], MyTy LocRegion))]
+extractFuncDecls :: FuncDecls -> [(FuncVar, FuncInfo LocRegion)]
 extractFuncDecls (FuncDecls decls) = map extractFuncDecl decls
     where
         -- TODO deal with location regions
-        extractFuncDecl :: FuncDecl -> (FuncVar, ([MyTy LocRegion], MyTy LocRegion))
+        extractFuncDecl :: FuncDecl -> (FuncVar, FuncInfo LocRegion)
         extractFuncDecl (FuncDecl funcVar1 (TypeScheme combinedTypes) funcVar2 locRegions vars expr) = 
             -- GET ARG TYPES AND RETURN TYPE FROM TYPESCHEME, ignore everything else
             case separateArgs combinedTypes of
                 Nothing -> error $ "extractFuncDecl: Function " ++ show funcVar1 ++ " has invalid type scheme"
-                Just (argTys, retTy) -> (funcVar1, (argTys, retTy))
+                Just funcInfo -> (funcVar1, funcInfo)
         
-        separateArgs :: CombinedTypes -> Maybe ([MyTy LocRegion], MyTy LocRegion)
+        separateArgs :: CombinedTypes -> Maybe (FuncInfo LocRegion)
         separateArgs (CombinedTypes []) = Nothing
-        separateArgs (CombinedTypes [x]) = Just ([], combinedTypeToType x)
+        separateArgs (CombinedTypes [x]) = Just (FuncInfo [] (combinedTypeToType x) False)
         separateArgs (CombinedTypes (x:xs)) = case separateArgs (CombinedTypes xs) of
             Nothing -> Nothing
-            Just (argTys, retTy) -> Just (combinedTypeToType x : argTys, retTy)
+            Just (FuncInfo argTys retTy _) -> Just (FuncInfo (combinedTypeToType x : argTys) retTy False)
 
 loadFuncDecls :: FuncDecls -> MyEnv LocRegion -> E (MyEnv LocRegion)
 loadFuncDecls (FuncDecls decls) env = foldM loadFuncDecl env decls
     where
         loadFuncDecl :: MyEnv LocRegion -> FuncDecl -> E (MyEnv LocRegion)
         loadFuncDecl env2 decl = 
-            let ((FuncVar funcVar), (argTys, retTy)) = extractFuncDecls (FuncDecls [decl]) !! 0
+            let (FuncVar funcVar, funcInfo) = extractFuncDecls (FuncDecls [decl]) !! 0
             in if M.member funcVar (fEnv env2)
                 then Failed $ "Function " ++ show funcVar ++ " already defined in environment"
-                else Ok env2 { fEnv = M.insert funcVar (argTys, retTy) (fEnv env2) }
+                else Ok env2 { fEnv = M.insert funcVar funcInfo (fEnv env2) }
 
 
 -- loadDataDecls :: DataTypeDecls -> InferM Type
