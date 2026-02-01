@@ -1,13 +1,16 @@
 module ConvertToL2AST where
 
-import Gibbon.Common as C
+import qualified Gibbon.Common as C
 import Gibbon.L2.Syntax as L2
 import Gibbon.Language.Syntax as S
+import qualified Data.Set.Internal as Set (empty)
 import AST
 import Data.Map (empty, fromList)
 import ConvertToTypedAST as My
 import Helper
 import GHC.Float ( float2Double )
+import Foreign (new)
+-- import TestRunner (Result(Fail))
 
 
 -- class ConvertToL2AST a where
@@ -32,7 +35,8 @@ convertToL2AST (TypedNode p_type (Program dataTypeDecls funcDecls expr)) = do
     newDataTypeDecls <- convertDataTypeDecls dataTypeDecls
     newExpr <- convertExpr expr
     newPType <- convertMyTyUrTy p_type
-    return $ L2.Prog newDataTypeDecls empty (Just (newExpr, newPType))
+    newFuncDecls <- convertFuncDecls funcDecls
+    return $ L2.Prog newDataTypeDecls newFuncDecls (Just (newExpr, newPType))
 
 convertDataTypeDecls :: DataTypeDecls -> E (S.DDefs L2.Ty2)
 convertDataTypeDecls (DataTypeDecls decls) = do
@@ -77,14 +81,53 @@ convertBaseType baseType = case baseType of
     _      -> Failed "convertBaseType: Unsupported base type"
 -- convertBaseType String = S.StringTy   Unsure how to deal with this for now
 
--- convertFuncDecls :: FuncDecls -> E (L2.FunDefs C.Var L2.Exp2)
--- convertFuncDecls (FuncDecls funcDecls) = do
---     newDecls <- mapM convertFuncDecl funcDecls
---     return $ fromList newDecls
+convertFuncDecls :: FuncDecls -> E (L2.FunDefs C.Var L2.Exp2)
+convertFuncDecls (FuncDecls funcDecls) = do
+    newDecls <- mapM convertFuncDecl funcDecls
+    return $ fromList newDecls
 
--- convertFuncDecl :: FuncDecl -> E (C.Var, L2.FunDef C.Var L2.Exp2)
--- convertFuncDecl (FuncDecl (FuncVar f) typeScheme (FuncVar innerF) locRegions vars expr) = do
---     newTypeScheme <- convertTypeScheme typeScheme
+convertFuncDecl :: FuncDecl -> E (C.Var, L2.FunDef2)
+convertFuncDecl (FuncDecl (FuncVar f) typeScheme (FuncVar innerF) locRegions vars expr) = do
+    newTypeScheme <- convertTypeScheme typeScheme
+    newExpr <- convertExpr expr
+    newVars <- convertVarsToVars vars
+    -- TODO figure out how to actually set Rec and Inline and CanTriggerGC
+    return (C.toVar f, S.FunDef (C.toVar f) newVars newTypeScheme newExpr (S.FunMeta S.Rec S.NoInline False) )
+
+-- TODO look more into how I set locRets and has Parallelism
+convertTypeScheme :: TypeScheme -> E (L2.ArrowTy2 L2.Ty2)
+convertTypeScheme (TypeScheme (CombinedTypes combinedTypes)) = do
+    (args, ret) <- splitLast combinedTypes
+    locVarsArgs <- mapM (convertCombinedTypeToLRM L2.Input) . filter isLocatedType $ args
+    locVarsRet <-  mapM (convertCombinedTypeToLRM L2.Output) . filter isLocatedType $ [ret]
+    let locVars = locVarsArgs ++ locVarsRet
+    inTypes <- mapM convertCombinedTypeToTy args
+    outType <- convertCombinedTypeToTy ret
+    -- TODO figure out how to set parallelism
+    return $ L2.ArrowTy2 locVars inTypes Set.empty outType [] False
+    where
+        isLocatedType :: CombinedType -> Bool
+        isLocatedType (CTLocated (LocatedType _ EmptyLocRegion)) = False
+        isLocatedType (CTLocated (LocatedType (CLTBase _) _)) = False
+        isLocatedType (CTLocated _) = True
+        isLocatedType (CTBase _) = False
+
+-- TODO figure out how index var works in this case
+convertCombinedTypeToLRM :: L2.Modality -> CombinedType -> E LRM
+convertCombinedTypeToLRM lrmModality (CTLocated (LocatedType combinedLocType locRegion)) = do
+    locVar <- convertLocRegionToLocVar locRegion
+    regionVar <- convertLocRegionToRegVar locRegion
+    -- indexVar <- convertLocRegionToIndexVar locRegion
+    return $ L2.LRM (C.Single locVar) (L2.VarR regionVar) lrmModality
+convertCombinedTypeToLRM _ _ = Failed "convertCombinedTypeToLRM: Mapping called on non-located type"
+
+convertCombinedTypeToTy :: CombinedType -> E L2.Ty2
+convertCombinedTypeToTy (CTLocated (LocatedType (CLTTypeCon (TypeCon typeCon)) l@(LocRegion {}))) = do
+    locVar <- convertLocRegionToLocVar l
+    return $ S.PackedTy typeCon (C.Single locVar)
+convertCombinedTypeToTy (CTLocated (LocatedType (CLTBase baseType) _)) = convertBaseType baseType
+convertCombinedTypeToTy (CTBase baseType) = convertBaseType baseType
+convertCombinedTypeToTy _ = Failed "convertCombinedTypeToInputTy: Unsupported CombinedType"
 
 
 -- TODO continue this
@@ -101,9 +144,10 @@ convertExpr expr = do
             newExprs <- mapM convertExpr exprs
             -- TODO insert locRegions into []
             return $ S.AppE (C.toVar f) [] newExprs
-        (ExprDataConApp (DataCon dataCon) (LocRegion (LocVar locVar) regVar iVar) (Exprs exprs)) -> do
+        (ExprDataConApp (DataCon dataCon) locRegion (Exprs exprs)) -> do
             newExprs <- mapM convertExpr exprs
-            return $ S.DataConE (C.Single . C.toVar $ locVar) dataCon newExprs
+            locVar <- convertLocRegionToLocVar locRegion
+            return $ S.DataConE (C.Single locVar) dataCon newExprs
         (ExprCase val pats) -> do
             Failed "convertExpr: Not implemented for case expressions"
         (ExprLet var combinedType e1 e2) -> do
@@ -154,9 +198,24 @@ convertBinOp b = case b of
     Or ->   return S.OrP
     _ ->   Failed "convertBinOp: Unsupported binary operator"
 
+convertLocRegionToLocVar :: LocRegion -> E C.Var
+convertLocRegionToLocVar (LocRegion (LocVar locVar) _ _) = return $ C.toVar locVar
+convertLocRegionToLocVar EmptyLocRegion = Failed "convertLocRegionToLocVar: EmptyLocRegion has no LocVar"
+
+convertLocRegionToRegVar :: LocRegion -> E C.Var
+convertLocRegionToRegVar (LocRegion _ (RegionVar regionVar) _) = return $ C.toVar regionVar
+convertLocRegionToRegVar EmptyLocRegion = Failed "convertLocRegionToRegVar: EmptyLocRegion has no RegionVar"
+
+convertLocRegionToIndexVar :: LocRegion -> E C.Var
+convertLocRegionToIndexVar (LocRegion _ _ (IndexVar indexVar)) = return $ C.toVar indexVar
+convertLocRegionToIndexVar EmptyLocRegion = Failed "convertLocRegionToIndexVar: EmptyLocRegion has no IndexVar"
+
 convertTypeCon :: TypeCon -> E S.TyCon
 convertTypeCon (TypeCon typeCon) = do
     return typeCon
+
+convertVarsToVars :: Vars -> E [C.Var]
+convertVarsToVars (Vars vars) = return $ map (\(Var v) -> C.toVar v) vars
 
 convertDataCon :: AST.DataCon -> E C.DataCon
 convertDataCon (AST.DataCon dataCon) = return dataCon

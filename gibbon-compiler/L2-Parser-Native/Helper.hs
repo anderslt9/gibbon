@@ -27,6 +27,13 @@ checkAllSame (x:xs) = all (== x) xs
 safeHead :: [a] -> E a
 safeHead []    = Failed "Empty list"
 safeHead (x:_) = Ok x
+
+splitLast :: [a] -> E ([a], a)
+splitLast [] = Failed "splitLast: Empty list has no last element"
+splitLast [x] = return ([], x)
+splitLast (x:xs) = do
+    (rest, lastElem) <- splitLast xs
+    return (x:rest, lastElem)
 instance Functor E where
     fmap f (Ok x)      = Ok (f x)
     fmap _ (Failed e)  = Failed e

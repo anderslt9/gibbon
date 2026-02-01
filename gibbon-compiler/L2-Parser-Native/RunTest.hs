@@ -12,6 +12,7 @@ import Helper (makeRed, makeBold, makeGreen, E(Ok, Failed))
 import Parser (l2ParserNative)
 import ConvertToTypedAST (inferProgram, tType)
 import ConvertToL2AST (convertToL2AST)
+import Gibbon.Common (sdoc)
 
 type Args = [String]
 type LastParsed = String
@@ -21,14 +22,20 @@ data SimpleCfg = SimpleCfg {
                     inFiles :: [String],
                     outFiles :: [String],
                     showTokens :: Bool,
-                    showRaw :: Bool
+                    showRaw :: Bool,
+                    showInitialParse :: Bool,
+                    showTyped :: Bool,
+                    showL2AST :: Bool
                     } deriving Show
 
 baseCfg :: SimpleCfg 
 baseCfg = SimpleCfg {   inFiles = [],
                         outFiles = [],
                         showTokens = True,
-                        showRaw = False
+                        showRaw = False,
+                        showInitialParse = True,
+                        showTyped = False,
+                        showL2AST = True
 }
 
 printTest:: SimpleCfg -> IO ()
@@ -46,14 +53,14 @@ printTest config = do
         let tokens = lexer contents
         when (showTokens config) $ do
             if length (outFiles config) >= i
-                then do
-                    appendFile (outFiles config !! (i - 1)) "== Tokens ==\n"
-                    forM_ tokens $ \token -> appendFile (outFiles config !! (i - 1)) (show token ++ "\n")
-                    putStrLn $ "Wrote Tokens to: " ++ (makeBold $ outFiles config !! (i - 1))
-                else do
-                    putStrLn "\n== Tokens =="
-                    forM_ tokens $ \token -> putStrLn (show token)
-                    putStrLn $ "Tokens written to console (no file specified)."
+            then do
+                appendFile (outFiles config !! (i - 1)) "== Tokens ==\n"
+                forM_ tokens $ \token -> appendFile (outFiles config !! (i - 1)) (show token ++ "\n")
+                putStrLn $ "Wrote Tokens to: " ++ makeBold (outFiles config !! (i - 1))
+            else do
+                putStrLn "\n== Tokens =="
+                forM_ tokens $ \token -> print token
+                putStrLn "Tokens written to console (no file specified)."
 
         -- runs/prints parser
         let ast = l2ParserNative tokens
@@ -63,35 +70,59 @@ printTest config = do
             -- gets L2 AST
             l2_ast = typed_ast >>= convertToL2AST
         
-        case typed_ast of
-            Ok t_ast -> putStrLn . makeGreen $ "Type Inference Succeeded with type: " ++ show (tType t_ast)
-            Failed e -> putStrLn . makeRed $ "Type Inference Failed: " ++ e
-        case l2_ast of
-            Ok _ -> putStrLn . makeGreen $ "Conversion to L2 AST Succeeded."
-            Failed e -> putStrLn . makeRed $ "Conversion to L2 AST Failed: " ++ e
-        
+        -- displays raw result
         when (showRaw config) $ do
             if length (outFiles config) >= i
-                then do
-                    appendFile (outFiles config !! (i - 1)) "\n== Raw Parse Result ==\n"
-                    appendFile (outFiles config !! (i - 1)) (show ast)
-                    putStrLn $ "Wrote Raw Parse Result to: " ++ (makeBold $ outFiles config !! (i - 1))
-                else do 
-                    putStrLn "\n== Raw Parse Result =="
-                    print ast
-                    putStrLn $ "Raw Parse Result written to console (no file specified)."
+            then do
+                appendFile (outFiles config !! (i - 1)) "\n== Raw Parse Result ==\n"
+                appendFile (outFiles config !! (i - 1)) (show ast)
+                putStrLn $ "Wrote Raw Parse Result to: " ++ makeBold (outFiles config !! (i - 1))
+            else do 
+                putStrLn "\n== Raw Parse Result =="
+                print ast
+                putStrLn "Raw Parse Result written to console (no file specified)."
         
+        -- displays pretty result
         case parsed_str of
-            Ok x -> if length (outFiles config) >= i
+            Ok x -> when (showInitialParse config) $ do 
+                    if length (outFiles config) >= i
+                    then do
+                        appendFile (outFiles config !! (i - 1)) "\n== Pretty Parse Result ==\n"
+                        appendFile (outFiles config !! (i - 1)) x
+                        putStrLn $ "Wrote Pretty Parse Result to: " ++ makeBold (outFiles config !! (i - 1))
+                    else do 
+                        putStrLn "\n== Pretty Parse Result =="
+                        putStrLn x
+                        putStrLn "Pretty Parse Result written to console (no file specified)."
+            Failed e -> putStrLn . makeRed $  "Parsing Failed: " ++ e
+        
+        -- displays typed AST
+        case typed_ast of
+            Ok t_ast -> when (showTyped config) $ do
+                        if length (outFiles config) >= i
                         then do
-                            appendFile (outFiles config !! (i - 1)) "\n== Pretty Parse Result ==\n"
-                            appendFile (outFiles config !! (i - 1)) x
-                            putStrLn $ "Wrote Pretty Parse Result to: " ++ (makeBold $ outFiles config !! (i - 1))
+                            appendFile (outFiles config !! (i - 1)) "\n== Typed AST ==\n"
+                            appendFile (outFiles config !! (i - 1)) (show t_ast)
+                            putStrLn $ "Wrote Typed AST to: " ++ makeBold (outFiles config !! (i - 1))
                         else do 
-                            putStrLn "\n== Pretty Parse Result =="
-                            putStrLn x
-                            putStrLn $ "Pretty Parse Result written to console (no file specified)."
-            Failed e -> putStrLn . makeRed $ e
+                            putStrLn "\n== Typed AST =="
+                            print t_ast
+                            putStrLn "Typed AST written to console (no file specified)."
+            Failed e -> putStrLn . makeRed $ "Type Inference Failed: " ++ e
+        
+        -- displays L2 AST
+        case l2_ast of
+            Ok l2p -> when (showL2AST config) $ do 
+                        if length (outFiles config) >= i
+                        then do
+                            appendFile (outFiles config !! (i - 1)) "\n== L2 AST ==\n"
+                            appendFile (outFiles config !! (i - 1)) (sdoc l2p)
+                            putStrLn $ "Wrote L2 AST to: " ++ makeBold (outFiles config !! (i - 1))
+                        else do 
+                            putStrLn "\n== L2 AST =="
+                            putStrLn (sdoc l2p)
+                            putStrLn "L2 AST written to console (no file specified)."
+            Failed e -> putStrLn . makeRed $ "Conversion to L2 AST Failed: " ++ e
 
 
 setConfig :: Args -> Result SimpleCfg
@@ -101,8 +132,8 @@ setConfig args = setConfig' args baseCfg ""
         setConfig' :: Args -> SimpleCfg -> LastParsed -> Result SimpleCfg
         -- empty arg list means we're done
         setConfig' [] cfg _ = if length (inFiles cfg) < length (outFiles cfg)
-                                then Failure "Error: Number of input files is less than number of output files."
-                                else Success cfg 
+                              then Failure "Error: Number of input files is less than number of output files."
+                              else Success cfg 
         
         -- if -i or -o seen, set this flag
         setConfig' ("-i":rest) cfg _ = setConfig' rest cfg "-i"
@@ -112,15 +143,18 @@ setConfig args = setConfig' args baseCfg ""
             -- boolean flags
             | "--show-tokens" `isPrefixOf` arg = setConfig' rest (cfg {showTokens = getBoolean arg}) ""
             | "--show-raw" `isPrefixOf` arg = setConfig' rest (cfg {showRaw = getBoolean arg}) "" 
-            
+            | "--show-initial-parse" `isPrefixOf` arg = setConfig' rest (cfg {showInitialParse = getBoolean arg}) ""
+            | "--show-typed" `isPrefixOf` arg = setConfig' rest (cfg {showTyped = getBoolean arg}) ""
+            | "--show-l2ast" `isPrefixOf` arg = setConfig' rest (cfg {showL2AST = getBoolean arg}) ""
+
             -- file arguments
-            | lastParsed == "-i" = if checkValidFile arg
+            | lastParsed == "-i" =  if checkValidFile arg
                                     then setConfig' rest (cfg {inFiles = inFiles cfg ++ [arg]}) "-i"
                                     else Failure $ "Invalid input file: " ++ arg
             | lastParsed == "-o" = setConfig' rest (cfg {outFiles = outFiles cfg ++ [arg]}) "-o"
             | otherwise = if checkValidFile arg
-                                    then setConfig' rest (cfg {inFiles = inFiles cfg ++ [arg]}) "-i"
-                                    else Failure $ "Unknown command line argument: " ++ arg
+                          then setConfig' rest (cfg {inFiles = inFiles cfg ++ [arg]}) "-i"
+                          else Failure $ "Unknown command line argument: " ++ arg
 
         getBoolean :: String -> Bool
         getBoolean s
