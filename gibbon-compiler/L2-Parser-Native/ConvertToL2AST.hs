@@ -140,23 +140,46 @@ convertExpr expr = do
             newE2 <- convertExpr e2
             primOp <- convertBinOp binOp
             return $ S.PrimAppE primOp [newE1, newE2]
-        (ExprFuncApp (FuncVar f) locRegions (Exprs exprs)) -> do
+        (ExprFuncApp (FuncVar f) (LocRegions locRegions) (Exprs exprs)) -> do
             newExprs <- mapM convertExpr exprs
-            -- TODO insert locRegions into []
-            return $ S.AppE (C.toVar f) [] newExprs
+            newLocs <- mapM convertLocRegionToLocVar locRegions
+            return $ S.AppE (C.toVar f) (map C.Single newLocs) newExprs
         (ExprDataConApp (DataCon dataCon) locRegion (Exprs exprs)) -> do
             newExprs <- mapM convertExpr exprs
             locVar <- convertLocRegionToLocVar locRegion
             return $ S.DataConE (C.Single locVar) dataCon newExprs
         (ExprCase val pats) -> do
-            Failed "convertExpr: Not implemented for case expressions"
-        (ExprLet var combinedType e1 e2) -> do
-            Failed "convertExpr: Not implemented for let expressions"
+            newPats <- convertPats pats
+            newVal <- convertVal val
+            return $ L2.CaseE newVal newPats
+        (ExprLet (Var var) combinedType e1 e2) -> do
+            let newVar = C.toVar var
+            newCombinedType <- convertCombinedTypeToTy combinedType
+            newE1 <- convertExpr e1
+            newE2 <- convertExpr e2
+            return $ L2.LetE (newVar, [], newCombinedType, newE1) newE2
         (ExprLetLoc locRegion locExpress e) -> do
             Failed "convertExpr: Not implemented for letloc expressions"
         (ExprLetRegion regionVar e) -> do
             Failed "convertExpr: Not implemented for letregion expressions"
         _ -> Failed "convertExpr: Not implemented for this expression type"
+
+
+convertPats :: Pats -> E [(C.DataCon, [(C.Var, L2.LocVar)], L2.Exp2)]
+convertPats (Pats pats) = do
+    mapM convertPat pats
+
+convertPat :: Pat -> E (C.DataCon, [(C.Var, L2.LocVar)], L2.Exp2)
+convertPat (Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
+    newPatMatches <- mapM convertPatMatch patMatches
+    newExpr <- convertExpr expr
+    return (dataCon, newPatMatches, newExpr)
+
+convertPatMatch :: PatMatch -> E (C.Var, L2.LocVar)
+convertPatMatch (PatMatch (ValVar (AST.Var v)) (LocatedType _ locRegion)) = do
+    locVar <- convertLocRegionToLocVar locRegion
+    return (C.toVar v, C.Single locVar)
+convertPatMatch _ = Failed "convertPatMatch: Unsupported pattern match"
 
 
 convertVal :: Val -> E L2.Exp2
