@@ -1,26 +1,26 @@
 module AST where 
 
 -- top-level program
-data Program = Program DataTypeDecls FuncDecls Expr deriving Show
+data Program = Program DataTypeDecls FuncDecls Expr deriving (Show,Eq)
 
 -- data type declarations
-data DataTypeDecl = DataTypeDecl TypeCon DataFields deriving Show
-data DataField = DataField DataCon CombinedTypeCons deriving Show
-data CombinedTypeCon = CTCTypeCon TypeCon | CTCBase BaseType deriving Show
+data DataTypeDecl = DataTypeDecl TypeCon DataFields deriving (Show,Eq)
+data DataField = DataField DataCon CombinedTypeCons deriving (Show,Eq)
+data CombinedTypeCon = CTCTypeCon TypeCon | CTCBase BaseType deriving (Show,Eq)
 
 -- function declarations
-data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr deriving Show
+data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr deriving (Show,Eq)
 
 -- type expressions
-data LocatedType = LocatedType CombinedLocType LocRegion deriving Show
-data CombinedLocType = CLTTypeCon TypeCon | CLTBase BaseType deriving Show
-newtype TypeScheme = TypeScheme CombinedTypes deriving Show
-data CombinedType = CTLocated LocatedType | CTBase BaseType deriving Show
-data BaseType = Int | Float | Bool | String deriving Show
+data LocatedType = LocatedType CombinedLocType LocRegion deriving (Show, Eq)
+data CombinedLocType = CLTTypeCon TypeCon | CLTBase BaseType deriving (Show, Eq)
+newtype TypeScheme = TypeScheme CombinedTypes deriving (Show,Eq)
+data CombinedType = CTLocated LocatedType | CTBase BaseType deriving (Show,Eq)
+data BaseType = Int | Float | Bool | String deriving (Show,Eq)
 
 -- location expressions
-data LocExpress = LocExpressStart RegionVar | LocExpressNext LocRegion | LocExpressAfter LocatedType deriving Show
-data LocRegion = LocRegion LocVar RegionVar IndexVar | EmptyLocRegion deriving (Show, Ord)
+data LocExpress = LocExpressStart RegionVar | LocExpressNext LocRegion | LocExpressAfter LocatedType deriving (Show,Eq)
+data LocRegion = LocRegion LocVar RegionVar IndexVar | LocRelativeVar String LocVar RegionVar IndexVar | EmptyLocRegion deriving (Show, Ord)
 
 instance Eq LocRegion where
     (==) EmptyLocRegion EmptyLocRegion = True
@@ -32,19 +32,21 @@ instance Eq LocRegion where
         lv1 == lv2 && rv1 == rv2
     (==) (LocRegion lv1 rv1 iv1) (LocRegion lv2 rv2 iv2) =
         lv1 == lv2 && rv1 == rv2 && iv1 == iv2
+    (==) (LocRelativeVar s1) (LocRelativeVar s2) = s1 == s2
+    (==) _ _ = False
 
 -- identifiers/literals
-data Val = ValVar Var | ValLit Lit deriving Show
-data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String deriving Show
+data Val = ValVar Var | ValLit Lit deriving (Show,Eq)
+data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String deriving (Show,Eq)
 
 -- expressions
 data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Exprs | ExprDataConApp DataCon LocRegion Exprs
             | ExprCase Val Pats | ExprLet Var CombinedType Expr Expr | ExprLetLoc LocRegion LocExpress Expr
-            | ExprLetRegion RegionVar Expr deriving Show
-data Pat = Pat DataCon PatMatches Expr deriving Show
-data PatMatch = PatMatch Val LocatedType deriving Show
+            | ExprLetRegion RegionVar Expr deriving (Show,Eq)
+data Pat = Pat DataCon PatMatches Expr deriving (Show,Eq)
+data PatMatch = PatMatch Val LocatedType deriving (Show,Eq)
 data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
-            | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving Show
+            | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving (Show,Eq)
 
 -- specific variable types
 newtype FuncVar = FuncVar String deriving (Show, Eq, Ord)
@@ -56,15 +58,15 @@ newtype DataCon = DataCon String deriving (Show, Eq, Ord)
 newtype Var = Var String deriving (Show, Eq, Ord)
 
 -- repeated productions to model * operator
-newtype Vars = Vars [Var] deriving Show
-newtype DataFields = DataFields [DataField] deriving Show
--- newtype TypeCons = TypeCons [TypeCon] deriving Show
-newtype CombinedTypeCons = CombinedTypeCons [CombinedTypeCon] deriving Show
-newtype Exprs = Exprs [Expr] deriving Show
-newtype Vals = Vals [Val] deriving Show
-newtype Pats = Pats [Pat] deriving Show
-newtype PatMatches = PatMatches [PatMatch] deriving Show
-newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving Show
-newtype FuncDecls = FuncDecls [FuncDecl] deriving Show
-newtype LocRegions = LocRegions [LocRegion] deriving Show
-newtype CombinedTypes = CombinedTypes [CombinedType] deriving Show
+newtype Vars = Vars [Var] deriving (Show,Eq)
+newtype DataFields = DataFields [DataField] deriving (Show,Eq)
+-- newtype TypeCons = TypeCons [TypeCon] deriving (Show,Eq)
+newtype CombinedTypeCons = CombinedTypeCons [CombinedTypeCon] deriving (Show,Eq)
+newtype Exprs = Exprs [Expr] deriving (Show,Eq)
+newtype Vals = Vals [Val] deriving (Show,Eq)
+newtype Pats = Pats [Pat] deriving (Show,Eq)
+newtype PatMatches = PatMatches [PatMatch] deriving (Show,Eq)
+newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving (Show,Eq)
+newtype FuncDecls = FuncDecls [FuncDecl] deriving (Show,Eq)
+newtype LocRegions = LocRegions [LocRegion] deriving (Show,Eq)
+newtype CombinedTypes = CombinedTypes [CombinedType] deriving (Show,Eq)

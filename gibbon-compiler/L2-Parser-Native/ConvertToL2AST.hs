@@ -9,7 +9,6 @@ import Data.Map (empty, fromList)
 import ConvertToTypedAST as My
 import Helper
 import GHC.Float ( float2Double )
-import Foreign (new)
 -- import TestRunner (Result(Fail))
 
 
@@ -159,7 +158,21 @@ convertExpr expr = do
             newE2 <- convertExpr e2
             return $ L2.LetE (newVar, [], newCombinedType, newE1) newE2
         (ExprLetLoc locRegion locExpress e) -> do
-            Failed "convertExpr: Not implemented for letloc expressions"
+            locVar <- convertLocRegionToLocVar locRegion
+            newE <- convertExpr e
+            case locExpress of 
+                (LocExpressStart (RegionVar regionVar)) -> do
+                    return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.StartOfRegionLE (L2.VarR . C.toVar $ regionVar)) newE
+                (LocExpressNext nextLocRegion) -> do
+                    nextLocVar <- convertLocRegionToLocVar nextLocRegion
+                    -- TODO Come back here to change constant
+                    return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterConstantLE 1 (C.Single nextLocVar)) newE
+                (LocExpressAfter (LocatedType (CLTTypeCon (TypeCon typeCon)) (LocRelativeVar locRelativeVar
+                ))) -> do
+                    locVarRel <- convertLocRegionToLocVar locRegionRel
+                    return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterVariableLE /// (C.Single locVarRel) True) newE
+                _ -> Failed "convertExpr: Not implemented for this locExpress type"
+            -- Failed "convertExpr: Not implemented for letloc expressions"
         (ExprLetRegion regionVar e) -> do
             Failed "convertExpr: Not implemented for letregion expressions"
         _ -> Failed "convertExpr: Not implemented for this expression type"
@@ -223,14 +236,17 @@ convertBinOp b = case b of
 
 convertLocRegionToLocVar :: LocRegion -> E C.Var
 convertLocRegionToLocVar (LocRegion (LocVar locVar) _ _) = return $ C.toVar locVar
+convertLocRegionToLocVar (LocRelativeVar _) = Failed "convertLocRegionToLocVar: Unsupported LocRegion type"
 convertLocRegionToLocVar EmptyLocRegion = Failed "convertLocRegionToLocVar: EmptyLocRegion has no LocVar"
 
 convertLocRegionToRegVar :: LocRegion -> E C.Var
 convertLocRegionToRegVar (LocRegion _ (RegionVar regionVar) _) = return $ C.toVar regionVar
+convertLocRegionToRegVar (LocRelativeVar _) = Failed "convertLocRegionToRegVar: Unsupported LocRegion type"
 convertLocRegionToRegVar EmptyLocRegion = Failed "convertLocRegionToRegVar: EmptyLocRegion has no RegionVar"
 
 convertLocRegionToIndexVar :: LocRegion -> E C.Var
 convertLocRegionToIndexVar (LocRegion _ _ (IndexVar indexVar)) = return $ C.toVar indexVar
+convertLocRegionToIndexVar (LocRelativeVar _) = Failed "convertLocRegionToIndexVar: Unsupported LocRegion type"
 convertLocRegionToIndexVar EmptyLocRegion = Failed "convertLocRegionToIndexVar: EmptyLocRegion has no IndexVar"
 
 convertTypeCon :: TypeCon -> E S.TyCon

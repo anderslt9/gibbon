@@ -81,7 +81,15 @@ data EnvType
     | EnvReg
     deriving (Show, Eq)
 
+
 -- Lookup Functions
+lookupByVal :: (Eq a, Show a) => MyTy a -> InferM a String
+lookupByVal val = do
+    env <- asks vEnv
+    case M.toList (M.filter (== val) env) of
+        ((k, _):_) -> return k
+        []         -> lift . Failed $ "Value " ++ show val ++ " not found in environment"
+
 lookupVar :: String -> InferM a (MyTy a)
 lookupVar v = do
     env <- asks vEnv
@@ -359,7 +367,7 @@ inferExpr expr = case expr of
                     typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
                     return $ createTypedNode (tType typedExpr) iLetLoc
             -- TODO need to check with others/paper if different types can be in same region (if not, more work is needed)
-            LocExpressAfter (LocatedType _ (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2))) -> do
+            LocExpressAfter lt@(LocatedType combinedLocType (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2))) -> do
                 -- TODO make sure locVar2 is in same region
                 -- let locatedType = locatedTypeToType locatedType
                 --     locRegion = getLocRegionFromLocType locatedType
@@ -367,7 +375,9 @@ inferExpr expr = case expr of
                 then lift . Failed $ "inferExpr: Region variable mismatch in letloc: " ++ show regVar2 ++ " vs " ++ show regVar
                 else do
                     typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
-                    return $ createTypedNode (tType typedExpr) iLetLoc
+                    varAfter <- lookupByVal (locatedTypeToType lt)
+                    let newILetLoc = ExprLetLoc locreg (LocExpressAfter (LocatedType combinedLocType (LocRelativeVar varAfter))) expr1
+                    return $ createTypedNode (tType typedExpr) newILetLoc
                     -- locInfo2 <- lookupLoc locVar2
             -- TODO this only occurs when an empty location expression is given, ensure correctness
             _ -> lift . Failed $ "inferExpr: Not implemented for this locExpress type in letloc"
