@@ -8,14 +8,21 @@ import Control.Monad (foldM)
 import Control.Monad.Reader
 import qualified Data.Map as M
 import qualified Data.Set as S
+import qualified Gibbon.Common as C
 -- import System.Environment (getEnv)
+
+-- This conversion does the following transformations:
+-- 1. Annotates each node in the AST with its type (using MyTy)
+-- 2. Ensures that all expressions are well-typed according to the type environment
+-- TODO : implement ability to write as reference to variable in top level language
+-- 3. Modifies LocRegion into LocRelativeVar for LocExpressAfter expressions
 
 type TyEnv a b = M.Map a b
 
 emptyTyEnv :: TyEnv a b
 emptyTyEnv = M.empty
 
-data MyEnv a = MyEnv   { dcEnv  :: TyEnv String ([MyTy a], MyTy a) -- Data constructor maps to type constructors and result type
+data MyEnv a = MyEnv { dcEnv  :: TyEnv String ([MyTy a], MyTy a) -- Data constructor maps to type constructors and result type
                      , vEnv   :: TyEnv String (MyTy a)
                      , fEnv   :: TyEnv String (FuncInfo a) -- Function maps to argument types and return type
                      , locEnv :: TyEnv String (LocInfo a) -- Location variable maps to (type, region variable)
@@ -86,7 +93,7 @@ data EnvType
 lookupByVal :: (Eq a, Show a) => MyTy a -> InferM a String
 lookupByVal val = do
     env <- asks vEnv
-    case M.toList (M.filter (== val) env) of
+    case M.toList (M.filter (==^^ val) env) of
         ((k, _):_) -> return k
         []         -> lift . Failed $ "Value " ++ show val ++ " not found in environment"
 
@@ -208,7 +215,11 @@ checkVarNameExists v = do
         Just _  -> return True
         Nothing -> return False
 
-
+-- compare only by name of type
+(==^^) :: (Eq a) => MyTy a -> MyTy a -> Bool
+(==^^) (PackedTy (TypeCon tc1) _) (PackedTy (TypeCon tc2) _) =
+    tc1 == tc2
+(==^^) ty1 ty2 = ty1 == ty2
 
 -- Helper Construction Functions
 createTypedNode :: MyTy LocRegion -> b -> (TypedNode LocRegion) b
@@ -217,6 +228,8 @@ createTypedNode ty node = TypedNode { tType = ty, tNode = node }
 emptyEnv :: MyEnv LocRegion
 emptyEnv = MyEnv emptyTyEnv emptyTyEnv emptyTyEnv emptyTyEnv emptyTyEnv
 
+
+----------------------------------------------------------------------------------------------
 -- Program Type Inference
 inferProgram :: Program -> E ((TypedNode LocRegion) Program)
 inferProgram (Program dataDecls funcDecls@(FuncDecls funcs) mainExpr) = do
@@ -236,7 +249,7 @@ inferProgram (Program dataDecls funcDecls@(FuncDecls funcs) mainExpr) = do
 -- TODO need to handle location regions
 -- We assume function declarations already loaded
 inferFunc :: FuncDecl -> (InferM LocRegion) ((TypedNode LocRegion) FuncDecl)
-inferFunc func@(FuncDecl (FuncVar funcVar) typeScheme funcVar2 locRegions v@(Vars vars) expr) = do
+inferFunc (FuncDecl (FuncVar funcVar) typeScheme funcVar2 locRegions v@(Vars vars) expr) = do
     -- case lookupFunc funcVar of 
     --     Nothing -> lift . Failed $ "inferFunc: Function " ++ show funcVar ++ " not found in environment"
     funcInfo <- lookupFunc funcVar
@@ -247,8 +260,10 @@ inferFunc func@(FuncDecl (FuncVar funcVar) typeScheme funcVar2 locRegions v@(Var
     let varsNames = map (\(Var vname) -> vname) vars
         varTyPairs = zip varsNames (funcArgTypes funcInfo)
     typeExpr <- setAsCurrentFunc funcVar (extendVEnvs varTyPairs (inferExpr expr)) 
-    if tType typeExpr == funcRetType funcInfo
-    then return $ createTypedNode (funcRetType funcInfo) func
+    let newIFunc = FuncDecl (FuncVar funcVar) typeScheme funcVar2 locRegions v (tNode typeExpr)
+    
+    if tType typeExpr ==^^ funcRetType funcInfo
+    then return $ createTypedNode (funcRetType funcInfo) newIFunc
     else lift . Failed $ "inferFunc: Return type mismatch in function " ++ show funcVar ++ ": expected " ++ show (funcRetType funcInfo) ++ ", got " ++ show (tType typeExpr)
 
                     -- >>= \typedExpr -> 
@@ -259,34 +274,37 @@ inferFunc func@(FuncDecl (FuncVar funcVar) typeScheme funcVar2 locRegions v@(Var
 
 inferExpr :: Expr -> (InferM LocRegion) ((TypedNode LocRegion) Expr)
 inferExpr expr = case expr of 
-    iVal@(ExprVal val) -> do
+    (ExprVal val) -> do
         typedVal <- inferVal val
-        return $ createTypedNode (tType typedVal) iVal
-    iBinApp@(ExprBinOp binOp e1 e2) -> do
+        let newIVal = ExprVal (tNode typedVal)
+        return $ createTypedNode (tType typedVal) newIVal
+    (ExprBinOp binOp e1 e2) -> do
         typedE1 <- inferExpr e1
         typedE2 <- inferExpr e2
         let (arg1Ty, arg2Ty, retTy) = binOpToType binOp
+            newIBinApp = ExprBinOp binOp (tNode typedE1) (tNode typedE2)
         -- TODO
             -- Can extend to support type promotion later
             -- maybe change to nested if statement where separate error for binary operation being wrong
-        if tType typedE1 == tType typedE2 && tType typedE1 == arg1Ty && tType typedE2 == arg2Ty
-        then return $ createTypedNode retTy iBinApp
+        if tType typedE1 ==^^ tType typedE2 && tType typedE1 ==^^ arg1Ty && tType typedE2 ==^^ arg2Ty
+        then return $ createTypedNode retTy newIBinApp
         else lift . Failed $ "Type mismatch in binary operation" ++ show binOp ++ ": " ++ show (tType typedE1) ++ " vs " ++ show (tType typedE2)
     
     -- TODO deal with location region stuff (may consider type promotion too)
-    iFuncApp@(ExprFuncApp (FuncVar funcVar) locRegions (Exprs exprs)) -> do
+    (ExprFuncApp (FuncVar funcVar) locRegions (Exprs exprs)) -> do
         typedExprs <- mapM inferExpr exprs
         funcInfo <- lookupFunc funcVar
         let argTys = map tType typedExprs
-            oldFuncRetType = funcRetType funcInfo 
-        
+            oldFuncRetType = funcRetType funcInfo
+            newIFuncApp = ExprFuncApp (FuncVar funcVar) locRegions (Exprs (map tNode typedExprs))
+
         -- TODO may need to check if recursive function requires same region for types, but for now, ignore
         -- check if function not being recursively called
         -- if not (funcInside funcInfo)
         -- then 
             -- check if arguments match (ignoring location regions)
-        if checkArgTys argTys (funcArgTypes funcInfo)
-        then return $ createTypedNode (modRetType oldFuncRetType) iFuncApp
+        if and $ zipWith (==^^) argTys (funcArgTypes funcInfo)
+        then return $ createTypedNode oldFuncRetType newIFuncApp
         else lift . Failed $ "Type mismatch in function application: " ++ show argTys ++ " vs " ++ show (funcArgTypes funcInfo)
         -- else
         --     if argTys == funcArgTypes funcInfo
@@ -294,55 +312,57 @@ inferExpr expr = case expr of
         --     else lift . Failed $ "Type mismatch in function application: " ++ show argTys ++ " vs " ++ show (funcArgTypes funcInfo)
         where
             -- removes location region from return type
-            modRetType :: MyTy LocRegion -> MyTy LocRegion
-            modRetType (PackedTy ty _) = PackedTy ty EmptyLocRegion
-            modRetType ty = ty
+            -- modRetType :: MyTy LocRegion -> MyTy LocRegion
+            -- modRetType (PackedTy ty _) = PackedTy ty EmptyLocRegion
+            -- modRetType ty = ty
 
-            checkArgTys :: [MyTy LocRegion] -> [MyTy LocRegion] -> Bool
-            checkArgTys [] [] = True
-            checkArgTys (x:xs) (y:ys) = checkArgTy x y && checkArgTys xs ys
-            checkArgTys _ _ = False
+            -- checkArgTys :: [MyTy LocRegion] -> [MyTy LocRegion] -> Bool
+            -- checkArgTys [] [] = True
+            -- checkArgTys (x:xs) (y:ys) = checkArgTy x y && checkArgTys xs ys
+            -- checkArgTys _ _ = False
 
-            checkArgTy :: MyTy LocRegion -> MyTy LocRegion -> Bool
-            checkArgTy (PackedTy ty1 _) (PackedTy ty2 _) = ty1 == ty2
-            checkArgTy ty1 ty2 = ty1 == ty2
+            -- checkArgTy :: MyTy LocRegion -> MyTy LocRegion -> Bool
+            -- checkArgTy (PackedTy ty1 _) (PackedTy ty2 _) = ty1 == ty2
+            -- checkArgTy ty1 ty2 = ty1 == ty2
     -- TODO deal with location region stuff
-    iDataConApp@(ExprDataConApp (DataCon dataCon) locRegion (Exprs exprs)) -> do
+    (ExprDataConApp (DataCon dataCon) locRegion (Exprs exprs)) -> do
         typedExprs <- mapM inferExpr exprs
         (fieldTys, resTy) <- lookupModDataCon dataCon locRegion
         let argTys = map tType typedExprs
-        if argTys == fieldTys
-        then return $ createTypedNode resTy iDataConApp
+            newIDataConApp = ExprDataConApp (DataCon dataCon) locRegion (Exprs (map tNode typedExprs))
+        if and $ zipWith (==^^) argTys fieldTys
+        then return $ createTypedNode resTy newIDataConApp
         else lift . Failed $ "Type mismatch in data constructor application: " ++ show argTys ++ " vs " ++ show fieldTys
     
-    iCase@(ExprCase val p@(Pats pats)) -> do
+    (ExprCase val (Pats pats)) -> do
         typedVal <- inferVal val
         typedPats <- mapM (inferPat (tType typedVal)) pats
         let patTypes = map tType typedPats
             typedPat = safeHead typedPats
-        
-        if checkAllSame patTypes 
-        then case typedPat of 
-            Ok tp -> return $ createTypedNode (tType tp) iCase
+            newICase = ExprCase (tNode typedVal) (Pats (map tNode typedPats))
+        if checkAllSame (==^^) patTypes
+        then case typedPat of
+            Ok tp -> return $ createTypedNode (tType tp) newICase
             Failed e -> lift $ Failed e
         else lift . Failed $ "Type mismatch in case patterns: " ++ show patTypes
 
-        -- [X]TODO infer patterns and ensure types match
+        -- [x] TODO infer patterns and ensure types match
         -- For now, just return the type of the value being matched on
-    iLet@(ExprLet (Var var) combinedType expr1 expr2) -> do        
+    (ExprLet (Var var) combinedType expr1 expr2) -> do
         typedExpr1 <- inferExpr expr1
         let typedCombinedType = combinedTypeToType combinedType
             expr1Type = tType typedExpr1
         typedExpr2 <- extendVEnv var expr1Type (inferExpr expr2) 
-        if typedCombinedType == expr1Type
-        then return $ createTypedNode (tType typedExpr2) iLet
+        if typedCombinedType ==^^ expr1Type
+        then return $ createTypedNode (tType typedExpr2) (ExprLet (Var var) combinedType (tNode typedExpr1) (tNode typedExpr2))
         else lift . Failed $ "Type mismatch in let binding: " ++ show typedCombinedType ++ " vs " ++ show expr1Type
     
-    iLetRegion@(ExprLetRegion (RegionVar rv) expr1) -> do
+    (ExprLetRegion (RegionVar rv) expr1) -> do
         typedExpr <- extendRegEnv rv (RegInfo { regStarted = False, regLocsUsed = S.empty }) (inferExpr expr1)
-        return $ createTypedNode (tType typedExpr) iLetRegion
+        let newILetRegion = ExprLetRegion (RegionVar rv) (tNode typedExpr)
+        return $ createTypedNode (tType typedExpr) newILetRegion
     -- TODO still need to check index variables (just make sure they're in environment), may be too complicated for this
-    iLetLoc@(ExprLetLoc locreg@(LocRegion (LocVar locVar) (RegionVar regVar) (IndexVar indexVar)) locExpress expr1) -> do
+    (ExprLetLoc locreg@(LocRegion (LocVar locVar) (RegionVar regVar) (IndexVar indexVar)) locExpress expr1) -> do
         -- let locType = tType typedExpr1
         case locExpress of 
             LocExpressStart (RegionVar regVar2) -> do
@@ -358,16 +378,19 @@ inferExpr expr = case expr of
                     else do
                         -- locInfo2 <- lookupLoc locVar2
                         typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
-                        return $ createTypedNode (tType typedExpr) iLetLoc
+                        let newILetLoc = ExprLetLoc locreg (LocExpressStart (RegionVar regVar2)) (tNode typedExpr)
+                        return $ createTypedNode (tType typedExpr) newILetLoc
             LocExpressNext (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2)) -> do
                 if regVar2 /= regVar
                 then lift . Failed $ "inferExpr: Region variable mismatch in letloc: " ++ show regVar2 ++ " vs " ++ show regVar
                 else do
                     -- locInfo2 <- lookupLoc locVar2
                     typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
-                    return $ createTypedNode (tType typedExpr) iLetLoc
+                    let newILetLoc = ExprLetLoc locreg (LocExpressNext (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2))) (tNode typedExpr)
+                    return $ createTypedNode (tType typedExpr) newILetLoc
             -- TODO need to check with others/paper if different types can be in same region (if not, more work is needed)
-            LocExpressAfter lt@(LocatedType combinedLocType (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2))) -> do
+            -- TODO this may be an incorrect pattern
+            LocExpressAfter (LocatedType combinedLocType lr@(LocRegion _ (RegionVar regVar2) _)) -> do
                 -- TODO make sure locVar2 is in same region
                 -- let locatedType = locatedTypeToType locatedType
                 --     locRegion = getLocRegionFromLocType locatedType
@@ -375,14 +398,22 @@ inferExpr expr = case expr of
                 then lift . Failed $ "inferExpr: Region variable mismatch in letloc: " ++ show regVar2 ++ " vs " ++ show regVar
                 else do
                     typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
-                    varAfter <- lookupByVal (locatedTypeToType lt)
-                    let newILetLoc = ExprLetLoc locreg (LocExpressAfter (LocatedType combinedLocType (LocRelativeVar varAfter))) expr1
+                    -- varAfter <- lookupByVal (locatedTypeToType lt)
+                    let newILetLoc = ExprLetLoc locreg (LocExpressAfter (LocatedType combinedLocType lr)) expr1
+                    -- lift . Failed $ show newILetLoc
                     return $ createTypedNode (tType typedExpr) newILetLoc
                     -- locInfo2 <- lookupLoc locVar2
+            LocExpressAfter (LocatedType combinedLocType lr@(LocRelativeVar _ _ (RegionVar regVar2) _)) -> do
+                if regVar2 /= regVar
+                then lift . Failed $ "inferExpr: Region variable mismatch in letloc: " ++ show regVar2 ++ " vs " ++ show regVar
+                else do
+                    typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
+                    let newILetLoc = ExprLetLoc locreg (LocExpressAfter (LocatedType combinedLocType lr)) expr1
+                    return $ createTypedNode (tType typedExpr) newILetLoc
             -- TODO this only occurs when an empty location expression is given, ensure correctness
             _ -> lift . Failed $ "inferExpr: Not implemented for this locExpress type in letloc"
                     
-    -- [x]TODO deal with letloc and letregion
+    -- [x] TODO deal with letloc and letregion
 
     _ -> lift . Failed $ "inferExpr: Not implemented for this expression type: " ++ takeAlphaNum (show expr)
 
@@ -409,7 +440,7 @@ inferExpr expr = case expr of
 
 -- TODO check if val should be var???  also need to deal with location regions
 inferPatMatch :: PatMatch -> (InferM LocRegion) ((TypedNode LocRegion) PatMatch)
-inferPatMatch pm@(PatMatch (ValVar (Var var)) locatedType) = do
+inferPatMatch (PatMatch (ValVar (Var var)) locatedType) = do
     -- [x]BUG HERE: val doesn't have type, but need to make sure variable not in scope
     -- typedVal <- inferVal val
     varExists <- checkVarNameExists var
@@ -418,30 +449,32 @@ inferPatMatch pm@(PatMatch (ValVar (Var var)) locatedType) = do
         else do
             -- let typedVal = createTypedNode (combinedLocTypeToType combinedLocType) (ValVar (AST.Var var))
             let ty = locatedTypeToType locatedType
+                newIPatMatch = PatMatch (ValVar (AST.Var var)) locatedType
             -- if tType typedVal == ty
-            return $ createTypedNode ty pm
+            return $ createTypedNode ty newIPatMatch
                 -- else lift . Failed $ "inferPatMatch: Type mismatch in pattern match: " ++ show (tType typedVal) ++ " vs " ++ show ty
 inferPatMatch (PatMatch (ValLit val) _) = do 
     lift . Failed $ "inferPatMatch: Requires variable for pattern match, received literal: " ++ show val
 
 inferPat :: MyTy LocRegion -> Pat -> (InferM LocRegion) ((TypedNode LocRegion) Pat)
-inferPat myTy p@(Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
+inferPat myTy (Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
     matchedTypes <- mapM inferPatMatch patMatches
     let argTypes = map tType matchedTypes
     (typeCons, result) <- lookupDataCon dataCon
     
     -- check to make sure actual type constructors match expected
-    if argTypes /= typeCons
+    if not $ and $ zipWith (==^^) argTypes typeCons
         then lift . Failed $ "inferPat: Type mismatch in pattern for data constructor " ++ show dataCon ++ ": " ++ show argTypes ++ " vs " ++ show typeCons
         else do
             -- check to make sure result type is correct
-            if result /= myTy
+            if not $ result ==^^ myTy
                 then lift . Failed $ "inferPat: Result type mismatch in pattern for data constructor " ++ show dataCon ++ ": " ++ show result ++ " vs " ++ show myTy
                 else do
                     -- TODO need to change PatMatch to have var, not val
                     let varTypePairs = map (\(PatMatch (ValVar (Var v)) locatedType) -> (v, locatedTypeToType locatedType)) patMatches
                     typedExpr <- extendVEnvs varTypePairs (inferExpr expr)
-                    return $ createTypedNode (tType typedExpr) p
+                    let newIPat = Pat (DataCon dataCon) (PatMatches (map tNode matchedTypes)) (tNode typedExpr)
+                    return $ createTypedNode (tType typedExpr) newIPat
     -- --
     -- let varTyPairs = map (\(TypedNode ty (PatMatch val _)) -> (val, ty)) matchedTypes
     -- patExpr <- extendVEnv
@@ -456,12 +489,14 @@ inferPat myTy p@(Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
 
 inferVal :: Val -> (InferM LocRegion) ((TypedNode LocRegion) Val)
 inferVal val = case val of 
-    iValVar@(ValVar (AST.Var v)) -> do
+    (ValVar (AST.Var v)) -> do
         ty <- lookupVar v
-        return $ createTypedNode ty iValVar
-    iValLit@(ValLit n) -> do
+        let newIValVar = ValVar (AST.Var v)
+        return $ createTypedNode ty newIValVar
+    (ValLit n) -> do
         typedLit <- inferLit n
-        return $ createTypedNode (tType typedLit) iValLit
+        let newIValLit = ValLit n
+        return $ createTypedNode (tType typedLit) newIValLit
     _ -> lift . Failed $ "inferVal: Not implemented for this value type"
 
 inferLit :: Lit -> (InferM LocRegion) ((TypedNode LocRegion) Lit)

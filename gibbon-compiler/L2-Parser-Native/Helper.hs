@@ -1,5 +1,6 @@
 {-# LANGUAGE InstanceSigs #-}
 module Helper where
+import Control.Monad.IO.Class (MonadIO, liftIO)
 
 makeGreen :: String -> String
 makeGreen s = "\x1b[32m" ++ s ++ "\x1b[0m"
@@ -20,9 +21,9 @@ takeAlphaNum (x:xs)
     | elem x (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ "_") = x : takeAlphaNum xs
     | otherwise = []
 
-checkAllSame :: (Eq a) => [a] -> Bool 
-checkAllSame [] = True
-checkAllSame (x:xs) = all (== x) xs
+checkAllSame :: (Eq a) => (a -> a -> Bool) -> [a] -> Bool 
+checkAllSame _ [] = True
+checkAllSame eq (x:xs) = all (eq x) xs
 
 safeHead :: [a] -> E a
 safeHead []    = Failed "Empty list"
@@ -48,3 +49,7 @@ instance Monad E where
     (>>=) :: E a -> (a -> E b) -> E b
     (Ok x) >>= f = f x
     (Failed e) >>= _ = Failed e
+
+instance MonadIO E where
+    liftIO a = do liftIO a
+        

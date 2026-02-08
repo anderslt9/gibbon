@@ -10,9 +10,10 @@ import PrintAST (printAST)
 import Helper (makeRed, makeBold, makeGreen, E(Ok, Failed))
 -- import L2ParserNative (l2ParserNative)
 import Parser (l2ParserNative)
-import ConvertToTypedAST (inferProgram, tType)
+import ConvertToTypedAST (inferProgram, tType, tNode)
 import ConvertToL2AST (convertToL2AST)
 import Gibbon.Common (sdoc)
+import qualified Passes as Pass
 
 type Args = [String]
 type LastParsed = String
@@ -66,7 +67,9 @@ printTest config = do
         let ast = l2ParserNative tokens
             parsed_str = fmap (printAST 0) ast
             -- gets typed AST
-            typed_ast = ast >>= inferProgram
+            ast' = ast >>= \f -> Pass.runProgramPass f Pass.replaceLocRegionNames
+            ast'' = ast' >>= \f -> Pass.runProgramPass f Pass.replaceLocRegionInAfterExprs
+            typed_ast = ast'' >>= inferProgram
             -- gets L2 AST
             l2_ast = typed_ast >>= convertToL2AST
         
@@ -99,14 +102,15 @@ printTest config = do
         -- displays typed AST
         case typed_ast of
             Ok t_ast -> when (showTyped config) $ do
+                        let typedASTPretty = printAST 0 (tNode t_ast)
                         if length (outFiles config) >= i
                         then do
                             appendFile (outFiles config !! (i - 1)) "\n== Typed AST ==\n"
-                            appendFile (outFiles config !! (i - 1)) (show t_ast)
+                            appendFile (outFiles config !! (i - 1)) ("Return type: " ++ show (tType t_ast) ++ "\n" ++ typedASTPretty)
                             putStrLn $ "Wrote Typed AST to: " ++ makeBold (outFiles config !! (i - 1))
                         else do 
                             putStrLn "\n== Typed AST =="
-                            print t_ast
+                            putStrLn ("Return type: " ++ show (tType t_ast) ++ "\n" ++ typedASTPretty)
                             putStrLn "Typed AST written to console (no file specified)."
             Failed e -> putStrLn . makeRed $ "Type Inference Failed: " ++ e
         

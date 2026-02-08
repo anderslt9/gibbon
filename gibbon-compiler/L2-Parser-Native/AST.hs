@@ -32,7 +32,7 @@ instance Eq LocRegion where
         lv1 == lv2 && rv1 == rv2
     (==) (LocRegion lv1 rv1 iv1) (LocRegion lv2 rv2 iv2) =
         lv1 == lv2 && rv1 == rv2 && iv1 == iv2
-    (==) (LocRelativeVar s1) (LocRelativeVar s2) = s1 == s2
+    (==) (LocRelativeVar s1 _ _ _) (LocRelativeVar s2 _ _ _) = s1 == s2
     (==) _ _ = False
 
 -- identifiers/literals
