@@ -79,12 +79,16 @@ replaceLocRegionNames :: PassNamed
 replaceLocRegionNames = PassNamed "Replace Location Region Names" $ idPass
     { onLocRegion = \case
         LocRegion (LocVar lVar) regionVar (IndexVar iVar) -> do
-            let newLocVar = LocVar (lVar ++ iVar)
-                newLocRegion = LocRegion newLocVar regionVar (IndexVar "")
-            return newLocRegion
+            if iVar == ""
+            then return (LocRegion (LocVar lVar) regionVar (IndexVar iVar))
+            else do
+                let newLocVar = LocVar (lVar ++ "_" ++ iVar)
+                    newLocRegion = LocRegion newLocVar regionVar (IndexVar "")
+                return newLocRegion
         e -> return e
     }
 
+-- TODO : implement ability to write as reference to variable in top level language
 replaceLocRegionInAfterExprs :: PassNamed
 replaceLocRegionInAfterExprs = PassNamed "Replace Location Region Names in After Expressions" $ idPass
     { onLocExpress = \case
@@ -109,11 +113,6 @@ walkProgram pass (Program dataTypeDecls fd@(FuncDecls funcDecls) expr) = do
         let newProgram = Program dataTypeDecls (FuncDecls funcs') main'
         onProgram pass newProgram
         ) env2
-    -- expr' <- walkExpr pass expr
-    -- dataTypeDecls' <- walkDataTypeDecls pass dataTypeDecls
-    -- funcDecls' <- walkFuncDecls pass funcDecls
-    -- let newProgram = Program dataTypeDecls' funcDecls' expr'
-    -- onProgram pass newProgram
 
 walkDataTypeDecl :: Pass -> DataTypeDecl -> (InferM LocRegion) DataTypeDecl
 walkDataTypeDecl pass (DataTypeDecl typeCon dataFields) = do

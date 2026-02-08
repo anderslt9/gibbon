@@ -14,8 +14,8 @@ import qualified Gibbon.Common as C
 -- This conversion does the following transformations:
 -- 1. Annotates each node in the AST with its type (using MyTy)
 -- 2. Ensures that all expressions are well-typed according to the type environment
--- TODO : implement ability to write as reference to variable in top level language
--- 3. Modifies LocRegion into LocRelativeVar for LocExpressAfter expressions
+
+
 
 type TyEnv a b = M.Map a b
 
@@ -475,17 +475,6 @@ inferPat myTy (Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
                     typedExpr <- extendVEnvs varTypePairs (inferExpr expr)
                     let newIPat = Pat (DataCon dataCon) (PatMatches (map tNode matchedTypes)) (tNode typedExpr)
                     return $ createTypedNode (tType typedExpr) newIPat
-    -- --
-    -- let varTyPairs = map (\(TypedNode ty (PatMatch val _)) -> (val, ty)) matchedTypes
-    -- patExpr <- extendVEnv
-
-    -- where
-        -- getPatMatchPairs :: PatMatches -> [(Val, MyTy)]
-        -- getPatMatchPairs (PatMatches []) = []
-        -- getPatMatchPairs (PatMatches (pm@(PatMatch val (LocatedType combinedLocType locRegion)):rest)) =
-        --     let ty = combinedLocTypeToType combinedLocType
-        --     in (val, ty) : getPatMatchPairs (PatMatches rest)
-
 
 inferVal :: Val -> (InferM LocRegion) ((TypedNode LocRegion) Val)
 inferVal val = case val of 
@@ -555,25 +544,6 @@ loadFuncDecls (FuncDecls decls) env = foldM loadFuncDecl env decls
             in if M.member funcVar (fEnv env2)
                 then Failed $ "Function " ++ show funcVar ++ " already defined in environment"
                 else Ok env2 { fEnv = M.insert funcVar funcInfo (fEnv env2) }
-
-
--- loadDataDecls :: DataTypeDecls -> InferM Type
--- loadDataDecls (DataTypeDecls decls) = do
-    
---     mapM loadDataDecl decls
-
--- loadDataDecl :: DataTypeDecl -> InferM Type
--- loadDataDecl (DataTypeDecl typeCon dataFields) = do
---     mapM loadDataField dataFields
-
---     where loadDataField :: DataField -> InferM Type
---           loadDataField (DataField dataCon combinedTypeCons) = do
---             extendDataConEnv dataCon (getTypeFromCombinedTypeCon <$> combinedTypeCons) $ \ty -> do
---                   return ()
-
---           getTypeFromCombinedTypeCon :: CombinedTypeCon -> Type
---           getTypeFromCombinedTypeCon (CTCTypeCon tc) = PackedTy tc
---           getTypeFromCombinedTypeCon (CTCBase baseType) = baseTypeToType baseType 
 
 -- Type Conversion Helpers
 baseTypeToType :: BaseType -> MyTy a
