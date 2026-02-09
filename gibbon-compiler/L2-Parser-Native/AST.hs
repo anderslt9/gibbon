@@ -19,7 +19,7 @@ data CombinedType = CTLocated LocatedType | CTBase BaseType deriving (Show,Eq)
 data BaseType = Int | Float | Bool | String deriving (Show,Eq)
 
 -- location expressions
-data LocExpress = LocExpressStart RegionVar | LocExpressNext LocRegion | LocExpressAfter LocatedType deriving (Show,Eq)
+data LocExpress = LocExpressStart RegionVar | LocExpressNext LocRegion Int | LocExpressAfter LocatedType deriving (Show,Eq)
 data LocRegion = LocRegion LocVar RegionVar IndexVar | LocRelativeVar String LocVar RegionVar IndexVar | EmptyLocRegion deriving (Show, Ord)
 
 instance Eq LocRegion where

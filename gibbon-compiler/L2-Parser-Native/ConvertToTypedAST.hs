@@ -380,13 +380,13 @@ inferExpr expr = case expr of
                         typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
                         let newILetLoc = ExprLetLoc locreg (LocExpressStart (RegionVar regVar2)) (tNode typedExpr)
                         return $ createTypedNode (tType typedExpr) newILetLoc
-            LocExpressNext (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2)) -> do
+            LocExpressNext (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2)) offset -> do
                 if regVar2 /= regVar
                 then lift . Failed $ "inferExpr: Region variable mismatch in letloc: " ++ show regVar2 ++ " vs " ++ show regVar
                 else do
                     -- locInfo2 <- lookupLoc locVar2
                     typedExpr <- extendLocEnv locVar (LocInfo { getLocType = NoneTy, locInitialized = False, getRegionFromLoc = regVar2 }) (inferExpr expr1)
-                    let newILetLoc = ExprLetLoc locreg (LocExpressNext (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2))) (tNode typedExpr)
+                    let newILetLoc = ExprLetLoc locreg (LocExpressNext (LocRegion (LocVar locVar2) (RegionVar regVar2) (IndexVar indexVar2)) offset) (tNode typedExpr)
                     return $ createTypedNode (tType typedExpr) newILetLoc
             -- TODO need to check with others/paper if different types can be in same region (if not, more work is needed)
             -- TODO this may be an incorrect pattern

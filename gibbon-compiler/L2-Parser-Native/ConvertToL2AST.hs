@@ -163,10 +163,9 @@ convertExpr expr = do
             case locExpress of 
                 (LocExpressStart (RegionVar regionVar)) -> do
                     return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.StartOfRegionLE (L2.VarR . C.toVar $ regionVar)) newE
-                (LocExpressNext nextLocRegion) -> do
+                (LocExpressNext nextLocRegion offset) -> do
                     nextLocVar <- convertLocRegionToLocVar nextLocRegion
-                    -- TODO Come back here to change constant
-                    return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterConstantLE 1 (C.Single nextLocVar)) newE
+                    return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterConstantLE offset (C.Single nextLocVar)) newE
                 (LocExpressAfter (LocatedType (CLTTypeCon (TypeCon typeCon)) lr@(LocRelativeVar relativeVar locVar1 regVar1 iVar1))) -> do
                     locVarRel <- convertLocRegionToLocVar lr
                     return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterVariableLE (C.toVar relativeVar) (C.Single locVarRel) True) newE

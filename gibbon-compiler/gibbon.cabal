@@ -216,7 +216,9 @@ executable gibbon-l2
   main-is:             Main.hs
   build-tool-depends:  happy:happy >= 1.20
   build-depends:       base, gibbon, filepath, array, containers, mtl, transformers
-  other-modules:       PrintAST, AST, Lexer, Tokens, RunTest, Helper, Parser, ConvertToTypedAST, ConvertToL2AST, Passes
+  other-modules:       PrintAST, AST, Lexer, Tokens, RunTest, Helper, Parser, 
+                       ConvertToTypedAST, ConvertToL2AST, Passes
+                      --  ,PassesGeneral
   default-language:    Haskell2010
   ghc-options:         -Wall -rtsopts -fdefer-typed-holes
   default-extensions:  OverloadedStrings NamedFieldPuns

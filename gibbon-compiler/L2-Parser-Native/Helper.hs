@@ -18,7 +18,7 @@ data E a = Ok a | Failed String deriving Show
 takeAlphaNum :: String -> String
 takeAlphaNum [] = []
 takeAlphaNum (x:xs)
-    | elem x (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ "_") = x : takeAlphaNum xs
+    | x `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ "_") = x : takeAlphaNum xs
     | otherwise = []
 
 checkAllSame :: (Eq a) => (a -> a -> Bool) -> [a] -> Bool 

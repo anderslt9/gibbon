@@ -194,9 +194,9 @@ walkLocExpress pass (LocExpressStart regionVar) = do
     regionVar' <- walkRegionVar pass regionVar
     let newLocExpress = LocExpressStart regionVar'
     onLocExpress pass newLocExpress
-walkLocExpress pass (LocExpressNext locRegion) = do
+walkLocExpress pass (LocExpressNext locRegion offset) = do
     locRegion' <- walkLocRegion pass locRegion
-    let newLocExpress = LocExpressNext locRegion'
+    let newLocExpress = LocExpressNext locRegion' offset
     onLocExpress pass newLocExpress
 walkLocExpress pass (LocExpressAfter locatedType) = do
     locatedType' <- walkLocatedType pass locatedType
