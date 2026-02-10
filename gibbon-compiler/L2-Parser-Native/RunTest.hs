@@ -14,6 +14,7 @@ import ConvertToTypedAST (inferProgram, tType, tNode)
 import ConvertToL2AST (convertToL2AST)
 import Gibbon.Common (sdoc)
 import qualified Passes as Pass
+-- import TestRunner (Test(name))
 
 type Args = [String]
 type LastParsed = String
@@ -39,6 +40,25 @@ baseCfg = SimpleCfg {   inFiles = [],
                         showL2AST = True
 }
 
+displayResult :: (Show a) => E a -> String -> Int -> SimpleCfg -> (a -> String) -> (SimpleCfg -> Bool) -> IO ()
+displayResult (Ok x) namedResult i config func toShow = do
+    when (toShow config) $ do
+        let paddingSize = 50
+            lengthAcross = ((paddingSize - length namedResult) `div` 2) - 1
+            header = (replicate lengthAcross '=') ++ " " ++ namedResult ++ " " ++ (replicate (lengthAcross + (length namedResult `mod` 2)) '=') ++ "\n"
+            padding = (replicate paddingSize '=') ++ "\n"
+            resultStr = func x ++ "\n\n"
+            totalStr = padding ++ header ++ padding ++ resultStr
+
+        if length (outFiles config) >= i
+        then do
+            appendFile (outFiles config !! (i - 1)) totalStr
+            putStrLn $ "Wrote " ++ namedResult ++ " to: " ++ makeBold (outFiles config !! (i - 1))
+        else do
+            putStrLn totalStr 
+            putStrLn (namedResult ++ " written to console (no file specified).")
+displayResult (Failed e) namedResult _ _ _ _ = putStrLn . makeRed $ namedResult ++ " Failed: " ++ e
+
 printTest:: SimpleCfg -> IO ()
 printTest config = do
     forM_ (zip [1..] (inFiles config)) $ \(i, testFile) -> do
@@ -52,16 +72,7 @@ printTest config = do
         
         -- gets/prints tokens
         let tokens = lexer contents
-        when (showTokens config) $ do
-            if length (outFiles config) >= i
-            then do
-                appendFile (outFiles config !! (i - 1)) "== Tokens ==\n"
-                forM_ tokens $ \token -> appendFile (outFiles config !! (i - 1)) (show token ++ "\n")
-                putStrLn $ "Wrote Tokens to: " ++ makeBold (outFiles config !! (i - 1))
-            else do
-                putStrLn "\n== Tokens =="
-                forM_ tokens $ \token -> print token
-                putStrLn "Tokens written to console (no file specified)."
+        displayResult (Ok tokens) "Tokens" i config (foldl (\acc token -> acc ++ show token ++ "\n") "") showTokens
 
         -- runs/prints parser
         let ast = l2ParserNative tokens
@@ -74,59 +85,16 @@ printTest config = do
             l2_ast = typed_ast >>= convertToL2AST
         
         -- displays raw result
-        when (showRaw config) $ do
-            if length (outFiles config) >= i
-            then do
-                appendFile (outFiles config !! (i - 1)) "\n== Raw Parse Result ==\n"
-                appendFile (outFiles config !! (i - 1)) (show ast)
-                putStrLn $ "Wrote Raw Parse Result to: " ++ makeBold (outFiles config !! (i - 1))
-            else do 
-                putStrLn "\n== Raw Parse Result =="
-                print ast
-                putStrLn "Raw Parse Result written to console (no file specified)."
+        displayResult ast "Raw Parse Result" i config show showRaw
         
         -- displays pretty result
-        case parsed_str of
-            Ok x -> when (showInitialParse config) $ do 
-                    if length (outFiles config) >= i
-                    then do
-                        appendFile (outFiles config !! (i - 1)) "\n== Pretty Parse Result ==\n"
-                        appendFile (outFiles config !! (i - 1)) x
-                        putStrLn $ "Wrote Pretty Parse Result to: " ++ makeBold (outFiles config !! (i - 1))
-                    else do 
-                        putStrLn "\n== Pretty Parse Result =="
-                        putStrLn x
-                        putStrLn "Pretty Parse Result written to console (no file specified)."
-            Failed e -> putStrLn . makeRed $  "Parsing Failed: " ++ e
+        displayResult parsed_str "Pretty Parse Result" i config id showInitialParse
         
         -- displays typed AST
-        case typed_ast of
-            Ok t_ast -> when (showTyped config) $ do
-                        let typedASTPretty = printAST 0 (tNode t_ast)
-                        if length (outFiles config) >= i
-                        then do
-                            appendFile (outFiles config !! (i - 1)) "\n== Typed AST ==\n"
-                            appendFile (outFiles config !! (i - 1)) ("Return type: " ++ show (tType t_ast) ++ "\n" ++ typedASTPretty)
-                            putStrLn $ "Wrote Typed AST to: " ++ makeBold (outFiles config !! (i - 1))
-                        else do 
-                            putStrLn "\n== Typed AST =="
-                            putStrLn ("Return type: " ++ show (tType t_ast) ++ "\n" ++ typedASTPretty)
-                            putStrLn "Typed AST written to console (no file specified)."
-            Failed e -> putStrLn . makeRed $ "Type Inference Failed: " ++ e
+        displayResult typed_ast "Typed AST" i config (\t_ast -> "Return type: " ++ show (tType t_ast) ++ "\n" ++ printAST 0 (tNode t_ast)) showTyped
         
         -- displays L2 AST
-        case l2_ast of
-            Ok l2p -> when (showL2AST config) $ do 
-                        if length (outFiles config) >= i
-                        then do
-                            appendFile (outFiles config !! (i - 1)) "\n== L2 AST ==\n"
-                            appendFile (outFiles config !! (i - 1)) (sdoc l2p)
-                            putStrLn $ "Wrote L2 AST to: " ++ makeBold (outFiles config !! (i - 1))
-                        else do 
-                            putStrLn "\n== L2 AST =="
-                            putStrLn (sdoc l2p)
-                            putStrLn "L2 AST written to console (no file specified)."
-            Failed e -> putStrLn . makeRed $ "Conversion to L2 AST Failed: " ++ e
+        displayResult l2_ast "L2 AST" i config sdoc showL2AST
 
 
 setConfig :: Args -> Result SimpleCfg
