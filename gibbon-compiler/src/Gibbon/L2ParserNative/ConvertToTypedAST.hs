@@ -1,8 +1,8 @@
 -- {-# LANGUAGE StandaloneDeriving #-}
-module ConvertToTypedAST where
+module Gibbon.L2ParserNative.ConvertToTypedAST where
 
-import AST
-import Helper
+import Gibbon.L2ParserNative.AST as AST
+import Gibbon.L2ParserNative.Helper
 -- import Gibbon.Language.Syntax as S
 import Control.Monad (foldM)
 import Control.Monad.Reader

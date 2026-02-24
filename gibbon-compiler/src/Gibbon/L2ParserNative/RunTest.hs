@@ -1,19 +1,19 @@
-module RunTest where
+module Gibbon.L2ParserNative.RunTest where
 
 import Data.List (isPrefixOf, isSuffixOf)
 -- import System.Environment (getArgs)
 import Control.Monad (forM_, when)
 import System.FilePath.Posix (takeBaseName)
 import System.IO (writeFile, appendFile)
-import Lexer (lexer)
-import PrintAST (printAST)
-import Helper (makeRed, makeBold, makeGreen, E(Ok, Failed))
+import Gibbon.L2ParserNative.Lexer (lexer)
+import Gibbon.L2ParserNative.PrintAST (printAST)
+import Gibbon.L2ParserNative.Helper (makeRed, makeBold, makeGreen, E(Ok, Failed))
 -- import L2ParserNative (l2ParserNative)
-import Parser (l2ParserNative)
-import ConvertToTypedAST (inferProgram, tType, tNode)
-import ConvertToL2AST (convertToL2AST)
+import Gibbon.L2ParserNative.Parser (l2ParserNative)
+import Gibbon.L2ParserNative.ConvertToTypedAST (inferProgram, tType, tNode)
+import Gibbon.L2ParserNative.ConvertToL2AST (convertToL2AST)
 import Gibbon.Common (sdoc)
-import qualified Passes as Pass
+import qualified Gibbon.L2ParserNative.Passes as Pass
 -- import TestRunner (Test(name))
 
 type Args = [String]

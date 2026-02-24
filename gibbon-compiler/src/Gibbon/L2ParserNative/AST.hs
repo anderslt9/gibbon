@@ -1,4 +1,4 @@
-module AST where 
+module Gibbon.L2ParserNative.AST where 
 
 -- top-level program
 data Program = Program DataTypeDecls FuncDecls Expr deriving (Show,Eq)

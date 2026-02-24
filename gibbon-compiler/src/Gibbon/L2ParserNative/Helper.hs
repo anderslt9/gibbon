@@ -1,5 +1,5 @@
 {-# LANGUAGE InstanceSigs #-}
-module Helper where
+module Gibbon.L2ParserNative.Helper where
 import Control.Monad.IO.Class (MonadIO, liftIO)
 
 makeGreen :: String -> String

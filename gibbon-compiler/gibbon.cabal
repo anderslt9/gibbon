@@ -151,6 +151,22 @@ library
                        PartialTypeSignatures OverloadedStrings
                        -- This can break things: DeriveAnyClass
   other-extensions:    DeriveDataTypeable CPP
+  
+
+-- L2ParserNative dependencies
+  other-modules:       Gibbon.L2ParserNative.ParseIntoL2
+                       Gibbon.L2ParserNative.Passes
+                       Gibbon.L2ParserNative.PrintAST
+                       Gibbon.L2ParserNative.RunTest
+                       Gibbon.L2ParserNative.Tokens
+                       Gibbon.L2ParserNative.ConvertToL2AST
+                       Gibbon.L2ParserNative.ConvertToTypedAST
+                       Gibbon.L2ParserNative.AST
+                       Gibbon.L2ParserNative.Helper
+                       Gibbon.L2ParserNative.Lexer
+                       Gibbon.L2ParserNative.Parser
+  build-tool-depends:  happy:happy >= 1.20
+  build-depends:       array
 
 executable gibbon
   hs-source-dirs:      app
@@ -213,13 +229,19 @@ executable test-gibbon-examples
 
 
 executable gibbon-l2
-  hs-source-dirs:      L2-Parser-Native
-  main-is:             Main.hs
+  hs-source-dirs:      src
+  main-is:             Gibbon/L2ParserNative/Main.hs
   build-tool-depends:  happy:happy >= 1.20
-  build-depends:       base, gibbon, filepath, array, containers, mtl, transformers
-  other-modules:       PrintAST, AST, Lexer, Tokens, RunTest, Helper, Parser, 
-                       ConvertToTypedAST, ConvertToL2AST, Passes, ParseIntoL2
-                      --  ,PassesGeneral
+  build-depends:       base, gibbon, filepath, array, containers, 
+                       mtl, transformers, optparse-applicative, deepseq, 
+                       intern, GenericPretty, pretty, random, recursion-schemes, 
+                       language-c-quote, bytestring, safe
+  other-modules:       Gibbon.L2ParserNative.PrintAST, Gibbon.L2ParserNative.AST, Gibbon.L2ParserNative.Lexer, Gibbon.L2ParserNative.Tokens, Gibbon.L2ParserNative.RunTest, Gibbon.L2ParserNative.Helper, Gibbon.L2ParserNative.Parser, 
+                       Gibbon.L2ParserNative.ConvertToTypedAST, Gibbon.L2ParserNative.ConvertToL2AST, Gibbon.L2ParserNative.Passes, Gibbon.L2ParserNative.ParseIntoL2
+                       , Gibbon.Common, Gibbon.DynFlags, Gibbon.L1.Syntax, Gibbon.L2.Syntax, Gibbon.Language, Gibbon.Language.Constants, Gibbon.Language.Syntax
+  default-extensions:  
   default-language:    Haskell2010
   ghc-options:         -Wall -rtsopts -fdefer-typed-holes
-  default-extensions:  OverloadedStrings NamedFieldPuns
+  default-extensions:  ScopedTypeVariables PatternSynonyms DeriveGeneric DeriveFunctor
+                       NamedFieldPuns TupleSections TypeFamilies
+                       PartialTypeSignatures OverloadedStrings

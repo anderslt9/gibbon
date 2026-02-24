@@ -1,13 +1,13 @@
-module ConvertToL2AST where
+module Gibbon.L2ParserNative.ConvertToL2AST (convertToL2AST) where
 
 import qualified Gibbon.Common as C
 import Gibbon.L2.Syntax as L2
 import Gibbon.Language.Syntax as S
 import qualified Data.Set.Internal as Set (empty)
-import AST
+import Gibbon.L2ParserNative.AST as AST
 import Data.Map (empty, fromList)
-import ConvertToTypedAST as My
-import Helper
+import Gibbon.L2ParserNative.ConvertToTypedAST as My
+import Gibbon.L2ParserNative.Helper
 import GHC.Float ( float2Double )
 -- import TestRunner (Result(Fail))
 

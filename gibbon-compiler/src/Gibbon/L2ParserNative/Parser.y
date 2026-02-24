@@ -1,16 +1,16 @@
 {
-module Parser where
+module Gibbon.L2ParserNative.Parser where
 -- import Data.Char (isSpace, isAlpha, isDigit, isLower)
 -- import Data.List (isPrefixOf, isSuffixOf)
 -- import System.Environment (getArgs)
 -- import Control.Monad (forM_, when)
 -- import System.FilePath.Posix (takeBaseName)
 -- import System.IO (writeFile, appendFile)
-import Helper (makeRed, E(Ok, Failed))
-import AST
-import Tokens
-import PrintAST
-import Lexer
+import Gibbon.L2ParserNative.Helper (makeRed, E(Ok, Failed))
+import Gibbon.L2ParserNative.AST
+import Gibbon.L2ParserNative.Tokens
+import Gibbon.L2ParserNative.PrintAST
+import Gibbon.L2ParserNative.Lexer
 }
 
 %name l2ParserNative

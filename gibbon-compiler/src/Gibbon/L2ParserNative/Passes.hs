@@ -1,10 +1,10 @@
 {-# LANGUAGE LambdaCase #-}
-module Passes where 
-import AST
-import ConvertToTypedAST
+module Gibbon.L2ParserNative.Passes where 
+import Gibbon.L2ParserNative.AST
+import Gibbon.L2ParserNative.ConvertToTypedAST
 import Control.Monad (join, foldM)
 import Control.Monad.IO.Class (liftIO)
-import Helper (E)
+import Gibbon.L2ParserNative.Helper (E)
 import Control.Monad.Reader (ReaderT(runReaderT))
 
 data PassNamed = PassNamed 

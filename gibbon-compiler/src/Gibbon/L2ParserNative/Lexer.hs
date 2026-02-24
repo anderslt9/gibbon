@@ -1,6 +1,6 @@
-module Lexer where
+module Gibbon.L2ParserNative.Lexer where
 import Data.Char (isAlpha, isDigit, isSpace, isLower)
-import Tokens
+import Gibbon.L2ParserNative.Tokens
 
 lexer :: String -> [Token]
 lexer = lexer' (Pos 1 1)

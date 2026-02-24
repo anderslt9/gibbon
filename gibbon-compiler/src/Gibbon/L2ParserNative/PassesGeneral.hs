@@ -1,9 +1,9 @@
-module PassesGeneral where
-import AST
-import ConvertToTypedAST
-import Helper (E)
+module Gibbon.L2ParserNative.PassesGeneral where
+import Gibbon.L2ParserNative.AST
+import Gibbon.L2ParserNative.ConvertToTypedAST
+import Gibbon.L2ParserNative.Helper (E)
 import Control.Monad.Reader (ReaderT(runReaderT))
-import Passes (walkDataTypeDecl)
+import Gibbon.L2ParserNative.Passes (walkDataTypeDecl)
 
 data PassGen a = PassGen
     { onProgramGen :: Program -> (InferM LocRegion) a

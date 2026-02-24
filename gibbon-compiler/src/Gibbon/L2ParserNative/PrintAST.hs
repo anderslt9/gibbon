@@ -2,8 +2,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module PrintAST where
-import AST
+module Gibbon.L2ParserNative.PrintAST where
+import Gibbon.L2ParserNative.AST
 -- import Control.Monad (forM_)
 import Data.List (intercalate)
 

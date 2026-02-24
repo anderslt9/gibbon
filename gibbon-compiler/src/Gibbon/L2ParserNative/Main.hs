@@ -1,5 +1,5 @@
 import System.Environment (getArgs)
-import RunTest (setConfig, printTest, Result(Success, Failure))
+import Gibbon.L2ParserNative.RunTest (setConfig, printTest, Result(Success, Failure))
 
 main = do 
     args <- getArgs

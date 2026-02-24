@@ -1,4 +1,4 @@
-module Tokens where 
+module Gibbon.L2ParserNative.Tokens where 
 data Pos = Pos { line :: Int, column :: Int } deriving Show
 
 -- list all tokens
