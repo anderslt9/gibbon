@@ -46,8 +46,11 @@ import qualified Gibbon.HaskellFrontend as HS
 import qualified Gibbon.L0.Syntax as L0
 import qualified Gibbon.L1.Syntax as L1
 import qualified Gibbon.L2.Syntax as L2
+import qualified Gibbon.L3.Syntax as L3
+import qualified Gibbon.NewL2.Syntax as NewL2
 import qualified Gibbon.L4.Syntax as L4
 import qualified Gibbon.SExpFrontend as SExp
+import qualified Gibbon.L2Frontend as L2F
 import           Gibbon.L0.Interp()
 import           Gibbon.L1.Interp()
 import           Gibbon.L2.Interp ( Store, emptyStore )
@@ -206,6 +209,14 @@ compileCmd args = withArgs args $
 sepline :: String
 sepline = replicate 80 '='
 
+data ProgType = ProgL0 L0.Prog0
+              | ProgL1 L1.Prog1
+              | ProgL2 L2.Prog2
+              | ProgL2' NewL2.Prog2
+              | ProgL3 L3.Prog3
+              | ProgL4 L4.Prog
+
+
 
 data CompileState a = CompileState
     { cnt :: Int -- ^ Gensym counter
@@ -258,7 +269,7 @@ compile config@Config{mode,input,verbosity,backend,cfile} fp0 = do
       let outfile = getOutfile backend fp cfile
 
       -- run the initial program through the compiler pipeline
-      let stM = passes config' l0
+      let stM = passes' config' (ProgL0 l0)
       l4  <- evalStateT stM (CompileState {cnt=cnt0, result=initResult})
 
       case mode of
@@ -326,12 +337,13 @@ setDebugEnvVar verbosity =
     hPutStrLn stderr$ " ! We set DEBUG based on command-line verbose arg: "++show l
 
 
-parseInput :: Config -> Input -> FilePath -> IO ((L0.Prog0, Int), FilePath)
+parseInput :: Config -> Input -> FilePath -> IO ((ProgType, Int), FilePath)
 parseInput cfg ip fp = do
-  (l0, f) <-
+  (progType, f) <-
     case ip of
       Haskell -> (, fp) <$> HS.parseFile cfg fp
       SExpr   -> (, fp) <$> SExp.parseFile fp
+      L2Input -> (, fp) <$> L2F.parseL2 cfg fp
       Unspecified ->
         case takeExtension fp of
           ".hs"   -> (, fp) <$> HS.parseFile cfg fp
@@ -634,6 +646,352 @@ addRedirectionCon p@Prog{ddefs} = do
                     return ddf {dataCons = datacons ++ [(dcon, [(False, CursorTy)])]})
             ddefs
   return $ p { ddefs = ddefs' }
+
+passesL0 :: (Show v) => Config -> L0.Prog0 -> StateT (CompileState v) IO L0.Prog0
+passesL0 config l0 = do
+      l0 <- go  "freshen"         freshNames            l0
+      l0 <- goE0 "typecheck"       L0.tcProg             l0
+      --l0 <- go  "elimNewtypes"     L0.elimNewtypes            l0
+      --l0 <- goE0 "typecheck"       L0.tcProg             l0
+      l0 <- goE0 "bindLambdas"     L0.bindLambdas       l0
+      l0 <- goE0 "monomorphize"    L0.monomorphize      l0
+      -- l0 <- goE0 "closureConvert"  L0.closureConvert    l0
+      l0 <- goE0 "specLambdas"     L0.specLambdas       l0
+      l0 <- goE0 "desugarL0"       L0.desugarL0         l0
+      goE0 "floatOutCase"    L0.floatOutCase      l0
+    where
+      go :: PassRunner a b v
+      go = pass config
+
+      goE0 :: (InterpProg () b Var, Show v) => InterpPassRunner a b () v
+      goE0 = passE () config
+
+passesL0ToL1 :: (Show v) => Config -> L0.Prog0 -> StateT (CompileState v) IO L1.Prog1
+passesL0ToL1 config l0 = goE0 "toL1"            (pure . L0.toL1)     l0
+    where
+      goE0 :: (InterpProg () b Var, Show v) => InterpPassRunner a b () v
+      goE0 = passE () config
+
+passesL1 :: (Show v) => Config -> L1.Prog1 -> StateT (CompileState v) IO L1.Prog1
+passesL1 config l1 = do
+      l1 <- goE1 "typecheck"     L1.tcProg              l1
+      -- If we are executing a benchmark, then we replace the main function with benchmark code:
+      l1 <- goE1 "benchMainExp"  benchMainExp           l1
+      l1 <- goE1 "typecheck"     L1.tcProg              l1
+      l1 <- goE1 "simplify"      simplifyL1             l1
+      l1 <- goE1 "typecheck"     L1.tcProg              l1
+      -- Check this after eliminating all dead functions.
+      when (hasSpawnsProg l1 && not (gopt Opt_Parallel (dynflags config))) $
+        error "To compile a program with parallelism, use --parallel."
+      l1 <- goE1 "flatten"       flattenL1              l1
+      l1 <- goE1 "simplify"      simplifyL1             l1
+      l1 <- goE1 "inlineTriv"    inlineTriv             l1
+      l1 <- goE1 "typecheck"     L1.tcProg              l1
+      l1 <- if gopt Opt_Fusion (dynflags config)
+          then goE1  "fusion2"   fusion2                l1
+          else return l1
+      l1 <- goE0 "typecheck"     L1.tcProg              l1
+      -- Minimal haskell "backend".
+      lift $ dumpIfSet config Opt_D_Dump_Hs (render $ pprintHsWithEnv l1)
+
+      case mode config of
+        ToMPL -> goSML config l1 (const $ pure ())
+        ToMPLExe -> goSML config l1 compileMPL
+        RunMPL -> goSML config l1 (\fp -> compileMPL fp *> runMPL fp)
+        _ -> return l1
+    where
+      goE1 :: (InterpProg () b Var, Show v) => InterpPassRunner a b () v
+      goE1 = passE () config
+
+      goE0 :: (InterpProg () b Var, Show v) => InterpPassRunner a b () v
+      goE0 = passE () config
+
+passesL1' :: (Show v) => Config -> L1.Prog1 -> StateT (CompileState v) IO L1.Prog1
+passesL1' config l1 = do
+      l1 <- goE1 "typecheck"     L1.tcProg              l1
+      goE1 "removeCopyAliases" removeAliasesForCopyCalls l1
+    where
+      goE1 :: (InterpProg () b Var, Show v) => InterpPassRunner a b () v
+      goE1 = passE () config
+
+passesL1ToL2 :: (Show v) => Config -> L1.Prog1 -> StateT (CompileState v) IO L2.Prog2
+passesL1ToL2 config l1 = goE2 "inferLocations"  inferLocs    l1
+    where
+      goE2 :: (InterpProg Store b Var, Show v) => InterpPassRunner a b Store v
+      goE2 = passE emptyStore config
+
+passesL2 :: (Show v) => Config -> L2.Prog2 -> Maybe L1.Prog1 -> StateT (CompileState v) IO L2.Prog2
+passesL2 config@Config{dynflags} l2 l1 = do
+      let isPacked   = gopt Opt_Packed dynflags
+          isSoA      = gopt Opt_Packed_SoA dynflags
+          noRAN      = gopt Opt_No_RAN dynflags
+          biginf     = gopt Opt_BigInfiniteRegions dynflags
+          gibbon1    = gopt Opt_Gibbon1 dynflags
+          no_rcopies = gopt Opt_No_RemoveCopies dynflags
+          parallel   = gopt Opt_Parallel dynflags
+          should_fuse = gopt Opt_Fusion dynflags
+          tcProg3     = L3.tcProg isPacked
+
+      l2 <- go "regionsInwards"    regionsInwards l2
+      l2 <- goE2 "simplifyLocBinds_a" (simplifyLocBinds True) l2
+      {- VS: Inferlocations needs simplify loc binds to produce a type correct L2 program -}
+      -- l2 <- go   "L2.typecheck"    L2.tcProg    l2
+      --l2 <- go   "L2.typecheck"    L2.tcProg    l2
+      
+      --l2 <- go   "L2.typecheck"    L2.tcProg    l2
+      l2 <- goE2 "reorderLetExprs" reorderLetExprs l2
+      l2 <- goE2 "simplifyLocBinds" (simplifyLocBinds True) l2
+      l2 <- go   "fixRANs"         fixRANs      l2
+      l2 <- goE2 "reorderLetExprs2" reorderLetExprs l2
+      l2 <- go   "L2.typecheck"    L2.tcProg    l2
+      l2 <- goE2 "L2.flatten"      flattenL2    l2
+      l2 <- go   "L2.typecheck"    L2.tcProg    l2
+      l2 <- if gibbon1 || no_rcopies
+            then return l2
+            else do l2 <- go "removeCopies" removeCopies l2
+                    l2 <- go "L2.typecheck" L2.tcProg l2
+                    return l2
+      l2 <- goE2 "inferEffects" inferEffects  l2
+      l2 <-
+        if gibbon1 || noRAN
+        then do
+          l2 <- goE2 "addTraversals" addTraversals l2
+          l2 <- go "L2.typecheck"    L2.tcProg     l2
+          l2 <- goE2 "inferEffects2"  inferEffects l2
+          l2 <- go "L2.typecheck"    L2.tcProg     l2
+          l2 <- goE2 "repairProgram"  (pure . id)  l2
+          pure l2
+        else do
+          let need = needsRAN l2
+          l1 <- case l1 of 
+            Nothing -> error "passesL2: needsRAN returned true, but no L1 program was provided to addRAN."
+            Just l1 -> pure l1
+          l1 <- goE1 "addRAN"        (addRAN need) l1
+          l1 <- go "L1.typecheck"    L1.tcProg     l1
+          -- NOTE: Calling copyOutOfOrderPacked here seems redundant since all the copy calls seem be exists in the correct place.
+          -- In addititon, calling it here gives a compile time error.
+          -- l1 <- goE1 "copyOutOfOrderPacked" copyOutOfOrderPacked l1
+          -- l1 <- go "L1.typecheck"    L1.tcProg     l1
+          l2 <- go "inferLocations2" inferLocs     l1
+          l2 <- goE2 "reorderLetExprs3" reorderLetExprs l2
+          l2 <- go "simplifyLocBinds" (simplifyLocBinds True) l2
+          l2 <- go "fixRANs"         fixRANs       l2
+          l2 <- go   "L2.typecheck"  L2.tcProg     l2
+          l2 <- go "regionsInwards" regionsInwards l2
+          l2 <- go "simplifyLocBinds" (simplifyLocBinds True) l2
+          l2 <- goE2 "+" reorderLetExprs l2
+          l2 <- go   "L2.typecheck"  L2.tcProg     l2
+          -- VS : This pass is causing a bug 
+          --l2 <- go "L2.flatten"      flattenL2     l2
+          l2 <- go "findWitnesses" findWitnesses   l2
+          l2 <- go "L2.typecheck"    L2.tcProg     l2
+          l2 <- goE2 "L2.flatten"    flattenL2     l2
+          l2 <- go "L2.typecheck"    L2.tcProg     l2
+          l2 <- if no_rcopies
+                then return l2                          
+                else
+                  do 
+                  l2 <- goE2 "removeCopies" removeCopies l2
+                  return l2
+          l2 <- go "L2.typecheck"    L2.tcProg     l2
+          l2 <- goE2 "inferEffects2" inferEffects  l2
+          l2 <- go "L2.typecheck"    L2.tcProg     l2
+          l2 <- goE2 "addTraversals" addTraversals l2
+          l2 <- go "L2.typecheck"    L2.tcProg     l2
+          l2 <- goE2 "repairProgram" (pure . id)   l2
+          pure l2
+
+      lift $ dumpIfSet config Opt_D_Dump_Repair (pprender l2)
+      --l2 <- go "L2.typecheck"     L2.tcProg     l2
+      -- VS: TODO: This pass needs to be debugged.
+      -- VS: This currently generates incorrect code for SoA case. 
+      -- Hence, i've added a conditional here.
+      -- Parallel mode with SoA memory backend has no support yet to begin with 
+      -- so this is fine for now. 
+      -- l2 <- goE2 "parAlloc"   parAlloc  l2
+      l2 <- if isSoA
+            then pure l2 
+            else goE2 "parAlloc"   parAlloc  l2
+      lift $ dumpIfSet config Opt_D_Dump_ParAlloc (pprender l2)
+      l2 <- go "L2.typecheck" L2.tcProg l2
+      l2 <- goE2 "inferRegScope"  inferRegScope l2
+      l2 <- go "L2.typecheck"     L2.tcProg     l2
+      l2 <- goE2 "simplifyLocBinds" (simplifyLocBinds True) l2
+      l2 <- go "L2.typecheck"     L2.tcProg     l2
+      l2 <- go "writeOrderMarkers" writeOrderMarkers l2
+      l2 <- go "L2.typecheck"     L2.tcProg     l2
+      l2 <- goE2 "routeEnds"      routeEnds     l2
+      l2 <- goE2 "L2.flatten" flattenL2 l2
+      l2 <- goE2 "simplifyLocBinds" (simplifyLocBinds True) l2
+      l2 <- goE2 "reorderLetExprs4" reorderLetExprs l2
+      l2 <- go "L2.typecheck"     L2.tcProg     l2
+      l2 <- go "inferFunAllocs"   inferFunAllocs l2
+      l2 <- go "L2.typecheck"     L2.tcProg     l2
+      -- L2 program no longer typechecks while these next passes run
+      {- VS: The Argument to simplify loc binds used to be False, why doesn't true work ? -}
+      l2 <- goE2 "simplifyLocBinds" (simplifyLocBinds True) l2 
+      l2 <- go "addRedirectionCon" addRedirectionCon l2
+      -- l2 <- if gibbon1
+      --      then pure l2
+      --      else go "inferRegSize" inferRegSize l2
+      if gibbon1
+          then pure l2
+          else go "followPtrs" followPtrs l2
+    where
+      go :: PassRunner a b v
+      go = pass config
+
+      goE2 :: (InterpProg Store b Var, Show v) => InterpPassRunner a b Store v
+      goE2 = passE emptyStore config
+
+      goE1 :: (InterpProg () b Var, Show v) => InterpPassRunner a b () v
+      goE1 = passE () config
+
+passesL2ToL2' :: (Show v) => Config -> L2.Prog2 -> StateT (CompileState v) IO NewL2.Prog2
+passesL2ToL2' config l2 = go "fromOldL2" fromOldL2 l2
+    where
+      go :: PassRunner a b v
+      go = pass config
+
+passesL2' :: (Show v) => Config -> NewL2.Prog2 -> StateT (CompileState v) IO NewL2.Prog2
+passesL2' config l2' = do
+      l2' <- go "threadRegions2" threadRegions2 l2'
+      go "hoistBoundsCheck" hoistBoundsCheckProg l2'
+    where
+      go :: PassRunner a b v
+      go = pass config
+
+passesL2'ToL3 :: (Show v) => Config -> NewL2.Prog2 -> StateT (CompileState v) IO L3.Prog3
+passesL2'ToL3 config@Config{dynflags} l2' = do
+      let isPacked   = gopt Opt_Packed dynflags
+          tcProg3     = L3.tcProg isPacked
+      go "cursorize"        cursorize     l2'
+    where
+      go :: PassRunner a b v
+      go = pass config
+
+passesL3 :: (Show v) => Config -> L3.Prog3 -> StateT (CompileState v) IO L3.Prog3
+passesL3 config@Config{dynflags} l3 = do
+      let isPacked   = gopt Opt_Packed dynflags
+          tcProg3     = L3.tcProg isPacked
+      l3 <- go "reorderScalarWrites" reorderScalarWrites  l3
+      -- _ <- lift $ putStrLn (pprender l3)
+      l3 <- go "L3.flatten"       flattenL3     l3
+      l3 <- go "addCasts"         addCasts      l3
+      l3 <- go "L3.typecheck"     tcProg3       l3
+      l3 <- go "hoistNewBuf"      hoistNewBuf   l3
+      go "L3.typecheck"     tcProg3       l3
+    where
+      go :: PassRunner a b v
+      go = pass config
+
+passesL1ToL3 :: (Show v) => Config -> L1.Prog1 -> StateT (CompileState v) IO L3.Prog3
+passesL1ToL3 config@Config{dynflags} l1 = do
+      let isPacked   = gopt Opt_Packed dynflags
+          tcProg3     = L3.tcProg isPacked
+      l3 <- go "directL3"         directL3      l1
+      go "L3.typecheck"     tcProg3       l3
+    where
+      go :: PassRunner a b v
+      go = pass config
+
+passesL3' :: (Show v) => Config -> L3.Prog3 -> StateT (CompileState v) IO L3.Prog3
+passesL3' config@Config{dynflags} l3 = do
+      let isPacked   = gopt Opt_Packed dynflags
+          tcProg3     = L3.tcProg isPacked
+      l3 <- go "unariser"       unariser                l3
+      l3 <- go "L3.typecheck"   tcProg3                 l3
+      l3 <- go "L3.flatten"     flattenL3               l3
+      go "L3.typecheck"   tcProg3                 l3
+    where
+      go :: PassRunner a b v
+      go = pass config
+
+passesL3ToL4 :: (Show v) => Config -> L3.Prog3 -> StateT (CompileState v) IO L4.Prog
+passesL3ToL4 config@Config{dynflags} l3 = go "lower" lower l3
+    where
+      go :: PassRunner a b v
+      go = pass config
+
+passesL4 :: (Show v) => Config -> L4.Prog -> StateT (CompileState v) IO L4.Prog
+passesL4 config@Config{dynflags} l4 = do
+      let isPacked   = gopt Opt_Packed dynflags
+          gibbon1    = gopt Opt_Gibbon1 dynflags
+      l4 <- go "lateInlineTriv" lateInlineTriv          l4
+      if gibbon1 || not isPacked
+        then do
+          l4 <- go "rearrangeFree"  rearrangeFree   l4
+          pure l4
+        else do
+          l4 <- go "rearrangeFree"   rearrangeFree   l4
+          -- l4 <- go "inlineTrivL4"    (pure . L4.inlineTrivL4) l4
+          pure l4
+    where
+      go :: PassRunner a b v
+      go = pass config
+
+passes' :: (Show v) => Config -> ProgType -> StateT (CompileState v) IO L4.Prog
+passes' config progType = passes'' config progType Nothing
+
+passes'' :: (Show v) => Config -> ProgType -> Maybe L1.Prog1 -> StateT (CompileState v) IO L4.Prog
+passes'' config@Config{dynflags} progType progl1 = case progType of
+      ProgL0 l0 -> do
+          -- L0 -> L1
+          l0 <- passesL0 config l0
+          l1 <- passesL0ToL1 config l0
+          passes'' config (ProgL1 l1) Nothing
+      
+      ProgL1 l1 -> do
+          -- L1 passes
+          l1 <- passesL1 config l1
+          if isPacked
+                then do
+                  -- extra L1 passes
+                  l1 <- passesL1' config l1
+
+                  -- L1 -> L2' (new L2 IR)
+                  l2 <- passesL1ToL2 config l1
+                  passes'' config (ProgL2 l2) (Just l1)
+
+                -- L1 -> L3 directly for non-packed code
+                else do
+                  l3 <- passesL1ToL3 config l1
+                  passes'' config (ProgL3 l3) Nothing
+      
+      ProgL2 l2 -> do
+          -- only allow compiling L2 programs with --packed flag
+          if isPacked
+            then do
+              -- L2 -> L2' (new L2 IR)
+              l2 <- passesL2 config l2 progl1
+              l2' <- passesL2ToL2' config l2
+              passes'' config (ProgL2' l2') Nothing
+            else do
+              error "L2 programs cannot be compiled without --packed flag."
+      
+      ProgL2' l2' -> do
+          -- only allow compiling L2New programs with --packed flag
+          if isPacked
+            then do
+              l2' <- passesL2' config l2'
+              l3 <- passesL2'ToL3 config l2'
+              passes'' config (ProgL3 l3) Nothing
+          else do
+              error "NewL2 programs cannot be compiled without --packed flag."
+
+      ProgL3 l3 -> do 
+          l3 <- if isPacked
+            then do
+              passesL3 config l3
+            else return l3
+          l3 <- passesL3' config l3
+          l4 <- passesL3ToL4 config l3
+          passes'' config (ProgL4 l4) Nothing
+      ProgL4 l4 -> passesL4 config l4
+
+    where
+      isPacked = gopt Opt_Packed dynflags
+
 
 -- | The main compiler pipeline
 passes :: (Show v) => Config -> L0.Prog0 -> StateT (CompileState v) IO L4.Prog

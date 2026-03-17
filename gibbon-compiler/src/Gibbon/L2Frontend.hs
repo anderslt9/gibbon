@@ -19,5 +19,5 @@ parseL2 config filePath = do
         typed_ast = ast' >>= ToTyped.inferProgram
         l2_ast = typed_ast >>= ToL2AST.convertToL2AST
     case l2_ast of
-        Ok l2Ast -> return l2Ast
+        Ok l2Ast -> return . pure $ l2Ast
         Failed err -> error $ "Error parsing into L2 AST: " ++ err

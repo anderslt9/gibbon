@@ -284,6 +284,7 @@ data Config = Config
 -- | What input format to expect on disk.
 data Input = Haskell
            | SExpr
+           | L2Input
            | Unspecified
   deriving (Show,Read,Eq,Ord,Enum,Bounded)
 
