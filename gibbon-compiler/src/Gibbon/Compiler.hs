@@ -234,42 +234,48 @@ compile config@Config{mode,input,verbosity,backend,cfile} fp0 = do
   dir <- getCurrentDirectory
   let fp1 = dir </> fp0
   -- Parse the input file
-  ((l0, cnt0), fp) <- parseInput config input fp1
+  ((progType, cnt0), fp) <- parseInput config input fp1
   let config' = config { srcFile = Just fp }
 
-  let initTypeChecked :: L0.Prog0
-      initTypeChecked =
+
+  
+
+  let initTypeChecked :: L0.Prog0 -> L0.Prog0
+      initTypeChecked l0'=
         -- We typecheck first to turn the appropriate VarE's into FunRefE's.
         fst $ runPassM defaultConfig cnt0
-                (freshNames l0 >>=
+                (freshNames l0' >>=
                  (\fresh -> dbgTrace 5 ("\nFreshen:\n"++sepline++ "\n" ++pprender fresh) (L0.tcProg fresh)))
 
   case mode of
-    Interp1 -> do
-        dbgTrace passChatterLvl ("\nParsed:\n"++sepline++ "\n" ++ sdoc l0) (pure ())
-        dbgTrace passChatterLvl ("\nTypechecked:\n"++sepline++ "\n" ++ pprender initTypeChecked) (pure ())
-        runConf <- getRunConfig []
-        (_s1,val,_stdout) <- gInterpProg () runConf initTypeChecked
-        print val
+    Interp1 -> case progType of
+                  ProgL0 l0 -> do 
+                    dbgTrace passChatterLvl ("\nParsed:\n"++sepline++ "\n" ++ sdoc l0) (pure ())
+                    dbgTrace passChatterLvl ("\nTypechecked:\n"++sepline++ "\n" ++ pprender (initTypeChecked l0)) (pure ())
+                    runConf <- getRunConfig []
+                    (_s1,val,_stdout) <- gInterpProg () runConf (initTypeChecked l0)
+                    print val
+                  _ -> error "Interp1 mode only supports L0 input programs."
 
-
-    ToParse -> dbgPrintLn 0 $ pprender l0
+    ToParse -> dbgPrintLn 0 $ pprenderProg progType
 
     _ -> do
       dbgPrintLn passChatterLvl $
           " [compiler] pipeline starting, parsed program: "++
             if dbgLvl >= passChatterLvl+1
-            then "\n"++sepline ++ "\n" ++ sdoc l0
-            else show (length (sdoc l0)) ++ " characters."
+            then "\n"++sepline ++ "\n" ++ sdocProg progType
+            else show (length (sdocProg progType)) ++ " characters."
 
       -- (Stage 1) Run the program through the interpreter
-      initResult <- withPrintInterpProg initTypeChecked
+      initResult <- case progType of
+                       ProgL0 l0 -> withPrintInterpProg (initTypeChecked l0)
+                       _ -> pure Nothing
 
       -- (Stage 2) C/LLVM codegen
       let outfile = getOutfile backend fp cfile
 
       -- run the initial program through the compiler pipeline
-      let stM = passes' config' (ProgL0 l0)
+      let stM = passes' config' progType
       l4  <- evalStateT stM (CompileState {cnt=cnt0, result=initResult})
 
       case mode of
@@ -303,6 +309,22 @@ compile config@Config{mode,input,verbosity,backend,cfile} fp0 = do
           when (mode == ToExe || mode == RunExe || isBench mode ) $ do
             compileAndRunExe config fp >>= putStr
             return ()
+    where
+      sdocProg :: ProgType -> String
+      sdocProg (ProgL0 p) = sdoc p
+      sdocProg (ProgL1 p) = sdoc p
+      sdocProg (ProgL2 p) = sdoc p
+      sdocProg (ProgL2' p) = sdoc p
+      sdocProg (ProgL3 p) = sdoc p
+      sdocProg (ProgL4 p) = sdoc p
+  
+      pprenderProg :: ProgType -> String
+      pprenderProg (ProgL0 p) = pprender p
+      pprenderProg (ProgL1 p) = pprender p
+      pprenderProg (ProgL2 p) = pprender p
+      pprenderProg (ProgL2' p) = pprender p
+      pprenderProg (ProgL3 p) = pprender p
+      pprenderProg (ProgL4 p) = pprender p
 
 runL0 :: L0.Prog0 -> IO ()
 runL0 l0 = do
@@ -339,17 +361,20 @@ setDebugEnvVar verbosity =
 
 parseInput :: Config -> Input -> FilePath -> IO ((ProgType, Int), FilePath)
 parseInput cfg ip fp = do
+  let fmapL0 = (fmap . fmap) ProgL0
+      fmapL2 = (fmap . fmap) ProgL2
   (progType, f) <-
     case ip of
-      Haskell -> (, fp) <$> HS.parseFile cfg fp
-      SExpr   -> (, fp) <$> SExp.parseFile fp
-      L2Input -> (, fp) <$> L2F.parseL2 cfg fp
+      Haskell -> (, fp) <$> fmapL0 (HS.parseFile cfg fp)
+      SExpr   -> (, fp) <$> fmapL0 (SExp.parseFile fp)
+      L2Input -> (, fp) <$> fmapL2 (L2F.parseL2 cfg fp)
       Unspecified ->
         case takeExtension fp of
-          ".hs"   -> (, fp) <$> HS.parseFile cfg fp
-          ".sexp" -> (, fp) <$> SExp.parseFile fp
-          ".rkt"  -> (, fp) <$> SExp.parseFile fp
-          ".gib"  -> (, fp) <$> SExp.parseFile fp
+          ".hs"   -> (, fp) <$> fmapL0 (HS.parseFile cfg fp)
+          ".sexp" -> (, fp) <$> fmapL0 (SExp.parseFile fp)
+          ".rkt"  -> (, fp) <$> fmapL0 (SExp.parseFile fp)
+          ".gib"  -> (, fp) <$> fmapL0 (SExp.parseFile fp)
+          ".l2"   -> (, fp) <$> fmapL2 (L2F.parseL2 cfg fp)
           oth -> do
             -- A silly hack just out of sheer laziness vis-a-vis tab completion:
             let f1 = fp ++ ".gib"
@@ -357,18 +382,46 @@ parseInput cfg ip fp = do
             f1' <- doesFileExist f1
             f2' <- doesFileExist f2
             if (f1' && oth == "") || (f2' && oth == ".")
-            then (,f2) <$> SExp.parseFile f1
+            then (,f2) <$> fmapL0 (SExp.parseFile f1)
             else error $ mconcat
               [ "compile: unrecognized file extension: "
               , show oth
               , "  Please specify compile input format."
               ]
-  let l0' = do parsed <- l0
+  
+  -- let (l0'', cnt) = (\prog -> do
+  --         progType' <- prog
+  --         case progType' of 
+  --           ProgL0 l0 -> 
+  --               let l0' = HS.desugarLinearExts l0
+  --                   (l0'', cnt) = runPassM defaultConfig 0 (pure l0)
+  --               in pure (ProgL0 l0'', cnt)
+  --           _ -> error "Unexpected program type after parsing."
+  --         ) progType
+          
+  -- pure (retTup, f)
+  -- let (result, cnt) = case progType
+                    
+  let l0' = do parsed <- progType
                -- dbgTraceIt (sdoc parsed) (pure ())
-               HS.desugarLinearExts parsed
+               case parsed of
+                 ProgL0 p -> fmap ProgL0 (HS.desugarLinearExts p)
+                 _ -> progType
+  --             --  HS.desugarLinearExts parsed
+  -- -- (l0'', cnt) <- fmap (\prog -> case prog of
+  -- --                  ProgL0 l0 -> pure $ runPassM defaultConfig 0 (pure l0)
+  -- --                  ProgL2 l2 -> pure $ runPassM defaultConfig 0 (lift l2)
+  -- --                  _ -> error "Unexpected program type after parsing.") l0'
+  
+  
+  
+
+
+  -- let l0' = HS.desugarLinearExts progType 
+  
   (l0'', cnt) <- pure $ runPassM defaultConfig 0 l0'
   pure ((l0'', cnt), f)
-
+  
 
 -- |
 withPrintInterpProg :: L0.Prog0 -> IO (Maybe (Value L0.Exp0))
