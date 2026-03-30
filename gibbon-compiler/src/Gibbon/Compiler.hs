@@ -153,7 +153,8 @@ configParser = Config <$> inputParser
                 -- I'd like to display a separator and some more info.  How?
   inputParser = -- infoOption "foo" (help "bar") <*>
                 flag' Haskell (long "hs")  <|>
-                flag Unspecified SExpr (long "gib")
+                flag Unspecified SExpr (long "gib") <|>
+                flag' L2Input (long "l2")
 
   modeParser = -- infoOption "foo" (help "bar") <*>
                flag' ToParse (long "parse" <> help "Only parse, then print & stop") <|>
@@ -237,9 +238,6 @@ compile config@Config{mode,input,verbosity,backend,cfile} fp0 = do
   ((progType, cnt0), fp) <- parseInput config input fp1
   let config' = config { srcFile = Just fp }
 
-
-  
-
   let initTypeChecked :: L0.Prog0 -> L0.Prog0
       initTypeChecked l0'=
         -- We typecheck first to turn the appropriate VarE's into FunRefE's.
@@ -292,9 +290,6 @@ compile config@Config{mode,input,verbosity,backend,cfile} fp0 = do
         _ -> do
           str <- case backend of
                   C    -> codegenProg config' l4
-
-
-
                   LLVM -> error $ "Cannot execute through the LLVM backend. To build Gibbon with LLVM: "
                           ++ "stack build --flag gibbon:llvm_enabled"
 
