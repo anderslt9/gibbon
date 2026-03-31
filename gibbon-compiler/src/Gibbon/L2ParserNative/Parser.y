@@ -105,17 +105,17 @@ import Gibbon.L2ParserNative.Lexer
 %%
 -- top-level program
 Program :: { Program }
-    : DataTypeDecls FuncDecls MainExpr EOF { Program (DataTypeDecls $1) (FuncDecls $2) $3 }
+    : DataTypeDecls FuncDecls MainExpr EOF { Program (reverseList DataTypeDecls $1) (reverseList FuncDecls $2) $3 }
 
 MainExpr :: { Expr }
     : main '=' Expr     { $3 }
 
 -- data type declarations
 DataTypeDecl :: { DataTypeDecl }
-    : data TypeCon '=' DataFields { DataTypeDecl $2 (DataFields $4) }
+    : data TypeCon '=' DataFields { DataTypeDecl $2 (reverseList DataFields $4) }
 
 DataField :: { DataField }
-    : DataCon CombinedTypeCons { DataField $1 (CombinedTypeCons $2) }
+    : DataCon CombinedTypeCons { DataField $1 (reverseList CombinedTypeCons $2) }
 
 CombinedTypeCon :: { CombinedTypeCon }
     : TypeCon   { CTCTypeCon $1 }
@@ -129,7 +129,7 @@ FuncDecl :: { FuncDecl }
 
 FuncDeclRest
     : ':' TypeScheme '\n' FuncVar '[' LocRegions ']' Vars '=' Expr
-        {\v -> FuncDecl v $2 $4 (LocRegions $6) (Vars $8) $10}
+        {\v -> FuncDecl v $2 $4 (reverseList LocRegions $6) (reverseList Vars $8) $10}
 
 -- type expressions
 LocatedType :: { LocatedType } 
@@ -140,7 +140,7 @@ CombinedLocType :: { CombinedLocType }
     | BaseType  { CLTBase $1 }
 
 TypeScheme :: { TypeScheme }
-    : CombinedTypes { TypeScheme (CombinedTypes $1)}
+    : CombinedTypes { TypeScheme (reverseList CombinedTypes $1)}
 
 CombinedType :: { CombinedType }
     : LocatedType                     { CTLocated $1 }
@@ -195,17 +195,17 @@ ExprLet :: { Expr }
     : let Var ':' CombinedType '=' Expr in Expr   { ExprLet $2 $4 $6 $8 }
 
 ExprFuncApp :: { Expr }
-    : FuncVar '[' LocRegions ']' Exprs   { ExprFuncApp $1 (LocRegions $3) (Exprs $5)}
+    : FuncVar '[' LocRegions ']' Exprs   { ExprFuncApp $1 (reverseList LocRegions $3) (reverseList Exprs $5)}
 
 ExprDataConApp :: { Expr }
-    : DataCon LocRegion Exprs    { ExprDataConApp $1 $2 (Exprs $3)}
+    : DataCon LocRegion Exprs    { ExprDataConApp $1 $2 (reverseList Exprs $3)}
 
 -- TODO change this so Val is Expr
 ExprCase :: { Expr }
-    : case Val of Pats    { ExprCase $2 (Pats $4) }
+    : case Val of Pats    { ExprCase $2 (reverseList Pats $4) }
 
 Pat :: { Pat }
-    : DataCon PatMatches '->' Expr      { Pat $1 (PatMatches $2) $4 }
+    : DataCon PatMatches '->' Expr      { Pat $1 (reverseList PatMatches $2) $4 }
 
 PatMatch :: { PatMatch }
     : Val ':' LocatedType       { PatMatch $1 $3}
@@ -377,4 +377,7 @@ catchE m k =
 --    case m s of
 --       Ok a     -> Ok a
 --       Failed e -> k e s
+reverseList :: ([a] -> b) -> [a] -> b
+reverseList f = f . reverse
+
 }

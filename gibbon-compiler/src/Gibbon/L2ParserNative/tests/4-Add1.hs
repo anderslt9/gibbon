@@ -8,9 +8,9 @@ add1 [(l5,r2) (l6,r3)] tr1 = case tr1 of
                     lf
                 Node (left : Tree@(l5,r2,left)) (right : Tree@(l5,r2,right)) ->
                     letloc (l7,r3) = ((l6,r3) + 1) in
-                    let x2 : Tree@(l7,r3) = add1 [(l5,r2) (l7,r3)] left in
+                    let x2 : Tree@(l7,r3) = add1 [(l5,r2,left) (l7,r3)] left in
                     letloc (l8,r3) = (after Tree@(l7,r3)) in
-                    let y2 : Tree@(l8,r3) = add1 [(l5,r2) (l8,r3)] right in
+                    let y2 : Tree@(l8,r3) = add1 [(l5,r2,right) (l8,r3)] right in
                     let z2 : Tree@(l6,r3) = Node (l6,r3) x2 y2 in
                     z2
 
