@@ -368,7 +368,7 @@ inferExpr expr = case expr of
         let newILetRegion = ExprLetRegion (RegionVar rv) (tNode typedExpr)
         return $ createTypedNode (tType typedExpr) newILetRegion
     -- TODO still need to check index variables (just make sure they're in environment), may be too complicated for this
-    (ExprLetLoc locreg@(LocRegion (LocVar locVar) (RegionVar regVar) (IndexVar indexVar)) locExpress expr1) -> do
+    (ExprLetLoc locreg@(LocRegion (LocVar locVar) (RegionVar regVar) (IndexVar _indexVar)) locExpress expr1) -> do
         -- let locType = tType typedExpr1
         case locExpress of 
             LocExpressStart (RegionVar regVar2) -> do
@@ -492,7 +492,7 @@ inferVal val = case val of
         typedLit <- inferLit n
         let newIValLit = ValLit n
         return $ createTypedNode (tType typedLit) newIValLit
-    _ -> lift . Failed $ "inferVal: Not implemented for this value type"
+    -- _ -> lift . Failed $ "inferVal: Not implemented for this value type"
 
 inferLit :: Lit -> (InferM LocRegion) ((TypedNode LocRegion) Lit)
 inferLit lit = case lit of 
@@ -500,7 +500,7 @@ inferLit lit = case lit of
     node@(FloatLit _) -> return $ createTypedNode FloatTy node
     node@(BoolLit _) -> return $ createTypedNode BoolTy node
     node@(StringLit _) -> return $ createTypedNode StringTy node
-    _ -> lift . Failed $ "inferLit: Not implemented for this literal type"
+    -- _ -> lift . Failed $ "inferLit: Not implemented for this literal type"
 
 -- Data Declaration Loading
 extractDataCons :: DataTypeDecl -> [(DataCon, ([MyTy LocRegion], MyTy LocRegion))]
@@ -528,7 +528,7 @@ extractFuncDecls (FuncDecls decls) = map extractFuncDecl decls
     where
         -- TODO deal with location regions
         extractFuncDecl :: FuncDecl -> (FuncVar, FuncInfo LocRegion)
-        extractFuncDecl (FuncDecl funcVar1 (TypeScheme combinedTypes) funcVar2 locRegions vars expr) = 
+        extractFuncDecl (FuncDecl funcVar1 (TypeScheme combinedTypes) _funcVar2 _locRegions _vars _expr) = 
             -- GET ARG TYPES AND RETURN TYPE FROM TYPESCHEME, ignore everything else
             case separateArgs combinedTypes of
                 Nothing -> error $ "extractFuncDecl: Function " ++ show funcVar1 ++ " has invalid type scheme"
@@ -576,7 +576,7 @@ combinedTypeToType (CTBase baseType) = baseTypeToType baseType
 -- TODO look at whether I need to bind base types to locRegion
 locatedTypeToType :: LocatedType -> MyTy LocRegion
 locatedTypeToType (LocatedType (CLTTypeCon tc) locRegion) = PackedTy tc locRegion -- deal with adding location at some point
-locatedTypeToType (LocatedType (CLTBase baseType) locRegion) = baseTypeToType baseType
+locatedTypeToType (LocatedType (CLTBase baseType) _locRegion) = baseTypeToType baseType
 
 binOpToType :: BinOp -> (MyTy a, MyTy a, MyTy a)
 binOpToType op = case op of

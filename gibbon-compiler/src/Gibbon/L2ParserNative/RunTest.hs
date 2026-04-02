@@ -4,10 +4,10 @@ import Data.List (isPrefixOf, isSuffixOf)
 -- import System.Environment (getArgs)
 import Control.Monad (forM_, when)
 import System.FilePath.Posix (takeBaseName)
-import System.IO (writeFile, appendFile)
+-- import System.IO (writeFile, appendFile)
 import Gibbon.L2ParserNative.Lexer (lexer)
 import Gibbon.L2ParserNative.PrintAST (printAST)
-import Gibbon.L2ParserNative.Helper (makeRed, makeBold, makeGreen, E(Ok, Failed))
+import Gibbon.L2ParserNative.Helper (makeRed, makeBold, E(Ok, Failed))
 -- import L2ParserNative (l2ParserNative)
 import Gibbon.L2ParserNative.Parser (l2ParserNative)
 import Gibbon.L2ParserNative.ConvertToTypedAST (inferProgram, tType, tNode)
@@ -40,7 +40,7 @@ baseCfg = SimpleCfg {   inFiles = [],
                         showL2AST = True
 }
 
-displayResult :: (Show a) => E a -> String -> Int -> SimpleCfg -> (a -> String) -> (SimpleCfg -> Bool) -> IO ()
+displayResult :: E a -> String -> Int -> SimpleCfg -> (a -> String) -> (SimpleCfg -> Bool) -> IO ()
 displayResult (Ok x) namedResult i config func toShow = do
     when (toShow config) $ do
         let paddingSize = 50

@@ -801,7 +801,10 @@ passesL0ToL1 config l0 = goE0 "toL1"            (pure . L0.toL1)     l0
       goE0 = passE () config
 
 passesL1 :: (Show v) => Config -> L1.Prog1 -> StateT (CompileState v) IO L1.Prog1
-passesL1 config l1 = do
+passesL1 config@Config{dynflags} l1 = do
+      let should_fuse = gopt Opt_Fusion dynflags
+          parallel   = gopt Opt_Parallel dynflags
+
       l1 <- goE1 "typecheck"     L1.tcProg              l1
       -- If we are executing a benchmark, then we replace the main function with benchmark code:
       l1 <- goE1 "benchMainExp"  benchMainExp           l1
@@ -809,16 +812,17 @@ passesL1 config l1 = do
       l1 <- goE1 "simplify"      simplifyL1             l1
       l1 <- goE1 "typecheck"     L1.tcProg              l1
       -- Check this after eliminating all dead functions.
-      when (hasSpawnsProg l1 && not (gopt Opt_Parallel (dynflags config))) $
+      when (hasSpawnsProg l1 && not parallel) $
         error "To compile a program with parallelism, use --parallel."
       l1 <- goE1 "flatten"       flattenL1              l1
       l1 <- goE1 "simplify"      simplifyL1             l1
       l1 <- goE1 "inlineTriv"    inlineTriv             l1
       l1 <- goE1 "typecheck"     L1.tcProg              l1
-      l1 <- if gopt Opt_Fusion (dynflags config)
+      l1 <- if should_fuse
           then goE1  "fusion2"   fusion2                l1
           else return l1
       l1 <- goE0 "typecheck"     L1.tcProg              l1
+      
       -- Minimal haskell "backend".
       lift $ dumpIfSet config Opt_D_Dump_Hs (render $ pprintHsWithEnv l1)
 
@@ -901,16 +905,19 @@ passesL2 config@Config{dynflags} l2 l1 = do
           -- l1 <- goE1 "copyOutOfOrderPacked" copyOutOfOrderPacked l1
           -- l1 <- go "L1.typecheck"    L1.tcProg     l1
           l2 <- go "inferLocations2" inferLocs     l1
+          l2 <- go "regionsInwards2"    regionsInwards l2
+          l2 <- go "simplifyLocBinds_1" (simplifyLocBinds True) l2
           l2 <- goE2 "reorderLetExprs3" reorderLetExprs l2
-          l2 <- go "simplifyLocBinds" (simplifyLocBinds True) l2
+          -- l2 <- go "simplifyLocBinds" (simplifyLocBinds True) l2
           l2 <- go "fixRANs"         fixRANs       l2
-          l2 <- go   "L2.typecheck"  L2.tcProg     l2
-          l2 <- go "regionsInwards" regionsInwards l2
-          l2 <- go "simplifyLocBinds" (simplifyLocBinds True) l2
-          l2 <- goE2 "+" reorderLetExprs l2
+          -- l2 <- go   "L2.typecheck"  L2.tcProg     l2
+          -- l2 <- go "regionsInwards" regionsInwards l2
+          -- l2 <- go "simplifyLocBinds" (simplifyLocBinds True) l2
+          l2 <- goE2 "reorderLetExprs4" reorderLetExprs l2
+          -- l2 <- goE2 "+" reorderLetExprs l2
           l2 <- go   "L2.typecheck"  L2.tcProg     l2
           -- VS : This pass is causing a bug 
-          --l2 <- go "L2.flatten"      flattenL2     l2
+          l2 <- go "L2.flatten"      flattenL2     l2
           l2 <- go "findWitnesses" findWitnesses   l2
           l2 <- go "L2.typecheck"    L2.tcProg     l2
           l2 <- goE2 "L2.flatten"    flattenL2     l2
@@ -944,20 +951,21 @@ passesL2 config@Config{dynflags} l2 l1 = do
       l2 <- go "L2.typecheck" L2.tcProg l2
       l2 <- goE2 "inferRegScope"  inferRegScope l2
       l2 <- go "L2.typecheck"     L2.tcProg     l2
-      l2 <- goE2 "simplifyLocBinds" (simplifyLocBinds True) l2
+      -- l2 <- goE2 "simplifyLocBinds" (simplifyLocBinds True) l2
+      l2 <- goE2 "simplifyLocBinds_2" (simplifyLocBinds True) l2
       l2 <- go "L2.typecheck"     L2.tcProg     l2
       l2 <- go "writeOrderMarkers" writeOrderMarkers l2
       l2 <- go "L2.typecheck"     L2.tcProg     l2
       l2 <- goE2 "routeEnds"      routeEnds     l2
       l2 <- goE2 "L2.flatten" flattenL2 l2
-      l2 <- goE2 "simplifyLocBinds" (simplifyLocBinds True) l2
-      l2 <- goE2 "reorderLetExprs4" reorderLetExprs l2
+      l2 <- goE2 "simplifyLocBinds_3" (simplifyLocBinds True) l2
+      l2 <- goE2 "reorderLetExprs5" reorderLetExprs l2
       l2 <- go "L2.typecheck"     L2.tcProg     l2
       l2 <- go "inferFunAllocs"   inferFunAllocs l2
       l2 <- go "L2.typecheck"     L2.tcProg     l2
       -- L2 program no longer typechecks while these next passes run
       {- VS: The Argument to simplify loc binds used to be False, why doesn't true work ? -}
-      l2 <- goE2 "simplifyLocBinds" (simplifyLocBinds True) l2 
+      l2 <- goE2 "simplifyLocBinds_4" (simplifyLocBinds True) l2 
       l2 <- go "addRedirectionCon" addRedirectionCon l2
       -- l2 <- if gibbon1
       --      then pure l2
@@ -975,13 +983,13 @@ passesL2 config@Config{dynflags} l2 l1 = do
       goE1 :: (InterpProg () b Var, Show v) => InterpPassRunner a b () v
       goE1 = passE () config
 
-passesL2ToL2' :: (Show v) => Config -> L2.Prog2 -> StateT (CompileState v) IO NewL2.Prog2
+passesL2ToL2' :: Config -> L2.Prog2 -> StateT (CompileState v) IO NewL2.Prog2
 passesL2ToL2' config l2 = go "fromOldL2" fromOldL2 l2
     where
       go :: PassRunner a b v
       go = pass config
 
-passesL2' :: (Show v) => Config -> NewL2.Prog2 -> StateT (CompileState v) IO NewL2.Prog2
+passesL2' :: Config -> NewL2.Prog2 -> StateT (CompileState v) IO NewL2.Prog2
 passesL2' config l2' = do
       l2' <- go "threadRegions2" threadRegions2 l2'
       go "hoistBoundsCheck" hoistBoundsCheckProg l2'
@@ -989,7 +997,7 @@ passesL2' config l2' = do
       go :: PassRunner a b v
       go = pass config
 
-passesL2'ToL3 :: (Show v) => Config -> NewL2.Prog2 -> StateT (CompileState v) IO L3.Prog3
+passesL2'ToL3 :: Config -> NewL2.Prog2 -> StateT (CompileState v) IO L3.Prog3
 passesL2'ToL3 config@Config{dynflags} l2' = do
       let isPacked   = gopt Opt_Packed dynflags
           tcProg3     = L3.tcProg isPacked
@@ -998,55 +1006,59 @@ passesL2'ToL3 config@Config{dynflags} l2' = do
       go :: PassRunner a b v
       go = pass config
 
-passesL3 :: (Show v) => Config -> L3.Prog3 -> StateT (CompileState v) IO L3.Prog3
+passesL3 :: Config -> L3.Prog3 -> StateT (CompileState v) IO L3.Prog3
 passesL3 config@Config{dynflags} l3 = do
       let isPacked   = gopt Opt_Packed dynflags
           tcProg3     = L3.tcProg isPacked
       l3 <- go "reorderScalarWrites" reorderScalarWrites  l3
       -- _ <- lift $ putStrLn (pprender l3)
       l3 <- go "L3.flatten"       flattenL3     l3
-      l3 <- go "addCasts"         addCasts      l3
+      -- l3 <- go "addCasts"         addCasts      l3
       l3 <- go "L3.typecheck"     tcProg3       l3
       l3 <- go "hoistNewBuf"      hoistNewBuf   l3
-      go "L3.typecheck"     tcProg3       l3
+      l3 <- go "L3.typecheck"     tcProg3       l3
+      return l3
     where
       go :: PassRunner a b v
       go = pass config
 
-passesL1ToL3 :: (Show v) => Config -> L1.Prog1 -> StateT (CompileState v) IO L3.Prog3
+passesL1ToL3 :: Config -> L1.Prog1 -> StateT (CompileState v) IO L3.Prog3
 passesL1ToL3 config@Config{dynflags} l1 = do
       let isPacked   = gopt Opt_Packed dynflags
           tcProg3     = L3.tcProg isPacked
       l3 <- go "directL3"         directL3      l1
-      go "L3.typecheck"     tcProg3       l3
+      l3 <- go "L3.typecheck"     tcProg3       l3
+      return l3
     where
       go :: PassRunner a b v
       go = pass config
 
-passesL3' :: (Show v) => Config -> L3.Prog3 -> StateT (CompileState v) IO L3.Prog3
+passesL3' :: Config -> L3.Prog3 -> StateT (CompileState v) IO L3.Prog3
 passesL3' config@Config{dynflags} l3 = do
       let isPacked   = gopt Opt_Packed dynflags
           tcProg3     = L3.tcProg isPacked
       l3 <- go "unariser"       unariser                l3
+      l3 <- go "removeReDefinitions"     removeReDefs            l3
       l3 <- go "L3.typecheck"   tcProg3                 l3
       l3 <- go "L3.flatten"     flattenL3               l3
-      go "L3.typecheck"   tcProg3                 l3
+      l3 <- go "L3.typecheck"   tcProg3                 l3
+      return l3
     where
       go :: PassRunner a b v
       go = pass config
 
-passesL3ToL4 :: (Show v) => Config -> L3.Prog3 -> StateT (CompileState v) IO L4.Prog
-passesL3ToL4 config@Config{dynflags} l3 = go "lower" lower l3
+passesL3ToL4 :: Config -> L3.Prog3 -> StateT (CompileState v) IO L4.Prog
+passesL3ToL4 config l3 = go "lower" lower l3
     where
       go :: PassRunner a b v
       go = pass config
 
-passesL4 :: (Show v) => Config -> L4.Prog -> StateT (CompileState v) IO L4.Prog
+passesL4 :: Config -> L4.Prog -> StateT (CompileState v) IO L4.Prog
 passesL4 config@Config{dynflags} l4 = do
       let isPacked   = gopt Opt_Packed dynflags
           gibbon1    = gopt Opt_Gibbon1 dynflags
       l4 <- go "lateInlineTriv" lateInlineTriv          l4
-      if gibbon1 || not isPacked
+      l4 <- if gibbon1 || not isPacked
         then do
           l4 <- go "rearrangeFree"  rearrangeFree   l4
           pure l4
@@ -1054,6 +1066,7 @@ passesL4 config@Config{dynflags} l4 = do
           l4 <- go "rearrangeFree"   rearrangeFree   l4
           -- l4 <- go "inlineTrivL4"    (pure . L4.inlineTrivL4) l4
           pure l4
+      return l4
     where
       go :: PassRunner a b v
       go = pass config

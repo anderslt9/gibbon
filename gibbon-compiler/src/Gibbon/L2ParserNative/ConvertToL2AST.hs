@@ -5,7 +5,7 @@ import Gibbon.L2.Syntax as L2
 import Gibbon.Language.Syntax as S
 import qualified Data.Set.Internal as Set (empty)
 import Gibbon.L2ParserNative.AST as AST
-import Data.Map (empty, fromList)
+import Data.Map (fromList)
 import Gibbon.L2ParserNative.ConvertToTypedAST as My
 import Gibbon.L2ParserNative.Helper
 import GHC.Float ( float2Double )
@@ -86,7 +86,7 @@ convertFuncDecls (FuncDecls funcDecls) = do
     return $ fromList newDecls
 
 convertFuncDecl :: FuncDecl -> E (C.Var, L2.FunDef2)
-convertFuncDecl (FuncDecl (FuncVar f) typeScheme (FuncVar innerF) locRegions vars expr) = do
+convertFuncDecl (FuncDecl (FuncVar f) typeScheme (FuncVar _innerF) _locRegions vars expr) = do
     newTypeScheme <- convertTypeScheme typeScheme
     newExpr <- convertExpr expr
     newVars <- convertVarsToVars vars
@@ -113,7 +113,7 @@ convertTypeScheme (TypeScheme (CombinedTypes combinedTypes)) = do
 
 -- TODO figure out how index var works in this case
 convertCombinedTypeToLRM :: L2.Modality -> CombinedType -> E LRM
-convertCombinedTypeToLRM lrmModality (CTLocated (LocatedType combinedLocType locRegion)) = do
+convertCombinedTypeToLRM lrmModality (CTLocated (LocatedType _combinedLocType locRegion)) = do
     locVar <- convertLocRegionToLocVar locRegion
     regionVar <- convertLocRegionToRegVar locRegion
     -- indexVar <- convertLocRegionToIndexVar locRegion
@@ -142,7 +142,9 @@ convertExpr expr = do
         (ExprFuncApp (FuncVar f) (LocRegions locRegions) (Exprs exprs)) -> do
             newExprs <- mapM convertExpr exprs
             newLocs <- mapM convertLocRegionToLocVar locRegions
-            return $ S.AppE (C.toVar f) (map C.Single newLocs) newExprs
+            -- TODO figure out how to deal with tail-recursive stuff
+            -- TODO calling function within function will register as recursive call
+            return $ S.AppE (C.toVar f) S.NotTailRec (map C.Single newLocs) newExprs
         (ExprDataConApp (DataCon dataCon) locRegion (Exprs exprs)) -> do
             newExprs <- mapM convertExpr exprs
             locVar <- convertLocRegionToLocVar locRegion
@@ -166,7 +168,7 @@ convertExpr expr = do
                 (LocExpressNext nextLocRegion offset) -> do
                     nextLocVar <- convertLocRegionToLocVar nextLocRegion
                     return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterConstantLE offset (C.Single nextLocVar)) newE
-                (LocExpressAfter (LocatedType (CLTTypeCon (TypeCon typeCon)) lr@(LocRelativeVar relativeVar locVar1 regVar1 iVar1))) -> do
+                (LocExpressAfter (LocatedType (CLTTypeCon (TypeCon _typeCon)) lr@(LocRelativeVar relativeVar _locVar1 _regVar1 _iVar1))) -> do
                     locVarRel <- convertLocRegionToLocVar lr
                     return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterVariableLE (C.toVar relativeVar) (C.Single locVarRel) True) newE
                 (LocExpressAfter _) -> do
@@ -174,9 +176,10 @@ convertExpr expr = do
                 -- _ -> Failed "convertExpr: Not implemented for this locExpress type"
         (ExprLetRegion (RegionVar regionVar) e) -> do
             newE <- convertExpr e
-            return $ L2.Ext $ L2.LetRegionE (L2.VarR . C.toVar $ regionVar) L2.Undefined Nothing newE
+            -- TODO figure out mutable vs immutable
+            return $ L2.Ext $ L2.LetRegionE (L2.VarR . C.toVar $ regionVar) L2.Undefined RegionImmutable Nothing newE
             -- Failed "convertExpr: Not implemented for letregion expressions"
-        _ -> Failed "convertExpr: Not implemented for this expression type"
+        -- _ -> Failed "convertExpr: Not implemented for this expression type"
 
 
 convertPats :: Pats -> E [(C.DataCon, [(C.Var, L2.LocVar)], L2.Exp2)]

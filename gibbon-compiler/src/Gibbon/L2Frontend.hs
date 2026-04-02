@@ -10,7 +10,7 @@ import qualified Gibbon.L2ParserNative.Passes as Pass
 import Gibbon.Common
 
 parseL2 :: Config -> FilePath -> IO (PassM Prog2)
-parseL2 config filePath = do
+parseL2 _config filePath = do
     contents <- readFile filePath
     let tokens = lexer contents
         ast = l2ParserNative tokens
