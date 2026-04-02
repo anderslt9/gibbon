@@ -140,7 +140,7 @@ CombinedLocType :: { CombinedLocType }
     | BaseType  { CLTBase $1 }
 
 TypeScheme :: { TypeScheme }
-    : CombinedTypes { TypeScheme (reverseList CombinedTypes $1)}
+    : CombinedTypes { TypeScheme (CombinedTypes $1)}
 
 CombinedType :: { CombinedType }
     : LocatedType                     { CTLocated $1 }
