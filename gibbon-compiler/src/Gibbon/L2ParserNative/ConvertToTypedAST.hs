@@ -291,12 +291,18 @@ inferExpr expr = case expr of
         else lift . Failed $ "Type mismatch in binary operation" ++ show binOp ++ ": " ++ show (tType typedE1) ++ " vs " ++ show (tType typedE2)
     
     -- TODO deal with location region stuff (may consider type promotion too)
-    (ExprFuncApp (FuncVar funcVar) locRegions (Exprs exprs)) -> do
+    (ExprFuncApp (FuncVar funcVar) lrs@(LocRegions locRegions) (Exprs exprs)) -> do
         typedExprs <- mapM inferExpr exprs
         funcInfo <- lookupFunc funcVar
         let argTys = map tType typedExprs
-            oldFuncRetType = funcRetType funcInfo
-            newIFuncApp = ExprFuncApp (FuncVar funcVar) locRegions (Exprs (map tNode typedExprs))
+            newIFuncApp = ExprFuncApp (FuncVar funcVar) lrs (Exprs (map tNode typedExprs))
+        oldFuncRetType <- case (funcRetType funcInfo) of
+            PackedTy tc _ -> do
+                let retLoc = safeLast locRegions
+                case retLoc of 
+                    Ok r -> return $ PackedTy tc r
+                    Failed _ -> lift . Failed $ "inferExpr: Function application for " ++ show funcVar ++ " has packed return type but no location regions provided"
+            ty -> return ty
 
         -- TODO may need to check if recursive function requires same region for types, but for now, ignore
         -- check if function not being recursively called

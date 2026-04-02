@@ -29,6 +29,11 @@ safeHead :: [a] -> E a
 safeHead []    = Failed "Empty list"
 safeHead (x:_) = Ok x
 
+safeLast :: [a] -> E a
+safeLast [] = Failed "Empty list"
+safeLast [x] = Ok x
+safeLast (_:xs) = safeLast xs
+
 splitLast :: [a] -> E ([a], a)
 splitLast [] = Failed "splitLast: Empty list has no last element"
 splitLast [x] = return ([], x)
