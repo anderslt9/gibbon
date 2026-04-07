@@ -786,7 +786,8 @@ passesL0 config l0 = do
       -- l0 <- goE0 "closureConvert"  L0.closureConvert    l0
       l0 <- goE0 "specLambdas"     L0.specLambdas       l0
       l0 <- goE0 "desugarL0"       L0.desugarL0         l0
-      goE0 "floatOutCase"    L0.floatOutCase      l0
+      l0 <- goE0 "floatOutCase"    L0.floatOutCase      l0
+      return l0
     where
       go :: PassRunner a b v
       go = pass config
@@ -992,15 +993,17 @@ passesL2ToL2' config l2 = go "fromOldL2" fromOldL2 l2
 passesL2' :: Config -> NewL2.Prog2 -> StateT (CompileState v) IO NewL2.Prog2
 passesL2' config l2' = do
       l2' <- go "threadRegions2" threadRegions2 l2'
-      go "hoistBoundsCheck" hoistBoundsCheckProg l2'
+      l2' <- go "hoistBoundsCheck" hoistBoundsCheckProg l2'
+      --Infer the type of AppE call
+      -- This can either be a tail call, a tail mod cons call or unknown
+      l2' <- go "inferCallType" inferCallType l2'
+      return l2'
     where
       go :: PassRunner a b v
       go = pass config
 
 passesL2'ToL3 :: Config -> NewL2.Prog2 -> StateT (CompileState v) IO L3.Prog3
-passesL2'ToL3 config@Config{dynflags} l2' = do
-      let isPacked   = gopt Opt_Packed dynflags
-          tcProg3     = L3.tcProg isPacked
+passesL2'ToL3 config l2' = do
       go "cursorize"        cursorize     l2'
     where
       go :: PassRunner a b v
