@@ -8,7 +8,7 @@ import Control.Monad (foldM)
 import Control.Monad.Reader
 import qualified Data.Map as M
 import qualified Data.Set as S
-import qualified Gibbon.Common as C
+-- import qualified Gibbon.Common as C
 -- import System.Environment (getEnv)
 
 -- This conversion does the following transformations:

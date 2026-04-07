@@ -21,7 +21,7 @@ takeAlphaNum (x:xs)
     | x `elem` (['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] ++ "_") = x : takeAlphaNum xs
     | otherwise = []
 
-checkAllSame :: (Eq a) => (a -> a -> Bool) -> [a] -> Bool 
+checkAllSame :: (a -> a -> Bool) -> [a] -> Bool 
 checkAllSame _ [] = True
 checkAllSame eq (x:xs) = all (eq x) xs
 

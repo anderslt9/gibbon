@@ -11,7 +11,7 @@ lexer' p [] = [TokenEOF p]
 lexer' p (c:cs)
     | c == '\n' = 
         case cs of 
-            (d:ds) | isSpace d -> lexer' (advance p c) cs
+            (d:_) | isSpace d -> lexer' (advance p c) cs
             _  -> TokenNewLine p : lexer' (advance p c) cs
     | isSpace c = lexer' (advance p c) cs
     | isAlpha c = lexVar p (c:cs)
@@ -57,7 +57,7 @@ lexer' p ('.':'<':'.':cs) = TokenFLt p : lexer' (advanceStr p ".<.") cs
 lexer' p ('.':'>':'=':'.':cs) = TokenFGe p : lexer' (advanceStr p ".>=") cs
 lexer' p ('.':'<':'=':'.':cs) = TokenFLe p : lexer' (advanceStr p ".<=") cs
 lexer' p ('&':'&':cs)   =  TokenAnd p : lexer' (advanceStr p "&&") cs
-lexer' p _ = []  -- unrecognized character, could also raise an error
+lexer' _ _ = []  -- unrecognized character, could also raise an error
 
 advanceStr :: Pos -> String -> Pos
 advanceStr p cs = foldl advance p cs
@@ -118,4 +118,4 @@ lexVar p cs =
         ("True", rest)  -> TokenBoolLit p True : lexer' (advanceStr p "True") rest
         ("False", rest) -> TokenBoolLit p False : lexer' (advanceStr p "False") rest
         ("main", rest) -> TokenMain p : lexer' (advanceStr p "main") rest
-        (var, rest)    -> matchVar p cs
+        (_, _)    -> matchVar p cs

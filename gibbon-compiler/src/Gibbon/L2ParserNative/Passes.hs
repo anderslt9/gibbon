@@ -2,8 +2,8 @@
 module Gibbon.L2ParserNative.Passes where 
 import Gibbon.L2ParserNative.AST
 import Gibbon.L2ParserNative.ConvertToTypedAST
-import Control.Monad (join, foldM)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad (foldM)
+-- import Control.Monad.IO.Class (liftIO)
 import Gibbon.L2ParserNative.Helper (E)
 import Control.Monad.Reader (ReaderT(runReaderT))
 
@@ -66,7 +66,7 @@ runProgramPasses' :: Program -> [Pass] -> E Program
 runProgramPasses' = foldM runProgramPass'
 
 runProgramPass :: Program -> PassNamed -> E Program
-runProgramPass program (PassNamed name pass) = do
+runProgramPass program (PassNamed _name pass) = do
     -- liftIO $ putStrLn $ "Running pass: " ++ name
     runProgramPass' program pass
 
@@ -283,7 +283,7 @@ walkExpr pass (ExprLetRegion regionVar expr) = do
     onExpr pass newExpr
 
 walkPat :: Pass -> Pat -> (InferM LocRegion) Pat
-walkPat pass (Pat dc@(DataCon dataCon) pms@(PatMatches patMatches) expr) = do
+walkPat pass (Pat dc@(DataCon _dataCon) pms@(PatMatches patMatches) expr) = do
     let varTypePairs = map (\(PatMatch (ValVar (Var v)) locatedType) -> (v, locatedTypeToType locatedType)) patMatches
     expr' <- extendVEnvs varTypePairs (walkExpr pass expr)
     dataCon' <- walkDataCon pass dc

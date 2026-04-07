@@ -20,10 +20,10 @@ mergeStrings2 :: [String] -> String
 mergeStrings2 = intercalate "\n"
 
 getFullExpr :: Depth -> String -> [String] -> String
-getFullExpr depth name children =
+getFullExpr depth name newChildren =
     let header = indent depth $ name ++ " ("
         footer = indent depth ")"
-    in mergeStrings2 $ header : children ++ [footer]
+    in mergeStrings2 $ header : newChildren ++ [footer]
 
 addList :: PrintAST a => Depth -> ListName -> [a] -> String
 addList depth listName items =
