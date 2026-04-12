@@ -170,6 +170,7 @@ convertExpr expr = do
                     return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterConstantLE offset (C.Single nextLocVar)) newE
                 (LocExpressAfter (LocatedType (CLTTypeCon (TypeCon _typeCon)) lr@(LocRelativeVar relativeVar _locVar1 _regVar1 _iVar1))) -> do
                     locVarRel <- convertLocRegionToLocVar lr
+                    -- Failed $ "relativeVar: " ++ show relativeVar ++ ", locVarRel: " ++ show locVarRel
                     return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterVariableLE (C.toVar relativeVar) (C.Single locVarRel) True) newE
                 (LocExpressAfter _) -> do
                     Failed "convertExpr: Not implemented for this type of LocExpressAfter"
@@ -252,6 +253,10 @@ convertLocRegionToIndexVar :: LocRegion -> E C.Var
 convertLocRegionToIndexVar (LocRegion _ _ (IndexVar indexVar)) = return $ C.toVar indexVar
 convertLocRegionToIndexVar (LocRelativeVar _ _ _ (IndexVar indexVar)) = return $ C.toVar indexVar
 convertLocRegionToIndexVar EmptyLocRegion = Failed "convertLocRegionToIndexVar: EmptyLocRegion has no IndexVar"
+
+convertLocRegionToRelLocVar :: LocRegion -> E C.Var
+convertLocRegionToRelLocVar (LocRelativeVar relVar _ _ _) = return $ C.toVar relVar
+convertLocRegionToRelLocVar _ = Failed "convertLocRegionToRelLocVar: Only LocRelativeVar has a relative location variable"
 
 convertTypeCon :: TypeCon -> E S.TyCon
 convertTypeCon (TypeCon typeCon) = do

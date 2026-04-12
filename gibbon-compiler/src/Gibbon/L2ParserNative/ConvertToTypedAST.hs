@@ -93,7 +93,7 @@ data EnvType
 lookupByVal :: (Eq a, Show a) => MyTy a -> InferM a String
 lookupByVal val = do
     env <- asks vEnv
-    case M.toList (M.filter (==^^ val) env) of
+    case M.toList (M.filter (== val) env) of
         ((k, _):_) -> return k
         []         -> lift . Failed $ "Value " ++ show val ++ " not found in environment"
 
@@ -358,7 +358,7 @@ inferExpr expr = case expr of
         typedExpr1 <- inferExpr expr1
         let typedCombinedType = combinedTypeToType combinedType
             expr1Type = tType typedExpr1
-        typedExpr2 <- extendVEnv var expr1Type (inferExpr expr2) 
+        typedExpr2 <- extendVEnv var typedCombinedType (inferExpr expr2) 
         if typedCombinedType ==^^ expr1Type
         then return $ createTypedNode (tType typedExpr2) (ExprLet (Var var) combinedType (tNode typedExpr1) (tNode typedExpr2))
         else lift . Failed $ "Type mismatch in let binding: " ++ show typedCombinedType ++ " vs " ++ show expr1Type

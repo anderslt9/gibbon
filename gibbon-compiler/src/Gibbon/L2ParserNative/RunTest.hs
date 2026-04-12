@@ -14,6 +14,11 @@ import Gibbon.L2ParserNative.ConvertToTypedAST (inferProgram, tType, tNode)
 import Gibbon.L2ParserNative.ConvertToL2AST (convertToL2AST)
 import Gibbon.Common (sdoc)
 import qualified Gibbon.L2ParserNative.Passes as Pass
+import qualified Gibbon.L2.Syntax as L2
+import Control.DeepSeq (force)
+import GHC.IO (evaluate)
+import Control.Monad.Trans.Class (lift)
+import Gibbon.Pretty (pprender)
 -- import TestRunner (Test(name))
 
 type Args = [String]
@@ -59,6 +64,11 @@ displayResult (Ok x) namedResult i config func toShow = do
             putStrLn (namedResult ++ " written to console (no file specified).")
 displayResult (Failed e) namedResult _ _ _ _ = putStrLn . makeRed $ namedResult ++ " Failed: " ++ e
 
+printL2AST:: L2.Prog2 -> IO String
+printL2AST prog = do 
+    temp_prog <- evaluate $ force prog
+    return $ pprender temp_prog
+
 printTest:: SimpleCfg -> IO ()
 printTest config = do
     forM_ (zip [1..] (inFiles config)) $ \(i, testFile) -> do
@@ -94,7 +104,11 @@ printTest config = do
         displayResult typed_ast "Typed AST" i config (\t_ast -> "Return type: " ++ show (tType t_ast) ++ "\n" ++ printAST 0 (tNode t_ast)) showTyped
         
         -- displays L2 AST
-        displayResult l2_ast "L2 AST" i config sdoc showL2AST
+        l2_ast_str <- do
+            case l2_ast of
+                Ok temp_ast -> printL2AST temp_ast
+                Failed e -> return $ "Failed to convert to L2 AST: " ++ e
+        displayResult (Ok l2_ast_str) "L2 AST" i config id showL2AST
 
 
 setConfig :: Args -> Result SimpleCfg

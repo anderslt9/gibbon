@@ -235,10 +235,11 @@ executable gibbon-l2
   build-depends:       base, gibbon, filepath, array, containers, 
                        mtl, transformers, optparse-applicative, deepseq, 
                        intern, GenericPretty, pretty, random, recursion-schemes, 
-                       language-c-quote, bytestring, safe
+                       language-c-quote, bytestring, safe, srcloc, haskell-src-exts, hse-cpp, directory, process
   other-modules:       Gibbon.L2ParserNative.PrintAST, Gibbon.L2ParserNative.AST, Gibbon.L2ParserNative.Lexer, Gibbon.L2ParserNative.Tokens, Gibbon.L2ParserNative.RunTest, Gibbon.L2ParserNative.Helper, Gibbon.L2ParserNative.Parser, 
                        Gibbon.L2ParserNative.ConvertToTypedAST, Gibbon.L2ParserNative.ConvertToL2AST, Gibbon.L2ParserNative.Passes, Gibbon.L2ParserNative.ParseIntoL2
-                       , Gibbon.Common, Gibbon.DynFlags, Gibbon.L1.Syntax, Gibbon.L2.Syntax, Gibbon.Language, Gibbon.Language.Constants, Gibbon.Language.Syntax
+                       , Gibbon.Common, Gibbon.DynFlags, Gibbon.L1.Syntax, Gibbon.L2.Syntax, Gibbon.Language, Gibbon.Language.Constants, Gibbon.Language.Syntax, Gibbon.HaskellFrontend, 
+                       Gibbon.L0.Syntax, Gibbon.L3.Syntax, Gibbon.L4.Syntax, Gibbon.NewL2.Syntax, Gibbon.Pretty
   default-extensions:  
   default-language:    Haskell2010
   ghc-options:         -Wall -Wcompat -rtsopts -fdefer-typed-holes
