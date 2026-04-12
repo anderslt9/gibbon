@@ -4,7 +4,7 @@ module Gibbon.L2ParserNative.ConvertToTypedAST where
 import Gibbon.L2ParserNative.AST as AST
 import Gibbon.L2ParserNative.Helper
 -- import Gibbon.Language.Syntax as S
-import Control.Monad (foldM)
+-- import Control.Monad (foldM)
 import Control.Monad.Reader
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -296,7 +296,7 @@ inferExpr expr = case expr of
         funcInfo <- lookupFunc funcVar
         let argTys = map tType typedExprs
             newIFuncApp = ExprFuncApp (FuncVar funcVar) lrs (Exprs (map tNode typedExprs))
-        oldFuncRetType <- case (funcRetType funcInfo) of
+        oldFuncRetType <- case funcRetType funcInfo of
             PackedTy tc _ -> do
                 let retLoc = safeLast locRegions
                 case retLoc of 
@@ -420,7 +420,16 @@ inferExpr expr = case expr of
             _ -> lift . Failed $ "inferExpr: Not implemented for this locExpress type in letloc"
                     
     -- [x] TODO deal with letloc and letregion
-
+    (ExprIf condExpr thenExpr elseExpr) -> do
+        typedCond <- inferExpr condExpr
+        typedThen <- inferExpr thenExpr
+        typedElse <- inferExpr elseExpr
+        let newIIf = ExprIf (tNode typedCond) (tNode typedThen) (tNode typedElse)
+        if tType typedCond ==^^ BoolTy
+        then if tType typedThen ==^^ tType typedElse
+            then return $ createTypedNode (tType typedThen) newIIf
+            else lift . Failed $ "Type mismatch in branches of if expression: " ++ show (tType typedThen) ++ " vs " ++ show (tType typedElse)
+        else lift . Failed $ "Condition in if expression must be of type Bool, got: " ++ show (tType typedCond)
     _ -> lift . Failed $ "inferExpr: Not implemented for this expression type: " ++ takeAlphaNum (show expr)
 
 -- inferLocExpress :: LocExpress -> LocRegion -> InferM Bool

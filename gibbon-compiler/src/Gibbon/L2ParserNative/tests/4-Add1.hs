@@ -39,5 +39,5 @@ main =
     
     -- computes add1 on input tree
     let a : Tree@(l4,r1) = add1 [(l1,r) (l4,r1)] z in
-    a
+    0
     

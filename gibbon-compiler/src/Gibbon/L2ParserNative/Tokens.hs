@@ -17,6 +17,9 @@ data Token
     | TokenComment Pos
     | TokenLet Pos
     | TokenIn Pos
+    | TokenIf Pos
+    | TokenThen Pos
+    | TokenElse Pos
     | TokenLetLoc Pos
     | TokenLetRegion Pos
     | TokenCase Pos
@@ -81,6 +84,9 @@ pos (TokenRParen p)     = p
 pos (TokenComment p)    = p
 pos (TokenLet p)        = p
 pos (TokenIn p)         = p
+pos (TokenIf p)         = p
+pos (TokenThen p)       = p
+pos (TokenElse p)       = p
 pos (TokenLetLoc p)     = p
 pos (TokenLetRegion p)  = p
 pos (TokenCase p)       = p

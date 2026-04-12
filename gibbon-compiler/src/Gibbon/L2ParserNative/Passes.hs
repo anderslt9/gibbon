@@ -281,6 +281,12 @@ walkExpr pass (ExprLetRegion regionVar expr) = do
     expr' <- walkExpr pass expr
     let newExpr = ExprLetRegion regionVar' expr'
     onExpr pass newExpr
+walkExpr pass (ExprIf cond thenExpr elseExpr) = do
+    cond' <- walkExpr pass cond
+    thenExpr' <- walkExpr pass thenExpr
+    elseExpr' <- walkExpr pass elseExpr
+    let newExpr = ExprIf cond' thenExpr' elseExpr'
+    onExpr pass newExpr
 
 walkPat :: Pass -> Pat -> (InferM LocRegion) Pat
 walkPat pass (Pat dc@(DataCon _dataCon) pms@(PatMatches patMatches) expr) = do

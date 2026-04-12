@@ -46,7 +46,7 @@ class Children r where
     children :: Int -> [String] -> r
 
 instance Children [String] where
-    children _ acc = reverse acc
+    children _ = reverse
 
 instance (PrintAST a, Children r) => Children (a -> r) where
     children depth acc x =
@@ -152,6 +152,9 @@ instance PrintAST Expr where
 
     printAST depth (ExprLetRegion regionVar expr) =
         getFullExpr depth "Let Region Expression" (getChildren depth regionVar expr)
+    
+    printAST depth (ExprIf condExpr thenExpr elseExpr) =
+        getFullExpr depth "If Expression" (getChildren depth condExpr thenExpr elseExpr)
 
 instance PrintAST Pat where
     printAST depth (Pat dataCon patMatches expr) = 

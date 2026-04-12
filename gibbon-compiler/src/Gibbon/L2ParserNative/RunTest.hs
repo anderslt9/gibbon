@@ -12,12 +12,12 @@ import Gibbon.L2ParserNative.Helper (makeRed, makeBold, E(Ok, Failed))
 import Gibbon.L2ParserNative.Parser (l2ParserNative)
 import Gibbon.L2ParserNative.ConvertToTypedAST (inferProgram, tType, tNode)
 import Gibbon.L2ParserNative.ConvertToL2AST (convertToL2AST)
-import Gibbon.Common (sdoc)
+-- import Gibbon.Common (sdoc)
 import qualified Gibbon.L2ParserNative.Passes as Pass
 import qualified Gibbon.L2.Syntax as L2
 import Control.DeepSeq (force)
 import GHC.IO (evaluate)
-import Control.Monad.Trans.Class (lift)
+-- import Control.Monad.Trans.Class (lift)
 import Gibbon.Pretty (pprender)
 -- import TestRunner (Test(name))
 

@@ -1,0 +1,1 @@
+gibbon_main = if 1 == 1 then 42 else 0

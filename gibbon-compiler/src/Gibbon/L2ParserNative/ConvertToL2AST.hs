@@ -179,6 +179,12 @@ convertExpr expr = do
             newE <- convertExpr e
             -- TODO figure out mutable vs immutable
             return $ L2.Ext $ L2.LetRegionE (L2.VarR . C.toVar $ regionVar) L2.Undefined RegionImmutable Nothing newE
+        (ExprIf condExpr thenExpr elseExpr) -> do
+            newCondExpr <- convertExpr condExpr
+            newThenExpr <- convertExpr thenExpr
+            newElseExpr <- convertExpr elseExpr
+            return $ L2.IfE newCondExpr newThenExpr newElseExpr
+        
             -- Failed "convertExpr: Not implemented for letregion expressions"
         -- _ -> Failed "convertExpr: Not implemented for this expression type"
 

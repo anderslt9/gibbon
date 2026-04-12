@@ -1,2 +1,1 @@
-main :: Int
-main = x + 1
+gibbon_main = x + 1

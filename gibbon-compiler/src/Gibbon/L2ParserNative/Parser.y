@@ -47,6 +47,9 @@ import Gibbon.L2ParserNative.Lexer
     -- common expr keywords
     let         { TokenLet _ }
     in          { TokenIn _ }
+    if          { TokenIf _ }
+    then        { TokenThen _ }
+    else        { TokenElse _ }
     letloc      { TokenLetLoc _ }
     letregion   { TokenLetRegion _ }
     case        { TokenCase _ }
@@ -184,6 +187,10 @@ Expr :: { Expr }
     | ExprLet                        { $1 }
     | ExprLetLoc                     { $1 }
     | ExprLetRegion                  { $1 }
+    | ExprIf                         { $1 }
+
+ExprIf :: { Expr }
+    : if Expr then Expr else Expr     { ExprIf $2 $4 $6 }
 
 ExprLetRegion :: { Expr }
     : letregion RegionVar in Expr   { ExprLetRegion $2 $4 }

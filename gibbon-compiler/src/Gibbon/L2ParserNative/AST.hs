@@ -42,7 +42,7 @@ data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String derivin
 -- expressions
 data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Exprs | ExprDataConApp DataCon LocRegion Exprs
             | ExprCase Val Pats | ExprLet Var CombinedType Expr Expr | ExprLetLoc LocRegion LocExpress Expr
-            | ExprLetRegion RegionVar Expr deriving (Show,Eq)
+            | ExprLetRegion RegionVar Expr | ExprIf Expr Expr Expr deriving (Show,Eq)
 data Pat = Pat DataCon PatMatches Expr deriving (Show,Eq)
 data PatMatch = PatMatch Val LocatedType deriving (Show,Eq)
 data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow

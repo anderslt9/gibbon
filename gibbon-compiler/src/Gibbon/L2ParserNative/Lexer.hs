@@ -60,7 +60,7 @@ lexer' p ('&':'&':cs)   =  TokenAnd p : lexer' (advanceStr p "&&") cs
 lexer' _ _ = []  -- unrecognized character, could also raise an error
 
 advanceStr :: Pos -> String -> Pos
-advanceStr p cs = foldl advance p cs
+advanceStr = foldl advance
 -- advanceStr p [] = p
 -- advanceStr p (c:cs) = advanceStr (advance p c) cs
 
@@ -105,6 +105,9 @@ lexVar p cs =
         ("data", rest) -> TokenData p : lexer' (advanceStr p "data") rest
         ("let", rest)  -> TokenLet p : lexer' (advanceStr p "let") rest
         ("in", rest)   -> TokenIn p : lexer' (advanceStr p "in") rest
+        ("if", rest)   -> TokenIf p : lexer' (advanceStr p "if") rest
+        ("then", rest) -> TokenThen p : lexer' (advanceStr p "then") rest
+        ("else", rest) -> TokenElse p : lexer' (advanceStr p "else") rest
         ("letloc", rest) -> TokenLetLoc p : lexer' (advanceStr p "letloc") rest
         ("letregion", rest) -> TokenLetRegion p : lexer' (advanceStr p "letregion") rest
         ("case", rest) -> TokenCase p : lexer' (advanceStr p "case") rest
