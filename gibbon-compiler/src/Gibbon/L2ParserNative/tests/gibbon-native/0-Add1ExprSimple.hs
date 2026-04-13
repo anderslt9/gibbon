@@ -1,1 +1,1 @@
-gibbon_main = x + 1
+gibbon_main = 0 + 1

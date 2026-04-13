@@ -1,1 +1,1 @@
-main = x + 1 in 0
+main = 0 + 1
