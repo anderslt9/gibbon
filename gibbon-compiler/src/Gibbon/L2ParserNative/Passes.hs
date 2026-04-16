@@ -75,6 +75,9 @@ runProgramPasses passes program = foldM runProgramPass program passes
 
 ----------------------------------------------------------------------------------------
 ------------------------ Passes --------------------------------------------------------
+all_passes :: [PassNamed]
+all_passes = [replaceLocRegionNames, replaceLocRegionInAfterExprs, replaceNeq]
+
 replaceLocRegionNames :: PassNamed
 replaceLocRegionNames = PassNamed "Replace Location Region Names" $ idPass
     { onLocRegion = \case
@@ -96,6 +99,15 @@ replaceLocRegionInAfterExprs = PassNamed "Replace Location Region Names in After
             varAfter <- lookupByVal (locatedTypeToType lt)
             let newLocExpress = LocExpressAfter (LocatedType combinedLocType (LocRelativeVar varAfter lv rv iv))
             return newLocExpress
+        e -> return e
+    }
+
+replaceNeq :: PassNamed
+replaceNeq = PassNamed "Replace Not Equal with If-Then-Else" $ idPass
+    { onExpr = \case
+        ExprBinOp Neq expr1 expr2 -> do
+            let newExpr = ExprIf (ExprBinOp Eq expr1 expr2) (ExprVal $ ValLit $ BoolLit False) (ExprVal $ ValLit $ BoolLit True)
+            return newExpr
         e -> return e
     }
 
@@ -232,6 +244,7 @@ walkLit :: Pass -> Lit -> (InferM LocRegion) Lit
 walkLit pass (IntLit n) = onLit pass (IntLit n)
 walkLit pass (FloatLit f) = onLit pass (FloatLit f)
 walkLit pass (BoolLit b) = onLit pass (BoolLit b)
+walkLit pass (CharLit c) = onLit pass (CharLit c)
 walkLit pass (StringLit s) = onLit pass (StringLit s)
 
 walkExpr :: Pass -> Expr -> (InferM LocRegion) Expr

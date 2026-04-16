@@ -134,6 +134,12 @@ convertExpr :: Expr -> E L2.Exp2
 convertExpr expr = do
     case expr of 
         (ExprVal val) -> convertVal val
+        -- (ExprBinOp Neq e1 e2) -> do
+        --     -- Currently no NeqP in Gibbon, so we can just convert to if statement for now
+        --     newE1 <- convertExpr e1
+        --     newE2 <- convertExpr e2
+        --     let eqExpr = S.PrimAppE S.EqIntP [newE1, newE2]
+        --     return $ S.IfE eqExpr (S.PrimAppE S.MkFalse []) (S.PrimAppE S.MkTrue [])
         (ExprBinOp binOp e1 e2) -> do
             newE1 <- convertExpr e1
             newE2 <- convertExpr e2
@@ -213,10 +219,12 @@ convertVal val = case val of
 
 convertLit :: Lit -> E L2.Exp2
 convertLit lit = case lit of 
-    (IntLit n)    -> return $ S.LitE n
-    (FloatLit f)  -> return $ S.FloatE (float2Double f)
-    _             -> Failed "convertLit: Unsupported literal type"
--- convertLit (BoolLit b)   = L2.LitE b  currently no BoolE in L2
+    (IntLit n)      -> return $ S.LitE n
+    (FloatLit f)    -> return $ S.FloatE (float2Double f)
+    (BoolLit True)  -> return $ S.PrimAppE MkTrue [] 
+    (BoolLit False) -> return $ S.PrimAppE MkFalse []
+    (CharLit c)     -> return $ S.CharE c
+    _               -> Failed "convertLit: Unsupported literal type"
 -- convertLit (StringLit s) = L2.LitE s  currently no StringE in L2
 
 convertBinOp :: BinOp -> E (S.Prim a)
@@ -240,7 +248,6 @@ convertBinOp b = case b of
     Le ->   return S.LtEqP
     FGe ->  return S.FGtEqP
     FLe ->  return S.FLtEqP
-    -- Neq ->  C.NeqP  Currently no NeqP in Gibbon
     And ->  return S.AndP
     Or ->   return S.OrP
     _ ->   Failed "convertBinOp: Unsupported binary operator"

@@ -3,7 +3,10 @@ data Pos = Pos { line :: Int, column :: Int } deriving Show
 
 -- list all tokens
 data Token 
+    -- data constructor
     = TokenData Pos
+    
+    -- symbols
     | TokenAssign Pos
     | TokenColon Pos
     | TokenLBracket Pos
@@ -15,6 +18,8 @@ data Token
     | TokenLParen Pos
     | TokenRParen Pos
     | TokenComment Pos
+
+    -- common expr keywords
     | TokenLet Pos
     | TokenIn Pos
     | TokenIf Pos
@@ -26,6 +31,8 @@ data Token
     | TokenOf Pos
     | TokenStart Pos
     | TokenAfter Pos
+
+    -- binary operators
     | TokenPow Pos
     | TokenMul Pos
     | TokenDiv Pos
@@ -51,16 +58,24 @@ data Token
     | TokenNeq Pos
     | TokenAnd Pos
     | TokenOr Pos
+
+    -- base types
     | TokenIntType Pos
     | TokenFloatType Pos
     | TokenBoolType Pos
+    | TokenCharType Pos
     | TokenStringType Pos
+
+    -- variable tokens
     | TokenIdentLower Pos String
     | TokenIdentUpper Pos String
     | TokenIntLit Pos Int
     | TokenFloatLit Pos Float
     | TokenBoolLit Pos Bool
+    | TokenCharLit Pos Char
     | TokenStringLit Pos String
+    
+    -- other
     | TokenMain Pos
     | TokenNewLine Pos
     | TokenEOF Pos
@@ -70,7 +85,10 @@ showPos :: Pos -> String
 showPos (Pos l c) = "line: " ++ show l ++ ", column: " ++ show c
 
 pos :: Token -> Pos
+-- data constructor
 pos (TokenData p)       = p
+
+-- symbols
 pos (TokenAssign p)     = p
 pos (TokenColon p)      = p
 pos (TokenLBracket p)   = p
@@ -82,6 +100,8 @@ pos (TokenComma p)      = p
 pos (TokenLParen p)     = p
 pos (TokenRParen p)     = p
 pos (TokenComment p)    = p
+
+-- common expr keywords
 pos (TokenLet p)        = p
 pos (TokenIn p)         = p
 pos (TokenIf p)         = p
@@ -93,6 +113,8 @@ pos (TokenCase p)       = p
 pos (TokenOf p)         = p
 pos (TokenStart p)      = p
 pos (TokenAfter p)      = p
+
+-- binary operators
 pos (TokenPow p)        = p
 pos (TokenMul p)        = p
 pos (TokenDiv p)        = p
@@ -118,16 +140,24 @@ pos (TokenFLe p)        = p
 pos (TokenNeq p)        = p
 pos (TokenAnd p)        = p
 pos (TokenOr p)         = p
+
+-- base types
 pos (TokenIntType p)    = p
 pos (TokenFloatType p)  = p
 pos (TokenBoolType p)   = p
+pos (TokenCharType p)   = p
 pos (TokenStringType p) = p
+
+-- variable tokens
 pos (TokenIdentLower p _)    = p
 pos (TokenIdentUpper p _)    = p
 pos (TokenIntLit p _)   = p
 pos (TokenFloatLit p _) = p
 pos (TokenBoolLit p _)  = p
+pos (TokenCharLit p _)  = p
 pos (TokenStringLit p _) = p
+
+-- other
 pos (TokenMain p)       = p
 pos (TokenNewLine p)    = p
 pos (TokenEOF p)        = p

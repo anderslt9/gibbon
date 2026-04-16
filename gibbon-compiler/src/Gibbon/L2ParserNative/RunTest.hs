@@ -88,8 +88,8 @@ printTest config = do
         let ast = l2ParserNative tokens
             parsed_str = fmap (printAST 0) ast
             -- gets typed AST
-            programPasses = [Pass.replaceLocRegionNames, Pass.replaceLocRegionInAfterExprs]
-            ast' = ast >>= Pass.runProgramPasses programPasses
+            -- programPasses = [Pass.replaceLocRegionNames, Pass.replaceLocRegionInAfterExprs]
+            ast' = ast >>= Pass.runProgramPasses Pass.all_passes
             typed_ast = ast' >>= inferProgram
             -- gets L2 AST
             l2_ast = typed_ast >>= convertToL2AST

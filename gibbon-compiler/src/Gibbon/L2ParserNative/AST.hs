@@ -16,7 +16,7 @@ data LocatedType = LocatedType CombinedLocType LocRegion deriving (Show, Eq)
 data CombinedLocType = CLTTypeCon TypeCon | CLTBase BaseType deriving (Show, Eq)
 newtype TypeScheme = TypeScheme CombinedTypes deriving (Show,Eq)
 data CombinedType = CTLocated LocatedType | CTBase BaseType deriving (Show,Eq)
-data BaseType = Int | Float | Bool | String deriving (Show,Eq)
+data BaseType = Int | Float | Bool | Char | String deriving (Show,Eq)
 
 -- location expressions
 data LocExpress = LocExpressStart RegionVar | LocExpressNext LocRegion Int | LocExpressAfter LocatedType deriving (Show,Eq)
@@ -37,7 +37,7 @@ instance Eq LocRegion where
 
 -- identifiers/literals
 data Val = ValVar Var | ValLit Lit deriving (Show,Eq)
-data Lit = IntLit Int | FloatLit Float | BoolLit Bool | StringLit String deriving (Show,Eq)
+data Lit = IntLit Int | FloatLit Float | BoolLit Bool | CharLit Char | StringLit String deriving (Show,Eq)
 
 -- expressions
 data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Exprs | ExprDataConApp DataCon LocRegion Exprs

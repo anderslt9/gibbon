@@ -6,15 +6,14 @@ import Gibbon.L2ParserNative.Parser (l2ParserNative)
 import qualified Gibbon.L2ParserNative.ConvertToTypedAST as ToTyped
 import qualified Gibbon.L2ParserNative.ConvertToL2AST as ToL2AST
 import Gibbon.L2ParserNative.Helper
-import qualified Gibbon.L2ParserNative.Passes as Pass
+import qualified Gibbon.L2ParserNative.Passes as Pass 
 
 parseIntoL2 :: FilePath -> IO L2.Prog2
 parseIntoL2 filePath = do
     contents <- readFile filePath
     let tokens = lexer contents
         ast = l2ParserNative tokens
-        programPasses = [Pass.replaceLocRegionNames, Pass.replaceLocRegionInAfterExprs]
-        ast' = ast >>= Pass.runProgramPasses programPasses
+        ast' = ast >>= Pass.runProgramPasses Pass.all_passes
         typed_ast = ast' >>= ToTyped.inferProgram
         l2_ast = typed_ast >>= ToL2AST.convertToL2AST
     case l2_ast of

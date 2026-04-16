@@ -43,6 +43,8 @@ fi
 
 cd $home_dir && source set_env.sh
 cd gibbon-compiler
+echo "Compiling Gibbon..."
+cabal v2-build
 for file in $corr_files; do
     output_file=$l2_parser_native_dir/$results_folder/${file}_output.txt
     echo ""

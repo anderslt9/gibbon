@@ -4,7 +4,7 @@ module Gibbon.L2ParserNative.ConvertToTypedAST where
 import Gibbon.L2ParserNative.AST as AST
 import Gibbon.L2ParserNative.Helper
 -- import Gibbon.Language.Syntax as S
--- import Control.Monad (foldM)
+import Control.Monad (foldM)
 import Control.Monad.Reader
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -59,6 +59,7 @@ data MyTy loc
     = IntTy
     | FloatTy
     | BoolTy
+    | CharTy
     | StringTy
     | PackedTy TypeCon loc -- loc (I will add loc at some point, but it will break a lot right now)
     | NoneTy
@@ -70,6 +71,7 @@ instance Eq a => Eq (MyTy a) where
     (==) IntTy IntTy = True
     (==) FloatTy FloatTy = True
     (==) BoolTy BoolTy = True
+    (==) CharTy CharTy = True
     (==) StringTy StringTy = True
     (==) NoneTy NoneTy = True
     (==) _ _ = False
@@ -508,6 +510,7 @@ inferLit lit = case lit of
     node@(IntLit _) -> return $ createTypedNode IntTy node
     node@(FloatLit _) -> return $ createTypedNode FloatTy node
     node@(BoolLit _) -> return $ createTypedNode BoolTy node
+    node@(CharLit _) -> return $ createTypedNode CharTy node -- TODO may want to have separate CharTy, but for now, just use StringTy
     node@(StringLit _) -> return $ createTypedNode StringTy node
     -- _ -> lift . Failed $ "inferLit: Not implemented for this literal type"
 
@@ -565,6 +568,7 @@ baseTypeToType :: BaseType -> MyTy a
 baseTypeToType Int = IntTy
 baseTypeToType Float = FloatTy
 baseTypeToType Bool = BoolTy
+baseTypeToType Char = CharTy
 baseTypeToType String = StringTy
 
 combinedTypeConToType :: CombinedTypeCon -> MyTy LocRegion

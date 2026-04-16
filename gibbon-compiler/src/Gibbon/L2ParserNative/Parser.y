@@ -88,6 +88,7 @@ import Gibbon.L2ParserNative.Lexer
     Int         { TokenIntType _ }
     Float       { TokenFloatType _ }
     Bool        { TokenBoolType _ }
+    Char        { TokenCharType _ }
     String      { TokenStringType _ }
 
     -- variable tokens (lowercase identifiers vs uppercase constructors)
@@ -96,6 +97,7 @@ import Gibbon.L2ParserNative.Lexer
     INT_LIT     { TokenIntLit _ $$ }
     FLOAT_LIT   { TokenFloatLit _ $$ }
     BOOL_LIT    { TokenBoolLit _ $$ }
+    CHAR_LIT    { TokenCharLit _ $$ }
     STRING_LIT  { TokenStringLit _ $$ }
 
     -- other
@@ -153,6 +155,7 @@ BaseType :: { BaseType }
     : Int          { Int }
     | Float        { Float }
     | Bool         { Bool }
+    | Char         { Char }
     | String       { String }
 
 -- location expressions
@@ -174,6 +177,7 @@ Lit :: { Lit }
     : INT_LIT        { IntLit $1 }
     | FLOAT_LIT      { FloatLit $1 }
     | BOOL_LIT       { BoolLit $1 }
+    | CHAR_LIT       { CharLit $1 }
     | STRING_LIT     { StringLit $1 }
 
 -- expressions

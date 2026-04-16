@@ -22,6 +22,10 @@ lexer' p (c:cs)
             ('"':tailRest) -> TokenStringLit p str : lexer' (advanceStr p ('"':str ++ "\"")) tailRest
             [] -> [TokenStringLit p str, TokenEOF (advanceStr p str)]
             _ -> []
+    | c == '\'' = 
+        case cs of 
+            (d:'\'':tailRest) -> TokenCharLit p d : lexer' (advanceStr p ['\'', d, '\'']) tailRest
+            _ -> []
 lexer' p ('=':'=':cs)   =  TokenEq p : lexer' (advanceStr p "==") cs
 lexer' p ('=':cs)       =  TokenAssign p : lexer' (advance p '=') cs
 lexer' p (':':cs)       =  TokenColon p : lexer' (advance p ':') cs
@@ -36,7 +40,7 @@ lexer' p ('(':cs)       =  TokenLParen p : lexer' (advance p '(') cs
 lexer' p (')':cs)       =  TokenRParen p : lexer' (advance p ')') cs
 lexer' p ('-':'-':cs)   =  lexer' (advance p '\n') (lexComment cs)
 lexer' p ('^':cs)       =  TokenPow p : lexer' (advance p '^') cs
-lexer' p ('*':'=':'=':'*':cs) = TokenCEq p : lexer' (advanceStr p "*===") cs
+lexer' p ('*':'=':'=':'*':cs) = TokenCEq p : lexer' (advanceStr p "*==*") cs
 lexer' p ('*':cs)       =  TokenMul p : lexer' (advance p '*') cs
 lexer' p ('/':'=':cs)   =  TokenNeq p : lexer' (advanceStr p "/=") cs
 lexer' p ('/':cs)       =  TokenDiv p : lexer' (advance p '/') cs
@@ -46,16 +50,16 @@ lexer' p ('.':'*':'.':cs) = TokenFMul p : lexer' (advanceStr p ".*.") cs
 lexer' p ('.':'/':'.':cs) = TokenFDiv p : lexer' (advanceStr p "./.") cs
 lexer' p ('+':cs)       =  TokenAdd p : lexer' (advance p '+') cs
 lexer' p ('-':cs)       =  TokenSub p : lexer' (advance p '-') cs
-lexer' p ('.':'+':'.':cs) = TokenFAdd p : lexer' (advanceStr p ".*.") cs
-lexer' p ('.':'-':'.':cs) = TokenFSub p : lexer' (advanceStr p ".*.") cs
+lexer' p ('.':'+':'.':cs) = TokenFAdd p : lexer' (advanceStr p ".+.") cs
+lexer' p ('.':'-':'.':cs) = TokenFSub p : lexer' (advanceStr p ".-.") cs
 lexer' p ('>':'=':cs)   =  TokenGe p : lexer' (advanceStr p ">=") cs
 lexer' p ('>':cs)       =  TokenGt p : lexer' (advance p '>') cs
 lexer' p ('<':'=':cs)   =  TokenLe p : lexer' (advanceStr p "<=") cs
 lexer' p ('<':cs)       =  TokenLt p : lexer' (advance p '<') cs
 lexer' p ('.':'>':'.':cs) = TokenFGt p : lexer' (advanceStr p ".>.") cs
 lexer' p ('.':'<':'.':cs) = TokenFLt p : lexer' (advanceStr p ".<.") cs
-lexer' p ('.':'>':'=':'.':cs) = TokenFGe p : lexer' (advanceStr p ".>=") cs
-lexer' p ('.':'<':'=':'.':cs) = TokenFLe p : lexer' (advanceStr p ".<=") cs
+lexer' p ('.':'>':'=':'.':cs) = TokenFGe p : lexer' (advanceStr p ".>=.") cs
+lexer' p ('.':'<':'=':'.':cs) = TokenFLe p : lexer' (advanceStr p ".<=.") cs
 lexer' p ('&':'&':cs)   =  TokenAnd p : lexer' (advanceStr p "&&") cs
 lexer' _ _ = []  -- unrecognized character, could also raise an error
 
@@ -102,6 +106,7 @@ matchVar p cs =
 lexVar :: Pos -> [Char] -> [Token]
 lexVar p cs =
     case span isAlpha cs of
+        -- keywords
         ("data", rest) -> TokenData p : lexer' (advanceStr p "data") rest
         ("let", rest)  -> TokenLet p : lexer' (advanceStr p "let") rest
         ("in", rest)   -> TokenIn p : lexer' (advanceStr p "in") rest
@@ -114,11 +119,18 @@ lexVar p cs =
         ("of", rest)   -> TokenOf p : lexer' (advanceStr p "of") rest
         ("start", rest) -> TokenStart p : lexer' (advanceStr p "start") rest
         ("after", rest) -> TokenAfter p : lexer' (advanceStr p "after") rest
+        
+        -- base types and literals
         ("Int", rest)  -> TokenIntType p : lexer' (advanceStr p "Int") rest
         ("Float", rest) -> TokenFloatType p : lexer' (advanceStr p "Float") rest
         ("Bool", rest) -> TokenBoolType p : lexer' (advanceStr p "Bool") rest
+        ("Char", rest) -> TokenCharType p : lexer' (advanceStr p "Char") rest
         ("String", rest) -> TokenStringType p : lexer' (advanceStr p "String") rest
         ("True", rest)  -> TokenBoolLit p True : lexer' (advanceStr p "True") rest
         ("False", rest) -> TokenBoolLit p False : lexer' (advanceStr p "False") rest
+        
+        -- main function
         ("main", rest) -> TokenMain p : lexer' (advanceStr p "main") rest
+        
+        -- variables
         (_, _)    -> matchVar p cs
