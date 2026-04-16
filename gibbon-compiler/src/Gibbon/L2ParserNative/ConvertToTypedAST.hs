@@ -290,7 +290,7 @@ inferExpr expr = case expr of
             -- maybe change to nested if statement where separate error for binary operation being wrong
         if tType typedE1 ==^^ tType typedE2 && tType typedE1 ==^^ arg1Ty && tType typedE2 ==^^ arg2Ty
         then return $ createTypedNode retTy newIBinApp
-        else lift . Failed $ "Type mismatch in binary operation" ++ show binOp ++ ": " ++ show (tType typedE1) ++ " vs " ++ show (tType typedE2)
+        else lift . Failed $ "Type mismatch in binary operation " ++ show binOp ++ ": " ++ show (tType typedE1) ++ " vs " ++ show (tType typedE2)
     
     -- TODO deal with location region stuff (may consider type promotion too)
     (ExprFuncApp (FuncVar funcVar) lrs@(LocRegions locRegions) (Exprs exprs)) -> do
@@ -601,7 +601,7 @@ binOpToType op = case op of
     FSub -> (FloatTy, FloatTy, FloatTy)
     FMul -> (FloatTy, FloatTy, FloatTy)
     FDiv -> (FloatTy, FloatTy, FloatTy)
-    Pow -> (FloatTy, FloatTy, FloatTy)
+    Pow -> (IntTy, IntTy, IntTy)
     Eq  -> (IntTy, IntTy, BoolTy)
     FEq -> (FloatTy, FloatTy, BoolTy)
     CEq -> (BoolTy, BoolTy, BoolTy)

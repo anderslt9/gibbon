@@ -10,5 +10,6 @@ done
 
 mkdir -p test_results
 # runhaskell Main.hs -i $input_files -o ${output_files[@]} $@
-echo "Producing l2 AST's for input files: $input_files"
-cabal v2-run gibbon-l2 -- -i $input_files -o ${output_files[@]} "$@"
+# echo "Producing l2 AST's for input files: $input_files"
+cabal v2-build gibbon-l2
+cabal v2-run gibbon-l2 -v0 -- -i $input_files -o ${output_files[@]} "$@"
