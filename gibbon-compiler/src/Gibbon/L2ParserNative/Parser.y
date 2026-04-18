@@ -21,9 +21,12 @@ import Gibbon.L2ParserNative.Lexer
 %right '||'
 %right '&&'
 %nonassoc '==' '.==.' '*==*' '>' '<' '.>.' '.<.' '>=' '<=' '.>=.' '.<=.' '/='
-%left '+' '-' '.-.' '.+.'
-%left '*' '/' '`div`' '`mod`' '.*.' './.'
-%left '^'
+%left '+' '-' '.-.' '.+.' '*' '/' '`div`' '`mod`' '.*.' './.' '^'
+
+-- technically more correct but doesn't match current compiler
+-- %left '+' '-' '.-.' '.+.' 
+-- %left '*' '/' '`div`' '`mod`' '.*.' './.'
+-- %left '^'
 
 -- %lexer { L2LexerNative }
 
@@ -182,7 +185,7 @@ Lit :: { Lit }
 
 -- expressions
 Expr :: { Expr }
-    : Expr BinOp Expr                { ExprBinOp $2 $1 $3 }
+    : ExprBinOp                      { $1 }
     | Val                            { ExprVal $1 }
     | '(' Expr ')'                   { $2 }
     | ExprFuncApp                    { $1 }
@@ -192,6 +195,31 @@ Expr :: { Expr }
     | ExprLetLoc                     { $1 }
     | ExprLetRegion                  { $1 }
     | ExprIf                         { $1 }
+
+ExprBinOp :: { Expr }
+    : Expr '+' Expr         { ExprBinOp Add $1 $3 }
+    | Expr '-' Expr         { ExprBinOp Sub $1 $3 }
+    | Expr '.+.' Expr       { ExprBinOp FAdd $1 $3 }
+    | Expr '.-.' Expr       { ExprBinOp FSub $1 $3 }
+    | Expr '*' Expr         { ExprBinOp Mul $1 $3 }
+    | Expr '/' Expr         { ExprBinOp Div $1 $3 }
+    | Expr '.*.' Expr       { ExprBinOp FMul $1 $3 }
+    | Expr './.' Expr       { ExprBinOp FDiv $1 $3 }
+    | Expr '^' Expr         { ExprBinOp Pow $1 $3 }
+    | Expr '==' Expr        { ExprBinOp Eq $1 $3 }
+    | Expr '.==.' Expr      { ExprBinOp FEq $1 $3 }
+    | Expr '*==*' Expr      { ExprBinOp CEq $1 $3 }
+    | Expr '>' Expr         { ExprBinOp Gt $1 $3 }
+    | Expr '<' Expr         { ExprBinOp Lt $1 $3 }
+    | Expr '.>.' Expr       { ExprBinOp FGt $1 $3 }
+    | Expr '.<.' Expr       { ExprBinOp FLt $1 $3 }
+    | Expr '>=' Expr        { ExprBinOp Ge $1 $3 }
+    | Expr '<=' Expr        { ExprBinOp Le $1 $3 }
+    | Expr '.>=.' Expr      { ExprBinOp FGe $1 $3 }
+    | Expr '.<=.' Expr      { ExprBinOp FLe $1 $3 }
+    | Expr '/=' Expr        { ExprBinOp Neq $1 $3 }
+    | Expr '&&' Expr        { ExprBinOp And $1 $3 }
+    | Expr '||' Expr        { ExprBinOp Or $1 $3 }
 
 ExprIf :: { Expr }
     : if Expr then Expr else Expr     { ExprIf $2 $4 $6 }
@@ -221,30 +249,30 @@ Pat :: { Pat }
 PatMatch :: { PatMatch }
     : Val ':' LocatedType       { PatMatch $1 $3}
 
-BinOp :: { BinOp }
-    : '+'         { Add }
-    | '-'         { Sub }
-    | '.+.'       { FAdd }
-    | '.-.'       { FSub }
-    | '*'         { Mul }
-    | '/'         { Div }
-    | '.*.'       { FMul }
-    | './.'       { FDiv }
-    | '^'         { Pow }
-    | '=='        { Eq }
-    | '.==.'      { FEq }
-    | '*==*'      { CEq }
-    | '>'         { Gt }
-    | '<'         { Lt }
-    | '.>.'       { FGt }
-    | '.<.'       { FLt }
-    | '>='        { Ge }
-    | '<='        { Le }
-    | '.>=.'      { FGe }
-    | '.<=.'      { FLe }
-    | '/='        { Neq }
-    | '&&'        { And }
-    | '||'        { Or }
+-- BinOp :: { BinOp }
+--     : '+'         { Add }
+--     | '-'         { Sub }
+--     | '.+.'       { FAdd }
+--     | '.-.'       { FSub }
+--     | '*'         { Mul }
+--     | '/'         { Div }
+--     | '.*.'       { FMul }
+--     | './.'       { FDiv }
+--     | '^'         { Pow }
+--     | '=='        { Eq }
+--     | '.==.'      { FEq }
+--     | '*==*'      { CEq }
+--     | '>'         { Gt }
+--     | '<'         { Lt }
+--     | '.>.'       { FGt }
+--     | '.<.'       { FLt }
+--     | '>='        { Ge }
+--     | '<='        { Le }
+--     | '.>=.'      { FGe }
+--     | '.<=.'      { FLe }
+--     | '/='        { Neq }
+--     | '&&'        { And }
+--     | '||'        { Or }
 
 -- specific variable types
 FuncVar :: { FuncVar }
