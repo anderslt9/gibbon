@@ -12,8 +12,8 @@ data CombinedTypeCon = CTCTypeCon TypeCon | CTCBase BaseType deriving (Show,Eq)
 data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr deriving (Show,Eq)
 
 -- type expressions
-data LocatedType = LocatedType CombinedLocType LocRegion deriving (Show, Eq)
-data CombinedLocType = CLTTypeCon TypeCon | CLTBase BaseType deriving (Show, Eq)
+data LocatedType = LocatedType CombinedTypeCon LocRegion deriving (Show, Eq)
+-- data CombinedLocType = CLTTypeCon TypeCon | CLTBase BaseType deriving (Show, Eq)
 newtype TypeScheme = TypeScheme CombinedTypes deriving (Show,Eq)
 data CombinedType = CTLocated LocatedType | CTBase BaseType deriving (Show,Eq)
 data BaseType = Int | Float | Bool | Char | String deriving (Show,Eq)
@@ -49,6 +49,10 @@ data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
             | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving (Show,Eq)
 
 -- specific variable types
+-- newtype LVar = LVar String deriving (Show, Eq, Ord)
+-- newtype UVar = UVar String deriving (Show, Eq, Ord)
+-- data LVar = FV FuncVar | RV RegionVar | LV LocVar | IV IndexVar | VAR Var deriving (Show, Eq, Ord)
+-- data UVar = TC TypeCon | DC DataCon deriving (Show, Eq, Ord)
 newtype FuncVar = FuncVar String deriving (Show, Eq, Ord)
 newtype RegionVar = RegionVar String deriving (Show, Eq, Ord)
 newtype LocVar = LocVar String deriving (Show, Eq, Ord)
@@ -60,7 +64,6 @@ newtype Var = Var String deriving (Show, Eq, Ord)
 -- repeated productions to model * operator
 newtype Vars = Vars [Var] deriving (Show,Eq)
 newtype DataFields = DataFields [DataField] deriving (Show,Eq)
--- newtype TypeCons = TypeCons [TypeCon] deriving (Show,Eq)
 newtype CombinedTypeCons = CombinedTypeCons [CombinedTypeCon] deriving (Show,Eq)
 newtype Exprs = Exprs [Expr] deriving (Show,Eq)
 newtype Vals = Vals [Val] deriving (Show,Eq)

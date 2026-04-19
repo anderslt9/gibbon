@@ -19,7 +19,7 @@ data Pass = Pass
     , onCombinedTypeCon :: CombinedTypeCon -> (InferM LocRegion) CombinedTypeCon
     , onFuncDecl :: FuncDecl -> (InferM LocRegion) FuncDecl
     , onLocatedType :: LocatedType -> (InferM LocRegion) LocatedType
-    , onCombinedLocType :: CombinedLocType -> (InferM LocRegion) CombinedLocType
+    -- , onCombinedLocType :: CombinedLocType -> (InferM LocRegion) CombinedLocType
     , onTypeScheme :: TypeScheme -> (InferM LocRegion) TypeScheme
     , onCombinedType :: CombinedType -> (InferM LocRegion) CombinedType
     , onBaseType :: BaseType -> (InferM LocRegion) BaseType
@@ -55,7 +55,7 @@ idPass :: Pass
 idPass = Pass return return return return return return return return return return
               return return return return return return return return return return
               return return return return return return return return return return
-              return return return return return return
+              return return return return return
     -- { onProgram = return . createTypedNode (LocRelativeVar "idPassProgram") . id
     -- , onDataTypeDecl = return . createTypedNode (LocRelativeVar
 
@@ -166,21 +166,21 @@ walkFuncDecl pass (FuncDecl fv@(FuncVar funcVar) typeScheme funcVar2 locRegions 
     onFuncDecl pass newFuncDecl
 
 walkLocatedType :: Pass -> LocatedType -> (InferM LocRegion) LocatedType
-walkLocatedType pass (LocatedType combinedLocType locRegion) = do
-    combinedLocType' <- walkCombinedLocType pass combinedLocType
+walkLocatedType pass (LocatedType combinedTypeCon locRegion) = do
+    combinedTypeCon' <- walkCombinedTypeCon pass combinedTypeCon
     locRegion' <- walkLocRegion pass locRegion
-    let newLocatedType = LocatedType combinedLocType' locRegion'
+    let newLocatedType = LocatedType combinedTypeCon' locRegion'
     onLocatedType pass newLocatedType
 
-walkCombinedLocType :: Pass -> CombinedLocType -> (InferM LocRegion) CombinedLocType
-walkCombinedLocType pass (CLTTypeCon typeCon) = do
-    typeCon' <- walkTypeCon pass typeCon
-    let newCombinedLocType = CLTTypeCon typeCon'
-    onCombinedLocType pass newCombinedLocType
-walkCombinedLocType pass (CLTBase baseType) = do
-    baseType' <- walkBaseType pass baseType
-    let newCombinedLocType = CLTBase baseType'
-    onCombinedLocType pass newCombinedLocType
+-- walkCombinedLocType :: Pass -> CombinedLocType -> (InferM LocRegion) CombinedLocType
+-- walkCombinedLocType pass (CLTTypeCon typeCon) = do
+--     typeCon' <- walkTypeCon pass typeCon
+--     let newCombinedLocType = CLTTypeCon typeCon'
+--     onCombinedLocType pass newCombinedLocType
+-- walkCombinedLocType pass (CLTBase baseType) = do
+--     baseType' <- walkBaseType pass baseType
+--     let newCombinedLocType = CLTBase baseType'
+--     onCombinedLocType pass newCombinedLocType
 
 walkTypeScheme :: Pass -> TypeScheme -> (InferM LocRegion) TypeScheme
 walkTypeScheme pass (TypeScheme combinedTypes) = do

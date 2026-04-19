@@ -113,42 +113,42 @@ import Gibbon.L2ParserNative.Lexer
 %%
 -- top-level program
 Program :: { Program }
-    : DataTypeDecls FuncDecls MainExpr EOF { Program (reverseList DataTypeDecls $1) (reverseList FuncDecls $2) $3 }
+    : DataTypeDeclStar FuncDeclStar MainExpr EOF { Program (reverseList DataTypeDecls $1) (reverseList FuncDecls $2) $3 }
 
 MainExpr :: { Expr }
     : main '=' Expr     { $3 }
 
 -- data type declarations
 DataTypeDecl :: { DataTypeDecl }
-    : data TypeCon '=' DataFields { DataTypeDecl $2 (reverseList DataFields $4) }
+    : data UVar '=' DataFieldStar { DataTypeDecl (TypeCon $2) (reverseList DataFields $4) }
 
 DataField :: { DataField }
-    : DataCon CombinedTypeCons { DataField $1 (reverseList CombinedTypeCons $2) }
+    : UVar CombinedTypeConStar { DataField (DataCon $1) (reverseList CombinedTypeCons $2) }
 
 CombinedTypeCon :: { CombinedTypeCon }
-    : TypeCon   { CTCTypeCon $1 }
+    : UVar   { CTCTypeCon (TypeCon $1) }
     | BaseType  { CTCBase $1 }
 
 -- function declarations
 -- TODO make sure function variables match and modify FuncDecl to only have one FuncVar
 FuncDecl :: { FuncDecl }
-    : FuncVar FuncDeclRest
-        { $2 $1 }
+    : LVar FuncDeclRest
+        { $2 (FuncVar $1) }
 
 FuncDeclRest
-    : ':' TypeScheme '\n' FuncVar '[' LocRegions ']' Vars '=' Expr
-        {\v -> FuncDecl v $2 $4 (reverseList LocRegions $6) (reverseList Vars $8) $10}
+    : ':' TypeScheme '\n' LVar '[' LocRegionStar ']' LVarStar '=' Expr
+        {\v -> FuncDecl v $2 (FuncVar $4) (reverseList LocRegions $6) (reverseList Vars $ map (\x -> Var x) $8) $10}
 
 -- type expressions
 LocatedType :: { LocatedType } 
-    : CombinedLocType '@' LocRegion { LocatedType $1 $3 }
+    : CombinedTypeCon '@' LocRegion { LocatedType $1 $3 }
 
-CombinedLocType :: { CombinedLocType }
-    : TypeCon   { CLTTypeCon $1 }
-    | BaseType  { CLTBase $1 }
+-- CombinedLocType :: { CombinedLocType }
+--     : UVar   { CLTTypeCon (TypeCon $1) }
+--     | BaseType  { CLTBase $1 }
 
 TypeScheme :: { TypeScheme }
-    : CombinedTypes { TypeScheme (CombinedTypes $1)}
+    : CombinedTypeStar { TypeScheme (CombinedTypes $1)}
 
 CombinedType :: { CombinedType }
     : LocatedType                     { CTLocated $1 }
@@ -163,17 +163,17 @@ BaseType :: { BaseType }
 
 -- location expressions
 LocExpress :: { LocExpress }
-    : '(' start RegionVar ')'          { LocExpressStart $3 }
+    : '(' start LVar ')'               { LocExpressStart (RegionVar $3) }
     | '(' LocRegion '+' INT_LIT ')'    { LocExpressNext $2 $4 }
     | '(' after LocatedType ')'        { LocExpressAfter $3 }
 
 LocRegion :: { LocRegion }
-    : '(' LocVar ',' RegionVar ')'              { LocRegion $2 $4 (IndexVar "") }
-    | '(' LocVar ',' RegionVar ',' IndexVar ')' { LocRegion $2 $4 $6 }  
+    : '(' LVar ',' LVar ')'              { LocRegion (LocVar $2) (RegionVar $4) (IndexVar "") }
+    | '(' LVar ',' LVar ',' LVar ')'     { LocRegion (LocVar $2) (RegionVar $4) (IndexVar $6) }  
 
 -- identifiers/literals
 Val :: { Val }
-    : Var                            { ValVar $1 }
+    : LVar                           { ValVar (Var $1) }
     | Lit                            { ValLit $1 }
 
 Lit :: { Lit }
@@ -185,6 +185,7 @@ Lit :: { Lit }
 
 -- expressions
 Expr :: { Expr }
+    -- : ExprOr                      { $1 }
     : ExprBinOp                      { $1 }
     | Val                            { ExprVal $1 }
     | '(' Expr ')'                   { $2 }
@@ -195,6 +196,65 @@ Expr :: { Expr }
     | ExprLetLoc                     { $1 }
     | ExprLetRegion                  { $1 }
     | ExprIf                         { $1 }
+
+-- ExprPrimOp :: { Expr }
+
+-- ExprOr :: { Expr }
+--     : ExprAnd                 { $1 }
+--     | ExprOr '||' ExprAnd     { ExprBinOp Or $1 $3 }
+
+-- ExprAnd :: { Expr }
+--     : ExprEq                   { $1 }
+--     | ExprAnd '&&' ExprEq      { ExprBinOp And $1 $3 }
+
+-- ExprEq :: { Expr }
+--     : ExprRel                   { $1 }
+--     | ExprEq '==' ExprRel       { ExprBinOp Eq $1 $3 }
+--     | ExprEq '.==.' ExprRel     { ExprBinOp FEq $1 $3 }
+--     | ExprEq '*==*' ExprRel     { ExprBinOp CEq $1 $3 }
+--     | ExprEq '/=' ExprRel       { ExprBinOp Neq $1 $3 }
+
+-- ExprRel :: { Expr }
+--     : ExprAdd                   { $1 } 
+--     | ExprRel '>' ExprAdd       { ExprBinOp Gt $1 $3 }
+--     | ExprRel '<' ExprAdd       { ExprBinOp Lt $1 $3 }
+--     | ExprRel '.>.' ExprAdd     { ExprBinOp FGt $1 $3 }
+--     | ExprRel '.<.' ExprAdd     { ExprBinOp FLt $1 $3 }
+--     | ExprRel '>=' ExprAdd      { ExprBinOp Ge $1 $3 }
+--     | ExprRel '<=' ExprAdd      { ExprBinOp Le $1 $3 }
+--     | ExprRel '.>=.' ExprAdd    { ExprBinOp FGe $1 $3 }
+--     | ExprRel '.<=.' ExprAdd    { ExprBinOp FLe $1 $3 }
+
+-- ExprAdd :: { Expr }
+--     : ExprMul                   { $1 } 
+--     | ExprAdd '+' ExprMul       { ExprBinOp Add $1 $3 }
+--     | ExprAdd '-' ExprMul       { ExprBinOp Sub $1 $3 }
+--     | ExprAdd '.+.' ExprMul     { ExprBinOp FAdd $1 $3 }
+--     | ExprAdd '.-.' ExprMul     { ExprBinOp FSub $1 $3 }
+
+-- ExprMul :: { Expr }
+--     : ExprPow                   { $1 }
+--     | ExprMul '*' ExprPow       { ExprBinOp Mul $1 $3 }
+--     | ExprMul '/' ExprPow       { ExprBinOp Div $1 $3 }
+--     | ExprMul '`div`' ExprPow   { ExprBinOp Div $1 $3 }
+--     | ExprMul '`mod`' ExprPow   { ExprBinOp Mod $1 $3 }
+--     | ExprMul '.*.' ExprPow     { ExprBinOp FMul $1 $3 }
+--     | ExprMul './.' ExprPow     { ExprBinOp FDiv $1 $3 }
+
+-- ExprPow :: { Expr }
+--     : ExprAtom                  { $1 }
+--     | ExprPow '^' ExprAtom      { ExprBinOp Pow $1 $3 }
+
+-- ExprAtom :: { Expr }
+--     : Val                            { ExprVal $1 }
+--     | '(' Expr ')'                   { $2 }
+--     | ExprFuncApp                    { $1 }
+--     | ExprDataConApp                 { $1 }
+--     | ExprCase                       { $1 }
+--     | ExprLet                        { $1 }
+--     | ExprLetLoc                     { $1 }
+--     | ExprLetRegion                  { $1 }
+--     | ExprIf                         { $1 }
 
 ExprBinOp :: { Expr }
     : Expr '+' Expr         { ExprBinOp Add $1 $3 }
@@ -225,26 +285,35 @@ ExprIf :: { Expr }
     : if Expr then Expr else Expr     { ExprIf $2 $4 $6 }
 
 ExprLetRegion :: { Expr }
-    : letregion RegionVar in Expr   { ExprLetRegion $2 $4 }
+    : letregion LVar in Expr   { ExprLetRegion (RegionVar $2) $4 }
 
 ExprLetLoc :: { Expr }
     : letloc LocRegion '=' LocExpress in Expr   { ExprLetLoc $2 $4 $6 }
 
+-- TODO support let bindings
 ExprLet :: { Expr }
-    : let Var ':' CombinedType '=' Expr in Expr   { ExprLet $2 $4 $6 $8 }
+    : let LVar ':' CombinedType '=' Expr in Expr   { ExprLet (Var $2) $4 $6 $8 }
+
+-- LetBinding :: { Expr -> ExprLet }
+--     : Var ':' CombinedType '=' Expr   { ExprLet $1 $3 $5 }
+
+-- LetBindings :: { Expr -> ExprLet }
+--     : {- empty -}                                   { \expr -> ExprLet undefined undefined expr }
+--     | LetBinding                                    { \expr -> $1 }
+--     | LetBindings LetBinding                        { \expr -> ExprLet $2 $4 $6 $7 }
 
 ExprFuncApp :: { Expr }
-    : FuncVar '[' LocRegions ']' Exprs   { ExprFuncApp $1 (reverseList LocRegions $3) (reverseList Exprs $5)}
+    : LVar '[' LocRegionStar ']' ExprsPlus   { ExprFuncApp (FuncVar $1) (reverseList LocRegions $3) (reverseList Exprs $5)}
 
 ExprDataConApp :: { Expr }
-    : DataCon LocRegion Exprs    { ExprDataConApp $1 $2 (reverseList Exprs $3)}
+    : UVar LocRegion ExprsPlus    { ExprDataConApp (DataCon $1) $2 (reverseList Exprs $3)}
 
 -- TODO change this so Val is Expr
 ExprCase :: { Expr }
-    : case Val of Pats    { ExprCase $2 (reverseList Pats $4) }
+    : case Val of PatPlus    { ExprCase $2 (reverseList Pats $4) }
 
 Pat :: { Pat }
-    : DataCon PatMatches '->' Expr      { Pat $1 (reverseList PatMatches $2) $4 }
+    : UVar PatMatchStar '->' Expr      { Pat (DataCon $1) (reverseList PatMatches $2) $4 }
 
 PatMatch :: { PatMatch }
     : Val ':' LocatedType       { PatMatch $1 $3}
@@ -275,88 +344,129 @@ PatMatch :: { PatMatch }
 --     | '||'        { Or }
 
 -- specific variable types
-FuncVar :: { FuncVar }
-    : IDENT_LC       { FuncVar $1 }
+-- FuncVar :: { FuncVar }
+--     : IDENT_LC       { FuncVar $1 }
 
-RegionVar :: { RegionVar }
-    : IDENT_LC       { RegionVar $1 }
+-- RegionVar :: { RegionVar }
+--     : IDENT_LC       { RegionVar $1 }
 
-LocVar :: { LocVar }
-    : IDENT_LC       { LocVar $1 }
+-- LocVar :: { LocVar }
+--     : IDENT_LC       { LocVar $1 }
 
-IndexVar :: { IndexVar }
-    : IDENT_LC       { IndexVar $1 }
+-- IndexVar :: { IndexVar }
+--     : IDENT_LC       { IndexVar $1 }
 
-TypeCon :: { TypeCon }
-    : IDENT_UC       { TypeCon $1 }
+-- TypeCon :: { TypeCon }
+--     : IDENT_UC       { TypeCon $1 }
 
-DataCon :: { DataCon }
-    : IDENT_UC       { DataCon $1 }
+-- DataCon :: { DataCon }
+--     : IDENT_UC       { DataCon $1 }
 
-Var :: { Var }
-    : IDENT_LC       { Var $1 }
+-- Var :: { Var }
+--     : IDENT_LC       { Var $1 }
+
+LVar :: { String }
+    : IDENT_LC       { $1 }
+
+UVar :: { String }
+    : IDENT_UC       { $1 }
 
 -- repeated productions to model * operator
     -- lists of identifiers
-Vars :: { [Var] }
+LVarStar :: { [String] }
     : {- empty -}            { [] }
-    | Var                    { [$1] }
-    | Vars Var               { $2 : $1 }
+    | LVarPlus                { $1 }
 
-DataFields :: { [DataField] }
-    : {- empty -}                   { [] }
-    | DataField                     { [ $1 ] }
-    | DataFields '|' DataField      { $3 : $1 }
+LVarPlus :: { [String] }
+    : LVar                    { [$1] }
+    | LVarPlus LVar           { $2 : $1 }
 
-CombinedTypeCons :: { [CombinedTypeCon] }
+DataFieldStar :: { [DataField] }
     : {- empty -}                           { [] }
-    | CombinedTypeCon                       { [$1] }
-    | CombinedTypeCons CombinedTypeCon      { $2 : $1 }
+    | DataFieldPlus                         { $1 }
+
+DataFieldPlus :: { [DataField] }
+    : DataField                             { [ $1 ] }
+    | DataFieldPlus '|' DataField           { $3 : $1 }
+
+CombinedTypeConStar :: { [CombinedTypeCon] }
+    : {- empty -}                               { [] }
+    | CombinedTypeConPlus                       { $1 }
+
+CombinedTypeConPlus :: { [CombinedTypeCon] }
+    : CombinedTypeCon                           { [$1] }
+    | CombinedTypeConPlus CombinedTypeCon       { $2 : $1 }
 
 -- TypeCons :: { [TypeCon] }
 --     : {- empty -}                   { [] }
 --     | TypeCon                       { [$1] }
 --     | TypeCons TypeCon              { $2 : $1 }
 
-Exprs :: { [Expr] }
-    : Expr                          { [$1] }
-    | Exprs Expr                    { $2 : $1 }
+ExprsPlus :: { [Expr] }
+    : Expr                              { [$1] }
+    | ExprsPlus Expr                    { $2 : $1 }
 
-Vals :: { [Val] }
-    : {- empty -}                   { [] }
-    | Val                           { [$1] }
-    | Vals Val                      { $2 : $1 }
+-- Vals :: { [Val] }
+--     : {- empty -}                   { [] }    
+--     | Vals2                         { $1 }
 
-Pats :: { [Pat] }
-    : Pat           { [$1] }
-    | Pats Pat      { $2 : $1 }
+-- Vals2 :: { [Val] }
+--     : Val                           { [$1] }
+--     | Vals2 ONL Val                 { $3 : $1 }
 
-PatMatches :: { [PatMatch] }
-    : {- empty -}                   { [] }
-    | '(' PatMatch ')'              { [$2] }
-    | PatMatches '(' PatMatch ')'   { $3 : $1 }
+PatPlus :: { [Pat] }
+    : Pat                   { [$1] }
+    | PatPlus Pat           { $2 : $1 }
+
+PatMatchStar :: { [PatMatch] }
+    : {- empty -}                           { [] }
+    | PatMatchPlus                          { $1 }
+
+PatMatchPlus :: { [PatMatch] }
+    : '(' PatMatch ')'                      { [$2] }
+    | PatMatchPlus  '(' PatMatch ')'        { $3 : $1 }
 
     -- lists of other productions
-DataTypeDecls :: { [DataTypeDecl] }
-    : {- empty -}                      { [] }
-    | DataTypeDecl '\n'                { [$1] }
-    | DataTypeDecls DataTypeDecl '\n'  { $2 : $1 }
-
-FuncDecls :: { [FuncDecl] }
-    : {- empty -}                   { [] }
-    | FuncDecl '\n'                 { [$1] }
-    | FuncDecls FuncDecl '\n'       { $2 : $1 }
-
-LocRegions :: { [LocRegion ] }
-    : {- empty -}                   { [] }
-    | LocRegion                     { [$1] }
-    | LocRegions LocRegion          { $2 : $1 }
-
-CombinedTypes :: { [CombinedType ] }
+DataTypeDeclStar :: { [DataTypeDecl] }
     : {- empty -}                        { [] }
-    | CombinedType                       { [$1] }
-    | CombinedType '->' CombinedTypes    { $1 : $3 }
+    | DataTypeDeclPlus                   { $1 }
 
+DataTypeDeclPlus :: { [DataTypeDecl] }
+    : DataTypeDecl '\n'                      { [$1] }
+    | DataTypeDeclPlus DataTypeDecl '\n'     { $2 : $1 }
+
+FuncDeclStar :: { [FuncDecl] }
+    : {- empty -}                   { [] }
+    | FuncDeclPlus                  { $1 }
+
+FuncDeclPlus :: { [FuncDecl] }
+    : FuncDecl '\n'                    { [$1] }
+    | FuncDeclPlus FuncDecl '\n'       { $2 : $1 }
+
+LocRegionStar :: { [LocRegion ] }
+    : {- empty -}                   { [] }
+    | LocRegionPlus                 { $1 }
+
+LocRegionPlus :: { [LocRegion ] }
+    : LocRegion                     { [$1] }
+    | LocRegionPlus LocRegion       { $2 : $1 }
+
+CombinedTypeStar :: { [CombinedType ] }
+    : {- empty -}                                  { [] }
+    | CombinedTypePlus                             { $1 }
+
+CombinedTypePlus :: { [CombinedType ] }
+    : CombinedType                                 { [$1] }
+    | CombinedType '->' CombinedTypePlus   { $1 : $3 }
+
+-- optional newlines
+-- ONL :: { }
+--     : {- empty -}                   { () }
+--     | NL                            { () }
+
+-- NL :: { }
+--     : '\n'                          { () }
+--     | NL '\n'                       { () }  
 {
 parseError :: [Token] -> E a
 parseError [] = failE "Parse error"
@@ -418,5 +528,7 @@ catchE m k =
 --       Failed e -> k e s
 reverseList :: ([a] -> b) -> [a] -> b
 reverseList f = f . reverse
+
+
 
 }

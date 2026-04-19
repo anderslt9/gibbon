@@ -107,7 +107,7 @@ convertTypeScheme (TypeScheme (CombinedTypes combinedTypes)) = do
     where
         isLocatedType :: CombinedType -> Bool
         isLocatedType (CTLocated (LocatedType _ EmptyLocRegion)) = False
-        isLocatedType (CTLocated (LocatedType (CLTBase _) _)) = False
+        isLocatedType (CTLocated (LocatedType (CTCBase _) _)) = False
         isLocatedType (CTLocated _) = True
         isLocatedType (CTBase _) = False
 
@@ -121,10 +121,10 @@ convertCombinedTypeToLRM lrmModality (CTLocated (LocatedType _combinedLocType lo
 convertCombinedTypeToLRM _ _ = Failed "convertCombinedTypeToLRM: Mapping called on non-located type"
 
 convertCombinedTypeToTy :: CombinedType -> E L2.Ty2
-convertCombinedTypeToTy (CTLocated (LocatedType (CLTTypeCon (TypeCon typeCon)) l@(LocRegion {}))) = do
+convertCombinedTypeToTy (CTLocated (LocatedType (CTCTypeCon (TypeCon typeCon)) l@(LocRegion {}))) = do
     locVar <- convertLocRegionToLocVar l
     return $ S.PackedTy typeCon (C.Single locVar)
-convertCombinedTypeToTy (CTLocated (LocatedType (CLTBase baseType) _)) = convertBaseType baseType
+convertCombinedTypeToTy (CTLocated (LocatedType (CTCBase baseType) _)) = convertBaseType baseType
 convertCombinedTypeToTy (CTBase baseType) = convertBaseType baseType
 convertCombinedTypeToTy _ = Failed "convertCombinedTypeToInputTy: Unsupported CombinedType"
 
@@ -174,7 +174,7 @@ convertExpr expr = do
                 (LocExpressNext nextLocRegion offset) -> do
                     nextLocVar <- convertLocRegionToLocVar nextLocRegion
                     return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterConstantLE offset (C.Single nextLocVar)) newE
-                (LocExpressAfter (LocatedType (CLTTypeCon (TypeCon _typeCon)) lr@(LocRelativeVar relativeVar _locVar1 _regVar1 _iVar1))) -> do
+                (LocExpressAfter (LocatedType (CTCTypeCon (TypeCon _typeCon)) lr@(LocRelativeVar relativeVar _locVar1 _regVar1 _iVar1))) -> do
                     locVarRel <- convertLocRegionToLocVar lr
                     -- Failed $ "relativeVar: " ++ show relativeVar ++ ", locVarRel: " ++ show locVarRel
                     return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterVariableLE (C.toVar relativeVar) (C.Single locVarRel) True) newE

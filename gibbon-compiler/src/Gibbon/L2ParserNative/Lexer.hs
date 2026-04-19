@@ -10,6 +10,7 @@ lexer' :: Pos -> String -> [Token]
 lexer' p [] = [TokenEOF p]
 lexer' p (c:cs)
     | c == '\n' = 
+        -- TokenNewLine p : lexer' (advance p c) cs
         case cs of 
             (d:_) | isSpace d -> lexer' (advance p c) cs
             _  -> TokenNewLine p : lexer' (advance p c) cs

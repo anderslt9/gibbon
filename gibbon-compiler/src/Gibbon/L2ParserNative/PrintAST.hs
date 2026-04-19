@@ -94,8 +94,8 @@ instance PrintAST LocatedType where
     printAST depth temp = indent depth (show temp)
 
 -- TODO
-instance PrintAST CombinedLocType where
-    printAST depth temp = indent depth (show temp)
+-- instance PrintAST CombinedLocType where
+--     printAST depth temp = indent depth (show temp)
 
 -- TODO
 instance PrintAST TypeScheme where

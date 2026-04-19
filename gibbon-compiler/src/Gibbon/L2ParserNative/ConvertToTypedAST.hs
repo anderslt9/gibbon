@@ -576,9 +576,9 @@ combinedTypeConToType (CTCTypeCon tc) = PackedTy tc EmptyLocRegion
 combinedTypeConToType (CTCBase baseType) = baseTypeToType baseType
 
 combinedTypeToType :: CombinedType -> MyTy LocRegion
-combinedTypeToType (CTLocated (LocatedType combinedLocType locRegion)) = case combinedLocType of
-    CLTTypeCon tc -> PackedTy tc locRegion
-    CLTBase baseType -> baseTypeToType baseType
+combinedTypeToType (CTLocated (LocatedType combinedTypeCon locRegion)) = case combinedTypeCon of
+    CTCTypeCon tc -> PackedTy tc locRegion
+    CTCBase baseType -> baseTypeToType baseType
 combinedTypeToType (CTBase baseType) = baseTypeToType baseType
 
 -- combinedLocTypeToType :: CombinedLocType -> MyTy LocRegion
@@ -588,8 +588,8 @@ combinedTypeToType (CTBase baseType) = baseTypeToType baseType
 
 -- TODO look at whether I need to bind base types to locRegion
 locatedTypeToType :: LocatedType -> MyTy LocRegion
-locatedTypeToType (LocatedType (CLTTypeCon tc) locRegion) = PackedTy tc locRegion -- deal with adding location at some point
-locatedTypeToType (LocatedType (CLTBase baseType) _locRegion) = baseTypeToType baseType
+locatedTypeToType (LocatedType (CTCTypeCon tc) locRegion) = PackedTy tc locRegion -- deal with adding location at some point
+locatedTypeToType (LocatedType (CTCBase baseType) _locRegion) = baseTypeToType baseType
 
 binOpToType :: BinOp -> (MyTy a, MyTy a, MyTy a)
 binOpToType op = case op of
