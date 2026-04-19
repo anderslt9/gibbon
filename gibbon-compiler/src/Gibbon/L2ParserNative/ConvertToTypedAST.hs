@@ -280,18 +280,17 @@ inferExpr expr = case expr of
         typedVal <- inferVal val
         let newIVal = ExprVal (tNode typedVal)
         return $ createTypedNode (tType typedVal) newIVal
-    (ExprBinOp binOp e1 e2) -> do
-        typedE1 <- inferExpr e1
-        typedE2 <- inferExpr e2
-        let (arg1Ty, arg2Ty, retTy) = binOpToType binOp
-            newIBinApp = ExprBinOp binOp (tNode typedE1) (tNode typedE2)
+    (ExprPrimApp primFunc (Exprs exprs)) -> do
+        typedExprs <- mapM inferExpr exprs
+        let (argTys, retTy) = primFuncToType primFunc
+            newIPrimApp = ExprPrimApp primFunc (Exprs (map tNode typedExprs))
         -- TODO
             -- Can extend to support type promotion later
             -- maybe change to nested if statement where separate error for binary operation being wrong
-        if tType typedE1 ==^^ tType typedE2 && tType typedE1 ==^^ arg1Ty && tType typedE2 ==^^ arg2Ty
-        then return $ createTypedNode retTy newIBinApp
-        else lift . Failed $ "Type mismatch in binary operation " ++ show binOp ++ ": " ++ show (tType typedE1) ++ " vs " ++ show (tType typedE2)
-    
+        if and $ zipWith (==^^) (map tType typedExprs) argTys
+        then return $ createTypedNode retTy newIPrimApp
+        else lift . Failed $ "Type mismatch in primitive application " ++ show primFunc ++ ": " ++ show (map tType typedExprs) ++ " vs " ++ show argTys
+
     -- TODO deal with location region stuff (may consider type promotion too)
     (ExprFuncApp (FuncVar funcVar) lrs@(LocRegions locRegions) (Exprs exprs)) -> do
         typedExprs <- mapM inferExpr exprs
@@ -591,28 +590,28 @@ locatedTypeToType :: LocatedType -> MyTy LocRegion
 locatedTypeToType (LocatedType (CTCTypeCon tc) locRegion) = PackedTy tc locRegion -- deal with adding location at some point
 locatedTypeToType (LocatedType (CTCBase baseType) _locRegion) = baseTypeToType baseType
 
-binOpToType :: BinOp -> (MyTy a, MyTy a, MyTy a)
-binOpToType op = case op of
-    Add -> (IntTy, IntTy, IntTy)
-    Sub -> (IntTy, IntTy, IntTy)
-    Mul -> (IntTy, IntTy, IntTy)
-    Div -> (IntTy, IntTy, IntTy)
-    FAdd -> (FloatTy, FloatTy, FloatTy)
-    FSub -> (FloatTy, FloatTy, FloatTy)
-    FMul -> (FloatTy, FloatTy, FloatTy)
-    FDiv -> (FloatTy, FloatTy, FloatTy)
-    Pow -> (IntTy, IntTy, IntTy)
-    Eq  -> (IntTy, IntTy, BoolTy)
-    FEq -> (FloatTy, FloatTy, BoolTy)
-    CEq -> (BoolTy, BoolTy, BoolTy)
-    Gt  -> (IntTy, IntTy, BoolTy)
-    Lt  -> (IntTy, IntTy, BoolTy)
-    FGt -> (FloatTy, FloatTy, BoolTy)
-    FLt -> (FloatTy, FloatTy, BoolTy)
-    Ge  -> (IntTy, IntTy, BoolTy)
-    Le  -> (IntTy, IntTy, BoolTy)
-    FGe -> (FloatTy, FloatTy, BoolTy)
-    FLe -> (FloatTy, FloatTy, BoolTy)
-    Neq -> (IntTy, IntTy, BoolTy)
-    And -> (BoolTy, BoolTy, BoolTy)
-    Or  -> (BoolTy, BoolTy, BoolTy)
+primFuncToType :: PrimFunc -> ([MyTy a], MyTy a)
+primFuncToType op = case op of
+    Add -> ([IntTy, IntTy], IntTy)
+    Sub -> ([IntTy, IntTy], IntTy)
+    Mul -> ([IntTy, IntTy], IntTy)
+    Div -> ([IntTy, IntTy], IntTy)
+    FAdd -> ([FloatTy, FloatTy], FloatTy)
+    FSub -> ([FloatTy, FloatTy], FloatTy)
+    FMul -> ([FloatTy, FloatTy], FloatTy)
+    FDiv -> ([FloatTy, FloatTy], FloatTy)
+    Pow -> ([IntTy, IntTy], IntTy)
+    Eq  -> ([IntTy, IntTy], BoolTy)
+    FEq -> ([FloatTy, FloatTy], BoolTy)
+    CEq -> ([BoolTy, BoolTy], BoolTy)
+    Gt  -> ([IntTy, IntTy], BoolTy)
+    Lt  -> ([IntTy, IntTy], BoolTy)
+    FGt -> ([FloatTy, FloatTy], BoolTy)
+    FLt -> ([FloatTy, FloatTy], BoolTy)
+    Ge  -> ([IntTy, IntTy], BoolTy)
+    Le  -> ([IntTy, IntTy], BoolTy)
+    FGe -> ([FloatTy, FloatTy], BoolTy)
+    FLe -> ([FloatTy, FloatTy], BoolTy)
+    Neq -> ([IntTy, IntTy], BoolTy)
+    And -> ([BoolTy, BoolTy], BoolTy)
+    Or  -> ([BoolTy, BoolTy], BoolTy)

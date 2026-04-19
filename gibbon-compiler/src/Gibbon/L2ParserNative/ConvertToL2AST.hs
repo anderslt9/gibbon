@@ -134,17 +134,10 @@ convertExpr :: Expr -> E L2.Exp2
 convertExpr expr = do
     case expr of 
         (ExprVal val) -> convertVal val
-        -- (ExprBinOp Neq e1 e2) -> do
-        --     -- Currently no NeqP in Gibbon, so we can just convert to if statement for now
-        --     newE1 <- convertExpr e1
-        --     newE2 <- convertExpr e2
-        --     let eqExpr = S.PrimAppE S.EqIntP [newE1, newE2]
-        --     return $ S.IfE eqExpr (S.PrimAppE S.MkFalse []) (S.PrimAppE S.MkTrue [])
-        (ExprBinOp binOp e1 e2) -> do
-            newE1 <- convertExpr e1
-            newE2 <- convertExpr e2
-            primOp <- convertBinOp binOp
-            return $ S.PrimAppE primOp [newE1, newE2]
+        (ExprPrimApp primFunc (Exprs exprs)) -> do
+            newExprs <- mapM convertExpr exprs
+            primOp <- convertPrimFunc primFunc
+            return $ S.PrimAppE primOp newExprs
         (ExprFuncApp (FuncVar f) (LocRegions locRegions) (Exprs exprs)) -> do
             newExprs <- mapM convertExpr exprs
             newLocs <- mapM convertLocRegionToLocVar locRegions
@@ -227,8 +220,8 @@ convertLit lit = case lit of
     _               -> Failed "convertLit: Unsupported literal type"
 -- convertLit (StringLit s) = L2.LitE s  currently no StringE in L2
 
-convertBinOp :: BinOp -> E (S.Prim a)
-convertBinOp b = case b of 
+convertPrimFunc :: PrimFunc -> E (S.Prim a)
+convertPrimFunc p = case p of 
     Add ->  return S.AddP
     Sub ->  return S.SubP
     FAdd -> return S.FAddP
@@ -250,7 +243,7 @@ convertBinOp b = case b of
     FLe ->  return S.FLtEqP
     And ->  return S.AndP
     Or ->   return S.OrP
-    _ ->   Failed "convertBinOp: Unsupported binary operator"
+    _ ->   Failed "convertPrimFunc: Unsupported primitive function"
 
 convertLocRegionToLocVar :: LocRegion -> E C.Var
 convertLocRegionToLocVar (LocRegion (LocVar locVar) _ _) = return $ C.toVar locVar

@@ -30,7 +30,7 @@ data Pass = Pass
     , onExpr :: Expr -> (InferM LocRegion) Expr
     , onPat :: Pat -> (InferM LocRegion) Pat
     , onPatMatch :: PatMatch -> (InferM LocRegion) PatMatch
-    , onBinOp :: BinOp -> (InferM LocRegion) BinOp
+    , onPrimFunc :: PrimFunc -> (InferM LocRegion) PrimFunc
     , onFuncVar :: FuncVar -> (InferM LocRegion) FuncVar
     , onRegionVar :: RegionVar -> (InferM LocRegion) RegionVar
     , onLocVar :: LocVar -> (InferM LocRegion) LocVar
@@ -105,8 +105,8 @@ replaceLocRegionInAfterExprs = PassNamed "Replace Location Region Names in After
 replaceNeq :: PassNamed
 replaceNeq = PassNamed "Replace Not Equal with If-Then-Else" $ idPass
     { onExpr = \case
-        ExprBinOp Neq expr1 expr2 -> do
-            let newExpr = ExprIf (ExprBinOp Eq expr1 expr2) (ExprVal $ ValLit $ BoolLit False) (ExprVal $ ValLit $ BoolLit True)
+        ExprPrimApp Neq (Exprs [expr1, expr2]) -> do
+            let newExpr = ExprIf (ExprPrimApp Eq (Exprs [expr1, expr2])) (ExprVal $ ValLit $ BoolLit False) (ExprVal $ ValLit $ BoolLit True)
             return newExpr
         e -> return e
     }
@@ -252,11 +252,10 @@ walkExpr pass (ExprVal val) = do
     val' <- walkVal pass val
     let newExpr = ExprVal val'
     onExpr pass newExpr
-walkExpr pass (ExprBinOp binOp expr1 expr2) = do
-    binOp' <- walkBinOp pass binOp
-    expr1' <- walkExpr pass expr1
-    expr2' <- walkExpr pass expr2
-    let newExpr = ExprBinOp binOp' expr1' expr2'
+walkExpr pass (ExprPrimApp primFunc exprs) = do
+    primFunc' <- walkPrimFunc pass primFunc
+    exprs' <- walkExprs pass exprs
+    let newExpr = ExprPrimApp primFunc' exprs'
     onExpr pass newExpr
 walkExpr pass (ExprFuncApp funcVar locRegions exprs) = do
     funcVar' <- walkFuncVar pass funcVar
@@ -317,8 +316,8 @@ walkPatMatch pass (PatMatch val locatedType) = do
     let newPatMatch = PatMatch val' locatedType'
     onPatMatch pass newPatMatch
 
-walkBinOp :: Pass -> BinOp -> (InferM LocRegion) BinOp
-walkBinOp pass binOp = onBinOp pass binOp
+walkPrimFunc :: Pass -> PrimFunc -> (InferM LocRegion) PrimFunc
+walkPrimFunc pass primFunc = onPrimFunc pass primFunc
 
 walkFuncVar :: Pass -> FuncVar -> (InferM LocRegion) FuncVar
 walkFuncVar pass funcVar = onFuncVar pass funcVar

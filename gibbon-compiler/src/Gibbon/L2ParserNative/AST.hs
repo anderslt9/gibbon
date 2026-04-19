@@ -40,13 +40,18 @@ data Val = ValVar Var | ValLit Lit deriving (Show,Eq)
 data Lit = IntLit Int | FloatLit Float | BoolLit Bool | CharLit Char | StringLit String deriving (Show,Eq)
 
 -- expressions
-data Expr = ExprVal Val | ExprBinOp BinOp Expr Expr | ExprFuncApp FuncVar LocRegions Exprs | ExprDataConApp DataCon LocRegion Exprs
+data Expr = ExprVal Val | ExprPrimApp PrimFunc Exprs | ExprFuncApp FuncVar LocRegions Exprs | ExprDataConApp DataCon LocRegion Exprs
             | ExprCase Val Pats | ExprLet Var CombinedType Expr Expr | ExprLetLoc LocRegion LocExpress Expr
             | ExprLetRegion RegionVar Expr | ExprIf Expr Expr Expr deriving (Show,Eq)
 data Pat = Pat DataCon PatMatches Expr deriving (Show,Eq)
 data PatMatch = PatMatch Val LocatedType deriving (Show,Eq)
-data BinOp = Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
-            | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | FLe | Neq | And | Or deriving (Show,Eq)
+data PrimFunc = 
+        Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
+        | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | 
+        FLe | Neq | And | Or 
+        
+        -- | PrintInt | PrintChar | PrintFloat | PrintBool
+        deriving (Show,Eq)
 
 -- specific variable types
 -- newtype LVar = LVar String deriving (Show, Eq, Ord)

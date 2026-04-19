@@ -60,7 +60,7 @@ import Gibbon.L2ParserNative.Lexer
     start       { TokenStart _ }
     after       { TokenAfter _ }
 
-    -- binary operations
+    -- arithmetic operations
     '^'         { TokenPow _ }
     '*'         { TokenMul _ }
     '/'         { TokenDiv _ }
@@ -86,6 +86,12 @@ import Gibbon.L2ParserNative.Lexer
     '/='        { TokenNeq _ }
     '&&'        { TokenAnd _ }
     '||'        { TokenOr _ }
+
+    -- other primitive applications
+    -- PrintInt    { TokenPrintInt _ }
+    -- PrintChar   { TokenPrintChar _ }
+    -- PrintFloat  { TokenPrintFloat _ }
+    -- PrintBool   { TokenPrintBool _ }
 
     -- base types
     Int         { TokenIntType _ }
@@ -186,7 +192,7 @@ Lit :: { Lit }
 -- expressions
 Expr :: { Expr }
     -- : ExprOr                      { $1 }
-    : ExprBinOp                      { $1 }
+    : ExprPrimApp                    { $1 }
     | Val                            { ExprVal $1 }
     | '(' Expr ')'                   { $2 }
     | ExprFuncApp                    { $1 }
@@ -196,6 +202,42 @@ Expr :: { Expr }
     | ExprLetLoc                     { $1 }
     | ExprLetRegion                  { $1 }
     | ExprIf                         { $1 }
+
+-- primitive operations
+ExprPrimApp :: { Expr }
+    : ExprArith                      { $1 }
+    -- | ExprPrint                      { $1 }
+
+-- ExprPrint :: { Expr }
+--     : PrintInt Expr               { ExprPrimApp PrintInt   [$2] }
+--     : PrintChar Expr              { ExprPrimApp PrintChar  [$2] }
+--     : PrintFloat Expr             { ExprPrimApp PrintFloat [$2] }
+--     : PrintBool Expr              { ExprPrimApp PrintBool  [$2] }
+
+ExprArith :: { Expr }
+    : Expr '+' Expr         { ExprPrimApp Add  (Exprs [$1, $3]) }
+    | Expr '-' Expr         { ExprPrimApp Sub  (Exprs [$1, $3]) }
+    | Expr '.+.' Expr       { ExprPrimApp FAdd (Exprs [$1, $3]) }
+    | Expr '.-.' Expr       { ExprPrimApp FSub (Exprs [$1, $3]) }
+    | Expr '*' Expr         { ExprPrimApp Mul  (Exprs [$1, $3]) }
+    | Expr '/' Expr         { ExprPrimApp Div  (Exprs [$1, $3]) }
+    | Expr '.*.' Expr       { ExprPrimApp FMul (Exprs [$1, $3]) }
+    | Expr './.' Expr       { ExprPrimApp FDiv (Exprs [$1, $3]) }
+    | Expr '^' Expr         { ExprPrimApp Pow  (Exprs [$1, $3]) }
+    | Expr '==' Expr        { ExprPrimApp Eq   (Exprs [$1, $3]) }
+    | Expr '.==.' Expr      { ExprPrimApp FEq  (Exprs [$1, $3]) }
+    | Expr '*==*' Expr      { ExprPrimApp CEq  (Exprs [$1, $3]) }
+    | Expr '>' Expr         { ExprPrimApp Gt   (Exprs [$1, $3]) }
+    | Expr '<' Expr         { ExprPrimApp Lt   (Exprs [$1, $3]) }
+    | Expr '.>.' Expr       { ExprPrimApp FGt  (Exprs [$1, $3]) }
+    | Expr '.<.' Expr       { ExprPrimApp FLt  (Exprs [$1, $3]) }
+    | Expr '>=' Expr        { ExprPrimApp Ge   (Exprs [$1, $3]) }
+    | Expr '<=' Expr        { ExprPrimApp Le   (Exprs [$1, $3]) }
+    | Expr '.>=.' Expr      { ExprPrimApp FGe  (Exprs [$1, $3]) }
+    | Expr '.<=.' Expr      { ExprPrimApp FLe  (Exprs [$1, $3]) }
+    | Expr '/=' Expr        { ExprPrimApp Neq  (Exprs [$1, $3]) }
+    | Expr '&&' Expr        { ExprPrimApp And  (Exprs [$1, $3]) }
+    | Expr '||' Expr        { ExprPrimApp Or   (Exprs [$1, $3]) }
 
 -- ExprPrimOp :: { Expr }
 
@@ -256,30 +298,30 @@ Expr :: { Expr }
 --     | ExprLetRegion                  { $1 }
 --     | ExprIf                         { $1 }
 
-ExprBinOp :: { Expr }
-    : Expr '+' Expr         { ExprBinOp Add $1 $3 }
-    | Expr '-' Expr         { ExprBinOp Sub $1 $3 }
-    | Expr '.+.' Expr       { ExprBinOp FAdd $1 $3 }
-    | Expr '.-.' Expr       { ExprBinOp FSub $1 $3 }
-    | Expr '*' Expr         { ExprBinOp Mul $1 $3 }
-    | Expr '/' Expr         { ExprBinOp Div $1 $3 }
-    | Expr '.*.' Expr       { ExprBinOp FMul $1 $3 }
-    | Expr './.' Expr       { ExprBinOp FDiv $1 $3 }
-    | Expr '^' Expr         { ExprBinOp Pow $1 $3 }
-    | Expr '==' Expr        { ExprBinOp Eq $1 $3 }
-    | Expr '.==.' Expr      { ExprBinOp FEq $1 $3 }
-    | Expr '*==*' Expr      { ExprBinOp CEq $1 $3 }
-    | Expr '>' Expr         { ExprBinOp Gt $1 $3 }
-    | Expr '<' Expr         { ExprBinOp Lt $1 $3 }
-    | Expr '.>.' Expr       { ExprBinOp FGt $1 $3 }
-    | Expr '.<.' Expr       { ExprBinOp FLt $1 $3 }
-    | Expr '>=' Expr        { ExprBinOp Ge $1 $3 }
-    | Expr '<=' Expr        { ExprBinOp Le $1 $3 }
-    | Expr '.>=.' Expr      { ExprBinOp FGe $1 $3 }
-    | Expr '.<=.' Expr      { ExprBinOp FLe $1 $3 }
-    | Expr '/=' Expr        { ExprBinOp Neq $1 $3 }
-    | Expr '&&' Expr        { ExprBinOp And $1 $3 }
-    | Expr '||' Expr        { ExprBinOp Or $1 $3 }
+-- ExprBinOp :: { Expr }
+--     : Expr '+' Expr         { ExprBinOp Add $1 $3 }
+--     | Expr '-' Expr         { ExprBinOp Sub $1 $3 }
+--     | Expr '.+.' Expr       { ExprBinOp FAdd $1 $3 }
+--     | Expr '.-.' Expr       { ExprBinOp FSub $1 $3 }
+--     | Expr '*' Expr         { ExprBinOp Mul $1 $3 }
+--     | Expr '/' Expr         { ExprBinOp Div $1 $3 }
+--     | Expr '.*.' Expr       { ExprBinOp FMul $1 $3 }
+--     | Expr './.' Expr       { ExprBinOp FDiv $1 $3 }
+--     | Expr '^' Expr         { ExprBinOp Pow $1 $3 }
+--     | Expr '==' Expr        { ExprBinOp Eq $1 $3 }
+--     | Expr '.==.' Expr      { ExprBinOp FEq $1 $3 }
+--     | Expr '*==*' Expr      { ExprBinOp CEq $1 $3 }
+--     | Expr '>' Expr         { ExprBinOp Gt $1 $3 }
+--     | Expr '<' Expr         { ExprBinOp Lt $1 $3 }
+--     | Expr '.>.' Expr       { ExprBinOp FGt $1 $3 }
+--     | Expr '.<.' Expr       { ExprBinOp FLt $1 $3 }
+--     | Expr '>=' Expr        { ExprBinOp Ge $1 $3 }
+--     | Expr '<=' Expr        { ExprBinOp Le $1 $3 }
+--     | Expr '.>=.' Expr      { ExprBinOp FGe $1 $3 }
+--     | Expr '.<=.' Expr      { ExprBinOp FLe $1 $3 }
+--     | Expr '/=' Expr        { ExprBinOp Neq $1 $3 }
+--     | Expr '&&' Expr        { ExprBinOp And $1 $3 }
+--     | Expr '||' Expr        { ExprBinOp Or $1 $3 }
 
 ExprIf :: { Expr }
     : if Expr then Expr else Expr     { ExprIf $2 $4 $6 }

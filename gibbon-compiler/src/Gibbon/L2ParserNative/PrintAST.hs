@@ -131,8 +131,8 @@ instance PrintAST Lit where
 instance PrintAST Expr where
     printAST depth (ExprVal val) = printAST depth val
     
-    printAST depth (ExprBinOp binOp expr1 expr2) =
-        getFullExpr depth "Binary Operation" (getChildren depth binOp expr1 expr2)
+    printAST depth (ExprPrimApp primFunc exprs) =
+        getFullExpr depth "Primitive Application" (getChildren depth primFunc exprs)
     
     printAST depth (ExprFuncApp funcVar locRegions exprs) =
         getFullExpr depth "Function Application" (getChildren depth funcVar locRegions exprs)
@@ -164,8 +164,8 @@ instance PrintAST PatMatch where
     printAST depth (PatMatch val locatedType) = 
         getFullExpr depth "Pattern Match" (getChildren depth val locatedType)
 
-instance PrintAST BinOp where
-    printAST depth binOp = indent depth (show binOp)
+instance PrintAST PrimFunc where
+    printAST depth primFunc = indent depth (show primFunc)
 
 --------- specific variable types ---------
 instance PrintAST FuncVar where
