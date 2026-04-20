@@ -5,21 +5,33 @@ data Program = Program DataTypeDecls FuncDecls Expr deriving (Show,Eq)
 
 -- data type declarations
 data DataTypeDecl = DataTypeDecl TypeCon DataFields deriving (Show,Eq)
-data DataField = DataField DataCon CombinedTypeCons deriving (Show,Eq)
-data CombinedTypeCon = CTCTypeCon TypeCon | CTCBase BaseType deriving (Show,Eq)
+data DataField = DataField DataCon MyTypes deriving (Show,Eq)
+-- data CombinedTypeCon = CTCTypeCon TypeCon | CTCBase BaseType deriving (Show,Eq)
 
 -- function declarations
 data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr deriving (Show,Eq)
 
 -- type expressions
-data LocatedType = LocatedType CombinedTypeCon LocRegion deriving (Show, Eq)
+-- data LocatedType = LocatedType CombinedTypeCon LocRegion deriving (Show, Eq)
 -- data CombinedLocType = CLTTypeCon TypeCon | CLTBase BaseType deriving (Show, Eq)
-newtype TypeScheme = TypeScheme CombinedTypes deriving (Show,Eq)
-data CombinedType = CTLocated LocatedType | CTBase BaseType deriving (Show,Eq)
-data BaseType = Int | Float | Bool | Char | String deriving (Show,Eq)
+newtype TypeScheme = TypeScheme MyTypes deriving (Show,Eq)
+-- data CombinedType = CTLocated LocatedType | CTBase BaseType deriving (Show,Eq)
+data MyType = IntTy LocRegion | FloatTy LocRegion | BoolTy LocRegion | CharTy LocRegion | StringTy LocRegion 
+            | PackedTy TypeCon LocRegion | NoneTy deriving Show
+
+instance Eq MyType where
+    (==) (PackedTy tc1 loc1) (PackedTy tc2 loc2) =
+        tc1 == tc2 && loc1 == loc2
+    (==) (IntTy loc1) (IntTy loc2) = loc1 == loc2
+    (==) (FloatTy loc1) (FloatTy loc2) = loc1 == loc2
+    (==) (BoolTy loc1) (BoolTy loc2) = loc1 == loc2
+    (==) (CharTy loc1) (CharTy loc2) = loc1 == loc2
+    (==) (StringTy loc1) (StringTy loc2) = loc1 == loc2
+    (==) NoneTy NoneTy = True
+    (==) _ _ = False
 
 -- location expressions
-data LocExpress = LocExpressStart RegionVar | LocExpressNext LocRegion Int | LocExpressAfter LocatedType deriving (Show,Eq)
+data LocExpress = LocExpressStart RegionVar | LocExpressNext LocRegion Int | LocExpressAfter MyType deriving (Show,Eq)
 data LocRegion = LocRegion LocVar RegionVar IndexVar | LocRelativeVar String LocVar RegionVar IndexVar | EmptyLocRegion deriving (Show, Ord)
 
 instance Eq LocRegion where
@@ -41,10 +53,10 @@ data Lit = IntLit Int | FloatLit Float | BoolLit Bool | CharLit Char | StringLit
 
 -- expressions
 data Expr = ExprVal Val | ExprPrimApp PrimFunc Exprs | ExprFuncApp FuncVar LocRegions Exprs | ExprDataConApp DataCon LocRegion Exprs
-            | ExprCase Val Pats | ExprLet Var CombinedType Expr Expr | ExprLetLoc LocRegion LocExpress Expr
+            | ExprCase Val Pats | ExprLet Var MyType Expr Expr | ExprLetLoc LocRegion LocExpress Expr
             | ExprLetRegion RegionVar Expr | ExprIf Expr Expr Expr deriving (Show,Eq)
 data Pat = Pat DataCon PatMatches Expr deriving (Show,Eq)
-data PatMatch = PatMatch Val LocatedType deriving (Show,Eq)
+data PatMatch = PatMatch Val MyType deriving (Show,Eq)
 data PrimFunc = 
         Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
         | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | 
@@ -69,7 +81,7 @@ newtype Var = Var String deriving (Show, Eq, Ord)
 -- repeated productions to model * operator
 newtype Vars = Vars [Var] deriving (Show,Eq)
 newtype DataFields = DataFields [DataField] deriving (Show,Eq)
-newtype CombinedTypeCons = CombinedTypeCons [CombinedTypeCon] deriving (Show,Eq)
+-- newtype CombinedTypeCons = CombinedTypeCons [CombinedTypeCon] deriving (Show,Eq)
 newtype Exprs = Exprs [Expr] deriving (Show,Eq)
 newtype Vals = Vals [Val] deriving (Show,Eq)
 newtype Pats = Pats [Pat] deriving (Show,Eq)
@@ -77,4 +89,4 @@ newtype PatMatches = PatMatches [PatMatch] deriving (Show,Eq)
 newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving (Show,Eq)
 newtype FuncDecls = FuncDecls [FuncDecl] deriving (Show,Eq)
 newtype LocRegions = LocRegions [LocRegion] deriving (Show,Eq)
-newtype CombinedTypes = CombinedTypes [CombinedType] deriving (Show,Eq)
+newtype MyTypes = MyTypes [MyType] deriving (Show,Eq)

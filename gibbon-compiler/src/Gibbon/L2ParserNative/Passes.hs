@@ -16,13 +16,13 @@ data Pass = Pass
     { onProgram :: Program -> (InferM LocRegion) Program
     , onDataTypeDecl :: DataTypeDecl -> (InferM LocRegion) DataTypeDecl
     , onDataField :: DataField -> (InferM LocRegion) DataField
-    , onCombinedTypeCon :: CombinedTypeCon -> (InferM LocRegion) CombinedTypeCon
+    -- , onCombinedTypeCon :: CombinedTypeCon -> (InferM LocRegion) CombinedTypeCon
     , onFuncDecl :: FuncDecl -> (InferM LocRegion) FuncDecl
-    , onLocatedType :: LocatedType -> (InferM LocRegion) LocatedType
+    -- , onLocatedType :: LocatedType -> (InferM LocRegion) LocatedType
     -- , onCombinedLocType :: CombinedLocType -> (InferM LocRegion) CombinedLocType
     , onTypeScheme :: TypeScheme -> (InferM LocRegion) TypeScheme
-    , onCombinedType :: CombinedType -> (InferM LocRegion) CombinedType
-    , onBaseType :: BaseType -> (InferM LocRegion) BaseType
+    -- , onCombinedType :: CombinedType -> (InferM LocRegion) CombinedType
+    , onMyType :: MyType -> (InferM LocRegion) MyType
     , onLocExpress :: LocExpress -> (InferM LocRegion) LocExpress
     , onLocRegion :: LocRegion -> (InferM LocRegion) LocRegion
     , onVal :: Val -> (InferM LocRegion) Val
@@ -40,7 +40,7 @@ data Pass = Pass
     , onVar :: Var -> (InferM LocRegion) Var
     , onVars :: Vars -> (InferM LocRegion) Vars
     , onDataFields :: DataFields -> (InferM LocRegion) DataFields
-    , onCombinedTypeCons :: CombinedTypeCons -> (InferM LocRegion) CombinedTypeCons
+    -- , onCombinedTypeCons :: CombinedTypeCons -> (InferM LocRegion) CombinedTypeCons
     , onExprs :: Exprs -> (InferM LocRegion) Exprs
     , onVals :: Vals -> (InferM LocRegion) Vals
     , onPats :: Pats -> (InferM LocRegion) Pats
@@ -48,14 +48,14 @@ data Pass = Pass
     , onDataTypeDecls :: DataTypeDecls -> (InferM LocRegion) DataTypeDecls
     , onFuncDecls :: FuncDecls -> (InferM LocRegion) FuncDecls
     , onLocRegions :: LocRegions -> (InferM LocRegion) LocRegions
-    , onCombinedTypes :: CombinedTypes -> (InferM LocRegion) CombinedTypes
+    , onMyTypes :: MyTypes -> (InferM LocRegion) MyTypes
     }
 
 idPass :: Pass
 idPass = Pass return return return return return return return return return return
               return return return return return return return return return return
               return return return return return return return return return return
-              return return return return return
+              return
     -- { onProgram = return . createTypedNode (LocRelativeVar "idPassProgram") . id
     -- , onDataTypeDecl = return . createTypedNode (LocRelativeVar
 
@@ -95,9 +95,9 @@ replaceLocRegionNames = PassNamed "Replace Location Region Names" $ idPass
 replaceLocRegionInAfterExprs :: PassNamed
 replaceLocRegionInAfterExprs = PassNamed "Replace Location Region Names in After Expressions" $ idPass
     { onLocExpress = \case
-        LocExpressAfter lt@(LocatedType combinedLocType (LocRegion lv rv iv)) -> do
-            varAfter <- lookupByVal (locatedTypeToType lt)
-            let newLocExpress = LocExpressAfter (LocatedType combinedLocType (LocRelativeVar varAfter lv rv iv))
+        LocExpressAfter mt@(PackedTy typeCon (LocRegion lv rv iv)) -> do
+            varAfter <- lookupByVal mt
+            let newLocExpress = LocExpressAfter (PackedTy typeCon (LocRelativeVar varAfter lv rv iv))
             return newLocExpress
         e -> return e
     }
@@ -134,21 +134,21 @@ walkDataTypeDecl pass (DataTypeDecl typeCon dataFields) = do
     onDataTypeDecl pass newDataTypeDecl
 
 walkDataField :: Pass -> DataField -> (InferM LocRegion) DataField
-walkDataField pass (DataField dataCon combinedTypeCons) = do
+walkDataField pass (DataField dataCon myTypes) = do
     dataCon' <- walkDataCon pass dataCon
-    combinedTypeCons' <- walkCombinedTypeCons pass combinedTypeCons
-    let newDataField = DataField dataCon' combinedTypeCons'
+    myTypes' <- walkMyTypes pass myTypes
+    let newDataField = DataField dataCon' myTypes'
     onDataField pass newDataField
 
-walkCombinedTypeCon :: Pass -> CombinedTypeCon -> (InferM LocRegion) CombinedTypeCon
-walkCombinedTypeCon pass (CTCTypeCon typeCon) = do
-    typeCon' <- walkTypeCon pass typeCon
-    let newCombinedTypeCon = CTCTypeCon typeCon'
-    onCombinedTypeCon pass newCombinedTypeCon
-walkCombinedTypeCon pass (CTCBase baseType) = do
-    baseType' <- walkBaseType pass baseType
-    let newCombinedTypeCon = CTCBase baseType'
-    onCombinedTypeCon pass newCombinedTypeCon
+-- walkCombinedTypeCon :: Pass -> CombinedTypeCon -> (InferM LocRegion) CombinedTypeCon
+-- walkCombinedTypeCon pass (CTCTypeCon typeCon) = do
+--     typeCon' <- walkTypeCon pass typeCon
+--     let newCombinedTypeCon = CTCTypeCon typeCon'
+--     onCombinedTypeCon pass newCombinedTypeCon
+-- walkCombinedTypeCon pass (CTCBase baseType) = do
+--     baseType' <- walkBaseType pass baseType
+--     let newCombinedTypeCon = CTCBase baseType'
+--     onCombinedTypeCon pass newCombinedTypeCon
 
 walkFuncDecl :: Pass -> FuncDecl -> (InferM LocRegion) FuncDecl
 walkFuncDecl pass (FuncDecl fv@(FuncVar funcVar) typeScheme funcVar2 locRegions vs@(Vars vars) expr) = do
@@ -165,12 +165,12 @@ walkFuncDecl pass (FuncDecl fv@(FuncVar funcVar) typeScheme funcVar2 locRegions 
     let newFuncDecl = FuncDecl funcVar' typeScheme' funcVar2' locRegions' vars' expr'
     onFuncDecl pass newFuncDecl
 
-walkLocatedType :: Pass -> LocatedType -> (InferM LocRegion) LocatedType
-walkLocatedType pass (LocatedType combinedTypeCon locRegion) = do
-    combinedTypeCon' <- walkCombinedTypeCon pass combinedTypeCon
-    locRegion' <- walkLocRegion pass locRegion
-    let newLocatedType = LocatedType combinedTypeCon' locRegion'
-    onLocatedType pass newLocatedType
+-- walkLocatedType :: Pass -> LocatedType -> (InferM LocRegion) LocatedType
+-- walkLocatedType pass (LocatedType combinedTypeCon locRegion) = do
+--     combinedTypeCon' <- walkCombinedTypeCon pass combinedTypeCon
+--     locRegion' <- walkLocRegion pass locRegion
+--     let newLocatedType = LocatedType combinedTypeCon' locRegion'
+--     onLocatedType pass newLocatedType
 
 -- walkCombinedLocType :: Pass -> CombinedLocType -> (InferM LocRegion) CombinedLocType
 -- walkCombinedLocType pass (CLTTypeCon typeCon) = do
@@ -184,22 +184,32 @@ walkLocatedType pass (LocatedType combinedTypeCon locRegion) = do
 
 walkTypeScheme :: Pass -> TypeScheme -> (InferM LocRegion) TypeScheme
 walkTypeScheme pass (TypeScheme combinedTypes) = do
-    combinedTypes' <- walkCombinedTypes pass combinedTypes
+    combinedTypes' <- walkMyTypes pass combinedTypes
     let newTypeScheme = TypeScheme combinedTypes'
     onTypeScheme pass newTypeScheme
 
-walkCombinedType :: Pass -> CombinedType -> (InferM LocRegion) CombinedType
-walkCombinedType pass (CTLocated locatedType) = do
-    locatedType' <- walkLocatedType pass locatedType
-    let newCombinedType = CTLocated locatedType'
-    onCombinedType pass newCombinedType
-walkCombinedType pass (CTBase baseType) = do
-    baseType' <- walkBaseType pass baseType
-    let newCombinedType = CTBase baseType'
-    onCombinedType pass newCombinedType
+-- walkCombinedType :: Pass -> CombinedType -> (InferM LocRegion) CombinedType
+-- walkCombinedType pass (CTLocated locatedType) = do
+--     locatedType' <- walkLocatedType pass locatedType
+--     let newCombinedType = CTLocated locatedType'
+--     onCombinedType pass newCombinedType
+-- walkCombinedType pass (CTBase baseType) = do
+--     baseType' <- walkBaseType pass baseType
+--     let newCombinedType = CTBase baseType'
+--     onCombinedType pass newCombinedType
 
-walkBaseType :: Pass -> BaseType -> (InferM LocRegion) BaseType
-walkBaseType = onBaseType
+walkMyType :: Pass -> MyType -> (InferM LocRegion) MyType
+walkMyType pass (PackedTy typeCon loc) = do
+    typeCon' <- walkTypeCon pass typeCon
+    loc' <- walkLocRegion pass loc
+    let newMyType = PackedTy typeCon' loc'
+    onMyType pass newMyType
+walkMyType pass IntTy = onMyType pass IntTy
+walkMyType pass FloatTy = onMyType pass FloatTy
+walkMyType pass BoolTy = onMyType pass BoolTy
+walkMyType pass CharTy = onMyType pass CharTy
+walkMyType pass StringTy = onMyType pass StringTy
+walkMyType pass NoneTy = onMyType pass NoneTy
 
 walkLocExpress :: Pass -> LocExpress -> (InferM LocRegion) LocExpress
 walkLocExpress pass (LocExpressStart regionVar) = do
@@ -211,7 +221,7 @@ walkLocExpress pass (LocExpressNext locRegion offset) = do
     let newLocExpress = LocExpressNext locRegion' offset
     onLocExpress pass newLocExpress
 walkLocExpress pass (LocExpressAfter locatedType) = do
-    locatedType' <- walkLocatedType pass locatedType
+    locatedType' <- walkMyType pass locatedType
     let newLocExpress = LocExpressAfter locatedType'
     onLocExpress pass newLocExpress
 
@@ -274,12 +284,11 @@ walkExpr pass (ExprCase val pats) = do
     pats' <- walkPats pass pats
     let newExpr = ExprCase val' pats'
     onExpr pass newExpr
-walkExpr pass (ExprLet v@(Var var) combinedType expr1 expr2) = do
-    let exprType = combinedTypeToType combinedType
+walkExpr pass (ExprLet v@(Var var) myType expr1 expr2) = do
     var' <- walkVar pass v
-    combinedType' <- walkCombinedType pass combinedType
+    combinedType' <- walkMyType pass myType
     expr1' <- walkExpr pass expr1
-    expr2' <- extendVEnv var exprType (walkExpr pass expr2) 
+    expr2' <- extendVEnv var myType (walkExpr pass expr2) 
     let newExpr = ExprLet var' combinedType' expr1' expr2'
     onExpr pass newExpr
 walkExpr pass (ExprLetLoc locRegion locExpress expr) = do
@@ -302,7 +311,7 @@ walkExpr pass (ExprIf cond thenExpr elseExpr) = do
 
 walkPat :: Pass -> Pat -> (InferM LocRegion) Pat
 walkPat pass (Pat dc@(DataCon _dataCon) pms@(PatMatches patMatches) expr) = do
-    let varTypePairs = map (\(PatMatch (ValVar (Var v)) locatedType) -> (v, locatedTypeToType locatedType)) patMatches
+    let varTypePairs = map (\(PatMatch (ValVar (Var v)) myType) -> (v, myType)) patMatches
     expr' <- extendVEnvs varTypePairs (walkExpr pass expr)
     dataCon' <- walkDataCon pass dc
     patMatches' <- walkPatMatches pass pms
@@ -310,10 +319,10 @@ walkPat pass (Pat dc@(DataCon _dataCon) pms@(PatMatches patMatches) expr) = do
     onPat pass newPat
 
 walkPatMatch :: Pass -> PatMatch -> (InferM LocRegion) PatMatch
-walkPatMatch pass (PatMatch val locatedType) = do
+walkPatMatch pass (PatMatch val myType) = do
     val' <- walkVal pass val
-    locatedType' <- walkLocatedType pass locatedType
-    let newPatMatch = PatMatch val' locatedType'
+    myType' <- walkMyType pass myType
+    let newPatMatch = PatMatch val' myType'
     onPatMatch pass newPatMatch
 
 walkPrimFunc :: Pass -> PrimFunc -> (InferM LocRegion) PrimFunc
@@ -352,11 +361,11 @@ walkDataFields pass (DataFields dataFields) = do
     let newDataFields = DataFields dataFields'
     onDataFields pass newDataFields
 
-walkCombinedTypeCons :: Pass -> CombinedTypeCons -> (InferM LocRegion) CombinedTypeCons
-walkCombinedTypeCons pass (CombinedTypeCons combinedTypeCons) = do
-    combinedTypeCons' <- mapM (walkCombinedTypeCon pass) combinedTypeCons
-    let newCombinedTypeCons = CombinedTypeCons combinedTypeCons'
-    onCombinedTypeCons pass newCombinedTypeCons
+-- walkCombinedTypeCons :: Pass -> CombinedTypeCons -> (InferM LocRegion) CombinedTypeCons
+-- walkCombinedTypeCons pass (CombinedTypeCons combinedTypeCons) = do
+--     combinedTypeCons' <- mapM (walkCombinedTypeCon pass) combinedTypeCons
+--     let newCombinedTypeCons = CombinedTypeCons combinedTypeCons'
+--     onCombinedTypeCons pass newCombinedTypeCons
 
 walkExprs :: Pass -> Exprs -> (InferM LocRegion) Exprs
 walkExprs pass (Exprs exprs) = do
@@ -400,8 +409,8 @@ walkLocRegions pass (LocRegions locRegions) = do
     let newLocRegions = LocRegions locRegions'
     onLocRegions pass newLocRegions
 
-walkCombinedTypes :: Pass -> CombinedTypes -> (InferM LocRegion) CombinedTypes
-walkCombinedTypes pass (CombinedTypes combinedTypes) = do
-    combinedTypes' <- mapM (walkCombinedType pass) combinedTypes
-    let newCombinedTypes = CombinedTypes combinedTypes'
-    onCombinedTypes pass newCombinedTypes
+walkMyTypes :: Pass -> MyTypes -> (InferM LocRegion) MyTypes
+walkMyTypes pass (MyTypes myTypes) = do
+    myTypes' <- mapM (walkMyType pass) myTypes
+    let newMyTypes = MyTypes myTypes'
+    onMyTypes pass newMyTypes

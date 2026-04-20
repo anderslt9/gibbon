@@ -28,7 +28,7 @@ import GHC.Float ( float2Double )
 --     _ -> error "getExpType: Not implemented for this expression type"
 
 
-convertToL2AST :: (TypedNode LocRegion) Program -> E L2.Prog2
+convertToL2AST :: TypedNode Program -> E L2.Prog2
 convertToL2AST (TypedNode locReg (Program dataTypeDecls funcDecls expr)) = do
     -- L2.Prog2 (convertDataTypeDecls dataTypeDecls) (map convertFuncDecl funcDecls) (convertExpr expr)
     newDataTypeDecls <- convertDataTypeDecls dataTypeDecls
@@ -54,30 +54,40 @@ convertDataFields (DataFields dataFields) = do
     mapM convertDataField dataFields
 
 convertDataField :: DataField -> E (C.DataCon, [(S.IsBoxed, L2.Ty2)])
-convertDataField (DataField dataCon combinedTypeCons) = do
+convertDataField (DataField dataCon myTypes) = do
     newDataCon <- convertDataCon dataCon
-    newCombinedTypeCons <- convertCombinedTypeCons combinedTypeCons
-    return (newDataCon, newCombinedTypeCons)
+    newMyTypes <- convertMyTypes myTypes
+    return (newDataCon, newMyTypes)
 
-    where convertCombinedTypeCons :: CombinedTypeCons -> E [(S.IsBoxed, L2.Ty2)]
-          convertCombinedTypeCons (CombinedTypeCons ts) = do
-            mapM convertCombinedTypeCon ts
+    where convertMyTypes :: MyTypes -> E [(S.IsBoxed, L2.Ty2)]
+          convertMyTypes (MyTypes ts) = do
+            mapM convertMyType ts
 
-          convertCombinedTypeCon :: CombinedTypeCon -> E (S.IsBoxed, L2.Ty2)
-          convertCombinedTypeCon (CTCTypeCon tc) = do
-            newTypeCon <- convertTypeCon tc
+          convertMyType :: MyType -> E (S.IsBoxed, L2.Ty2)
+          convertMyType (AST.PackedTy typeCon _locRegion) = do
+            newTypeCon <- convertTypeCon typeCon
+            -- locVar <- convertLocRegionToLocVar locRegion
             return (True, S.PackedTy newTypeCon (C.Single "l"))
-        --   May switch to just setting to False later
-          convertCombinedTypeCon (CTCBase baseType) = do
-            newBaseType <- convertBaseType baseType
-            return (False, newBaseType)
+          convertMyType AST.IntTy = return (False, S.IntTy)
+          convertMyType AST.FloatTy = return (False, S.FloatTy)
+          convertMyType AST.BoolTy = return (False, S.BoolTy)
+          convertMyType _ = Failed "convertMyType: Unsupported MyType"
+        --   convertMyType AST.CharTy = return (S.Unboxed, S.CharTy)
 
-convertBaseType :: BaseType -> E L2.Ty2
-convertBaseType baseType = case baseType of 
-    Int    -> return S.IntTy
-    Float  -> return S.FloatTy
-    Bool   -> return S.BoolTy
-    _      -> Failed "convertBaseType: Unsupported base type"
+        --   convertCombinedTypeCon (CTCTypeCon tc) = do
+        --     newTypeCon <- convertTypeCon tc
+        --     return (True, S.PackedTy newTypeCon (C.Single "l"))
+        -- --   May switch to just setting to False later
+        --   convertCombinedTypeCon (CTCBase baseType) = do
+        --     newBaseType <- convertBaseType baseType
+        --     return (False, newBaseType)
+
+-- convertBaseType :: BaseType -> E L2.Ty2
+-- convertBaseType baseType = case baseType of 
+--     Int    -> return S.IntTy
+--     Float  -> return S.FloatTy
+--     Bool   -> return S.BoolTy
+--     _      -> Failed "convertBaseType: Unsupported base type"
 -- convertBaseType String = S.StringTy   Unsure how to deal with this for now
 
 convertFuncDecls :: FuncDecls -> E (L2.FunDefs C.Var L2.Exp2)
@@ -95,38 +105,38 @@ convertFuncDecl (FuncDecl (FuncVar f) typeScheme (FuncVar _innerF) _locRegions v
 
 -- TODO look more into how I set locRets and has Parallelism
 convertTypeScheme :: TypeScheme -> E (L2.ArrowTy2 L2.Ty2)
-convertTypeScheme (TypeScheme (CombinedTypes combinedTypes)) = do
-    (args, ret) <- splitLast combinedTypes
-    locVarsArgs <- mapM (convertCombinedTypeToLRM L2.Input) . filter isLocatedType $ args
-    locVarsRet <-  mapM (convertCombinedTypeToLRM L2.Output) . filter isLocatedType $ [ret]
+convertTypeScheme (TypeScheme (MyTypes myTypes)) = do
+    (args, ret) <- splitLast myTypes
+    locVarsArgs <- mapM (convertMyTypeToLRM L2.Input) . filter isLocatedType $ args
+    locVarsRet <-  mapM (convertMyTypeToLRM L2.Output) . filter isLocatedType $ [ret]
     let locVars = locVarsArgs ++ locVarsRet
-    inTypes <- mapM convertCombinedTypeToTy args
-    outType <- convertCombinedTypeToTy ret
+    inTypes <- mapM convertMyTypeToTy args
+    outType <- convertMyTypeToTy ret
     -- TODO figure out how to set parallelism
     return $ L2.ArrowTy2 locVars inTypes Set.empty outType [] False
     where
-        isLocatedType :: CombinedType -> Bool
-        isLocatedType (CTLocated (LocatedType _ EmptyLocRegion)) = False
-        isLocatedType (CTLocated (LocatedType (CTCBase _) _)) = False
-        isLocatedType (CTLocated _) = True
-        isLocatedType (CTBase _) = False
+        isLocatedType :: MyType -> Bool
+        isLocatedType (AST.PackedTy _ EmptyLocRegion) = False
+        isLocatedType (AST.PackedTy _ _) = True
+        isLocatedType _ = False
 
 -- TODO figure out how index var works in this case
-convertCombinedTypeToLRM :: L2.Modality -> CombinedType -> E LRM
-convertCombinedTypeToLRM lrmModality (CTLocated (LocatedType _combinedLocType locRegion)) = do
+convertMyTypeToLRM :: L2.Modality -> MyType -> E LRM
+convertMyTypeToLRM lrmModality (AST.PackedTy _typeCon locRegion) = do
     locVar <- convertLocRegionToLocVar locRegion
     regionVar <- convertLocRegionToRegVar locRegion
     -- indexVar <- convertLocRegionToIndexVar locRegion
     return $ L2.LRM (C.Single locVar) (L2.VarR regionVar) lrmModality
-convertCombinedTypeToLRM _ _ = Failed "convertCombinedTypeToLRM: Mapping called on non-located type"
+convertMyTypeToLRM _ _ = Failed "convertMyTypeToLRM: Mapping called on non-located type"
 
-convertCombinedTypeToTy :: CombinedType -> E L2.Ty2
-convertCombinedTypeToTy (CTLocated (LocatedType (CTCTypeCon (TypeCon typeCon)) l@(LocRegion {}))) = do
-    locVar <- convertLocRegionToLocVar l
+convertMyTypeToTy :: MyType -> E L2.Ty2
+convertMyTypeToTy (AST.PackedTy (TypeCon typeCon) locRegion) = do
+    locVar <- convertLocRegionToLocVar locRegion
     return $ S.PackedTy typeCon (C.Single locVar)
-convertCombinedTypeToTy (CTLocated (LocatedType (CTCBase baseType) _)) = convertBaseType baseType
-convertCombinedTypeToTy (CTBase baseType) = convertBaseType baseType
-convertCombinedTypeToTy _ = Failed "convertCombinedTypeToInputTy: Unsupported CombinedType"
+convertMyTypeToTy AST.IntTy = return S.IntTy
+convertMyTypeToTy AST.FloatTy = return S.FloatTy
+convertMyTypeToTy AST.BoolTy = return S.BoolTy
+convertMyTypeToTy _ = Failed "convertMyTypeToTy: Unsupported MyType"
 
 
 -- TODO continue this
@@ -152,12 +162,12 @@ convertExpr expr = do
             newPats <- convertPats pats
             newVal <- convertVal val
             return $ L2.CaseE newVal newPats
-        (ExprLet (Var var) combinedType e1 e2) -> do
+        (ExprLet (Var var) myType e1 e2) -> do
             let newVar = C.toVar var
-            newCombinedType <- convertCombinedTypeToTy combinedType
+            newMyType <- convertMyTypeToTy myType
             newE1 <- convertExpr e1
             newE2 <- convertExpr e2
-            return $ L2.LetE (newVar, [], newCombinedType, newE1) newE2
+            return $ L2.LetE (newVar, [], newMyType, newE1) newE2
         (ExprLetLoc locRegion locExpress e) -> do
             locVar <- convertLocRegionToLocVar locRegion
             newE <- convertExpr e
@@ -167,7 +177,7 @@ convertExpr expr = do
                 (LocExpressNext nextLocRegion offset) -> do
                     nextLocVar <- convertLocRegionToLocVar nextLocRegion
                     return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterConstantLE offset (C.Single nextLocVar)) newE
-                (LocExpressAfter (LocatedType (CTCTypeCon (TypeCon _typeCon)) lr@(LocRelativeVar relativeVar _locVar1 _regVar1 _iVar1))) -> do
+                (LocExpressAfter (AST.PackedTy _typeCon lr@(LocRelativeVar relativeVar _locVar1 _regVar1 _iVar1))) -> do
                     locVarRel <- convertLocRegionToLocVar lr
                     -- Failed $ "relativeVar: " ++ show relativeVar ++ ", locVarRel: " ++ show locVarRel
                     return $ L2.Ext $ L2.LetLocE (C.Single locVar) (L2.AfterVariableLE (C.toVar relativeVar) (C.Single locVarRel) True) newE
@@ -199,9 +209,13 @@ convertPat (Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
     return (dataCon, newPatMatches, newExpr)
 
 convertPatMatch :: PatMatch -> E (C.Var, L2.LocVar)
-convertPatMatch (PatMatch (ValVar (AST.Var v)) (LocatedType _ locRegion)) = do
+convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.PackedTy _ locRegion)) = do
     locVar <- convertLocRegionToLocVar locRegion
     return (C.toVar v, C.Single locVar)
+convertPatMatch (PatMatch (ValVar (AST.Var v)) myType) = do
+    newMyType <- convertMyTypeToTy myType
+    -- TODO figure out how to deal with boxed vs unboxed here
+    return (C.toVar v, C.Single "loc")  -- Placeholder loc variable, as non-packed types don't have a location
 convertPatMatch _ = Failed "convertPatMatch: Unsupported pattern match"
 
 
@@ -275,12 +289,12 @@ convertDataCon :: AST.DataCon -> E C.DataCon
 convertDataCon (AST.DataCon dataCon) = return dataCon
 
 -- TODO good amount here
-convertMyTyUrTy :: My.MyTy LocRegion -> E (S.TyOf L2.Exp2)
+convertMyTyUrTy :: AST.MyType -> E (S.TyOf L2.Exp2)
 convertMyTyUrTy myTy = case myTy of
-    My.IntTy -> return S.IntTy
-    My.FloatTy -> return S.FloatTy
-    My.BoolTy -> return S.BoolTy
-    My.PackedTy (TypeCon typeCon) locRegion -> do
+    AST.IntTy -> return S.IntTy
+    AST.FloatTy -> return S.FloatTy
+    AST.BoolTy -> return S.BoolTy
+    AST.PackedTy (TypeCon typeCon) locRegion -> do
         locVar <- convertLocRegionToLocVar locRegion
         return $ S.PackedTy typeCon (C.Single locVar)
     _ -> Failed "convertMyTyUrTy: Unsupported MyTy type"

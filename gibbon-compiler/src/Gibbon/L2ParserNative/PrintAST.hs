@@ -71,8 +71,8 @@ instance PrintAST DataField where
         getFullExpr depth "Data Field" (getChildren depth dataCon combinedTypeCons)
 
 -- TODO
-instance PrintAST CombinedTypeCon where
-    printAST depth temp = indent depth (show temp)    
+-- instance PrintAST CombinedTypeCon where
+--     printAST depth temp = indent depth (show temp)    
 
 -- TODO (maybe update by separating out parts of function declaration)
 instance PrintAST FuncDecl where
@@ -90,8 +90,8 @@ instance PrintAST FuncDecl where
 
 --------- type expressions ---------
 -- TODO
-instance PrintAST LocatedType where
-    printAST depth temp = indent depth (show temp)
+-- instance PrintAST LocatedType where
+--     printAST depth temp = indent depth (show temp)
 
 -- TODO
 -- instance PrintAST CombinedLocType where
@@ -102,11 +102,11 @@ instance PrintAST TypeScheme where
     printAST depth temp = indent depth (show temp)
 
 -- TODO
-instance PrintAST CombinedType where
-    printAST depth temp = indent depth (show temp)
+-- instance PrintAST CombinedType where
+--     printAST depth temp = indent depth (show temp)
 
 -- TODO
-instance PrintAST BaseType where
+instance PrintAST MyType where
     printAST depth temp = indent depth (show temp)
 
 --------- location expressions ---------
@@ -199,8 +199,8 @@ instance PrintAST DataFields where
 -- instance PrintAST TypeCons where
 --     printAST depth (TypeCons typeCons) = addList depth "Type Constructors" typeCons
 
-instance PrintAST CombinedTypeCons where
-    printAST depth (CombinedTypeCons combinedTypeCons) = addList depth "Combined Type Constructor" combinedTypeCons
+-- instance PrintAST CombinedTypeCons where
+--     printAST depth (CombinedTypeCons combinedTypeCons) = addList depth "Combined Type Constructor" combinedTypeCons
 
 instance PrintAST Exprs where
     printAST depth (Exprs exprs) = addList depth "Expressions" exprs
@@ -223,5 +223,5 @@ instance PrintAST FuncDecls where
 instance PrintAST LocRegions where
     printAST depth (LocRegions locRegions) = addList depth "Location Regions" locRegions
 
-instance PrintAST CombinedTypes where
-    printAST depth (CombinedTypes combinedTypes) = addList depth "Combined Types" combinedTypes
+instance PrintAST MyTypes where
+    printAST depth (MyTypes myTypes) = addList depth "My Types" myTypes
