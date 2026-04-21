@@ -204,11 +204,26 @@ walkMyType pass (PackedTy typeCon loc) = do
     loc' <- walkLocRegion pass loc
     let newMyType = PackedTy typeCon' loc'
     onMyType pass newMyType
-walkMyType pass (IntTy x) = onMyType pass (IntTy x)
-walkMyType pass (FloatTy f) = onMyType pass (FloatTy f)
-walkMyType pass (BoolTy b) = onMyType pass (BoolTy b)
-walkMyType pass (CharTy c) = onMyType pass (CharTy c)
-walkMyType pass (StringTy s) = onMyType pass (StringTy s)
+walkMyType pass (IntTy loc) = do   
+    loc' <- walkLocRegion pass loc
+    let newMyType = IntTy loc'
+    onMyType pass newMyType
+walkMyType pass (FloatTy loc) = do
+    loc' <- walkLocRegion pass loc
+    let newMyType = FloatTy loc'
+    onMyType pass newMyType
+walkMyType pass (BoolTy loc) = do
+    loc' <- walkLocRegion pass loc
+    let newMyType = BoolTy loc'
+    onMyType pass newMyType
+walkMyType pass (CharTy loc) = do
+    loc' <- walkLocRegion pass loc
+    let newMyType = CharTy loc'
+    onMyType pass newMyType
+walkMyType pass (StringTy loc) = do
+    loc' <- walkLocRegion pass loc
+    let newMyType = StringTy loc'
+    onMyType pass newMyType
 walkMyType pass NoneTy = onMyType pass NoneTy
 
 walkLocExpress :: Pass -> LocExpress -> (InferM LocRegion) LocExpress
