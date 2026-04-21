@@ -132,8 +132,15 @@ DataField :: { DataField }
     : UVar CombinedTypeStar { DataField (DataCon $1) (reverseList MyTypes $2) }
 
 CombinedType :: { MyType }
-    : UVar      { PackedTy (TypeCon $1) EmptyLocRegion }
-    | BaseType  { $1 EmptyLocRegion }
+    : UVar                      { PackedTy (TypeCon $1) EmptyLocRegion }
+    | BaseType                  { $1 EmptyLocRegion }
+    | '(' CombinedTypeStar ')'  { ProdTy (reverseList MyTypes $2) }
+
+MyType :: { MyType }
+    : BaseType '@' LocRegion        { $1 $3 }
+    | BaseType                      { $1 EmptyLocRegion }
+    | UVar '@' LocRegion            { PackedTy (TypeCon $1) $3 }
+    | '(' MyTypeCommaSepStar ')'    { ProdTy (reverseList MyTypes $2) }
 
 -- function declarations
 -- TODO make sure function variables match and modify FuncDecl to only have one FuncVar
@@ -148,11 +155,6 @@ FuncDeclRest
 -- type expressions
 -- LocatedType :: { LocatedType } 
 --     : CombinedTypeCon '@' LocRegion { LocatedType $1 $3 }
-
-MyType :: { MyType }
-    : BaseType '@' LocRegion        { $1 $3 }
-    | BaseType                      { $1 EmptyLocRegion }
-    | UVar '@' LocRegion            { PackedTy (TypeCon $1) $3 }
 
 -- CombinedLocType :: { CombinedLocType }
 --     : UVar   { CLTTypeCon (TypeCon $1) }
@@ -194,6 +196,7 @@ Lit :: { Lit }
     | CHAR_LIT       { CharLit $1 }
     | STRING_LIT     { StringLit $1 }
 
+-- TODO need to add tuple handling
 -- expressions
 Expr :: { Expr }
     -- : ExprOr                      { $1 }
@@ -409,16 +412,16 @@ DataFieldPlus :: { [DataField] }
     : DataField                             { [ $1 ] }
     | DataFieldPlus '|' DataField           { $3 : $1 }
 
--- MyTypeStar :: { [MyType] }
---     : {- empty -}                      { [] }
---     | MyTypePlus                       { $1 }
+MyTypeCommaSepStar :: { [MyType] }
+    : {- empty -}                              { [] }
+    | MyTypeCommaSepPlus                       { $1 }
 
--- MyTypePlus :: { [MyType] }
---     : MyType                            { [$1] }
---     | MyTypePlus MyType                 { $2 : $1 }
+MyTypeCommaSepPlus :: { [MyType] }
+    : MyType                                { [$1] }
+    | MyTypeCommaSepPlus ',' MyType         { $3 : $1 }
 
 MyTypeArrowStar :: { [MyType] }
-    : {- empty -}                      { [] }
+    : {- empty -}                           { [] }
     | MyTypeArrowPlus                       { $1 }
 
 MyTypeArrowPlus :: { [MyType] }

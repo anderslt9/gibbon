@@ -224,6 +224,10 @@ walkMyType pass (StringTy loc) = do
     loc' <- walkLocRegion pass loc
     let newMyType = StringTy loc'
     onMyType pass newMyType
+walkMyType pass (ProdTy myTypes) = do
+    myTypes' <- walkMyTypes pass myTypes
+    let newMyType = ProdTy myTypes'
+    onMyType pass newMyType
 walkMyType pass NoneTy = onMyType pass NoneTy
 
 walkLocExpress :: Pass -> LocExpress -> (InferM LocRegion) LocExpress

@@ -17,7 +17,7 @@ data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr derivin
 newtype TypeScheme = TypeScheme MyTypes deriving (Show,Eq)
 -- data CombinedType = CTLocated LocatedType | CTBase BaseType deriving (Show,Eq)
 data MyType = IntTy LocRegion | FloatTy LocRegion | BoolTy LocRegion | CharTy LocRegion | StringTy LocRegion 
-            | PackedTy TypeCon LocRegion | NoneTy deriving Show
+            | PackedTy TypeCon LocRegion | ProdTy MyTypes | NoneTy deriving Show
 
 instance Eq MyType where
     (==) (PackedTy tc1 loc1) (PackedTy tc2 loc2) =
