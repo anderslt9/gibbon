@@ -425,7 +425,7 @@ inferExpr expr = case expr of
         typedThen <- inferExpr thenExpr
         typedElse <- inferExpr elseExpr
         let newIIf = ExprIf (tNode typedCond) (tNode typedThen) (tNode typedElse)
-        if tType typedCond ==^^ BoolTy
+        if tType typedCond ==^^ BoolTy EmptyLocRegion
         then if tType typedThen ==^^ tType typedElse
             then return $ createTypedNode (tType typedThen) newIIf
             else lift . Failed $ "Type mismatch in branches of if expression: " ++ show (tType typedThen) ++ " vs " ++ show (tType typedElse)
@@ -504,11 +504,11 @@ inferVal val = case val of
 
 inferLit :: Lit -> (InferM LocRegion) (TypedNode Lit)
 inferLit lit = case lit of 
-    node@(IntLit _) -> return $ createTypedNode IntTy node
-    node@(FloatLit _) -> return $ createTypedNode FloatTy node
-    node@(BoolLit _) -> return $ createTypedNode BoolTy node
-    node@(CharLit _) -> return $ createTypedNode CharTy node -- TODO may want to have separate CharTy, but for now, just use StringTy
-    node@(StringLit _) -> return $ createTypedNode StringTy node
+    node@(IntLit _) -> return $ createTypedNode (IntTy EmptyLocRegion) node
+    node@(FloatLit _) -> return $ createTypedNode (FloatTy EmptyLocRegion) node
+    node@(BoolLit _) -> return $ createTypedNode (BoolTy EmptyLocRegion) node
+    node@(CharLit _) -> return $ createTypedNode (CharTy EmptyLocRegion) node -- TODO may want to have separate CharTy, but for now, just use StringTy
+    node@(StringLit _) -> return $ createTypedNode (StringTy EmptyLocRegion) node
     -- _ -> lift . Failed $ "inferLit: Not implemented for this literal type"
 
 -- Data Declaration Loading
@@ -590,26 +590,26 @@ loadFuncDecls (FuncDecls decls) env = foldM loadFuncDecl env decls
 
 primFuncToType :: PrimFunc -> ([MyType], MyType)
 primFuncToType op = case op of
-    Add -> ([IntTy, IntTy], IntTy)
-    Sub -> ([IntTy, IntTy], IntTy)
-    Mul -> ([IntTy, IntTy], IntTy)
-    Div -> ([IntTy, IntTy], IntTy)
-    FAdd -> ([FloatTy, FloatTy], FloatTy)
-    FSub -> ([FloatTy, FloatTy], FloatTy)
-    FMul -> ([FloatTy, FloatTy], FloatTy)
-    FDiv -> ([FloatTy, FloatTy], FloatTy)
-    Pow -> ([IntTy, IntTy], IntTy)
-    Eq  -> ([IntTy, IntTy], BoolTy)
-    FEq -> ([FloatTy, FloatTy], BoolTy)
-    CEq -> ([BoolTy, BoolTy], BoolTy)
-    Gt  -> ([IntTy, IntTy], BoolTy)
-    Lt  -> ([IntTy, IntTy], BoolTy)
-    FGt -> ([FloatTy, FloatTy], BoolTy)
-    FLt -> ([FloatTy, FloatTy], BoolTy)
-    Ge  -> ([IntTy, IntTy], BoolTy)
-    Le  -> ([IntTy, IntTy], BoolTy)
-    FGe -> ([FloatTy, FloatTy], BoolTy)
-    FLe -> ([FloatTy, FloatTy], BoolTy)
-    Neq -> ([IntTy, IntTy], BoolTy)
-    And -> ([BoolTy, BoolTy], BoolTy)
-    Or  -> ([BoolTy, BoolTy], BoolTy)
+    Add -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], IntTy EmptyLocRegion)
+    Sub -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], IntTy EmptyLocRegion)
+    Mul -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], IntTy EmptyLocRegion)
+    Div -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], IntTy EmptyLocRegion)
+    FAdd -> ([FloatTy EmptyLocRegion, FloatTy EmptyLocRegion], FloatTy EmptyLocRegion)
+    FSub -> ([FloatTy EmptyLocRegion, FloatTy EmptyLocRegion], FloatTy EmptyLocRegion)
+    FMul -> ([FloatTy EmptyLocRegion, FloatTy EmptyLocRegion], FloatTy EmptyLocRegion)
+    FDiv -> ([FloatTy EmptyLocRegion, FloatTy EmptyLocRegion], FloatTy EmptyLocRegion)
+    Pow -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], IntTy EmptyLocRegion)
+    Eq  -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    FEq -> ([FloatTy EmptyLocRegion, FloatTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    CEq -> ([BoolTy EmptyLocRegion, BoolTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    Gt  -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    Lt  -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    FGt -> ([FloatTy EmptyLocRegion, FloatTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    FLt -> ([FloatTy EmptyLocRegion, FloatTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    Ge  -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    Le  -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    FGe -> ([FloatTy EmptyLocRegion, FloatTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    FLe -> ([FloatTy EmptyLocRegion, FloatTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    Neq -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    And -> ([BoolTy EmptyLocRegion, BoolTy EmptyLocRegion], BoolTy EmptyLocRegion)
+    Or  -> ([BoolTy EmptyLocRegion, BoolTy EmptyLocRegion], BoolTy EmptyLocRegion)

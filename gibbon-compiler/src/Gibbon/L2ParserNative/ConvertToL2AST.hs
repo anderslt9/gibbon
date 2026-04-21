@@ -68,9 +68,9 @@ convertDataField (DataField dataCon myTypes) = do
             newTypeCon <- convertTypeCon typeCon
             -- locVar <- convertLocRegionToLocVar locRegion
             return (True, S.PackedTy newTypeCon (C.Single "l"))
-          convertMyType AST.IntTy = return (False, S.IntTy)
-          convertMyType AST.FloatTy = return (False, S.FloatTy)
-          convertMyType AST.BoolTy = return (False, S.BoolTy)
+          convertMyType (AST.IntTy _) = return (False, S.IntTy)
+          convertMyType (AST.FloatTy _) = return (False, S.FloatTy)
+          convertMyType (AST.BoolTy _) = return (False, S.BoolTy)
           convertMyType _ = Failed "convertMyType: Unsupported MyType"
         --   convertMyType AST.CharTy = return (S.Unboxed, S.CharTy)
 
@@ -133,9 +133,9 @@ convertMyTypeToTy :: MyType -> E L2.Ty2
 convertMyTypeToTy (AST.PackedTy (TypeCon typeCon) locRegion) = do
     locVar <- convertLocRegionToLocVar locRegion
     return $ S.PackedTy typeCon (C.Single locVar)
-convertMyTypeToTy AST.IntTy = return S.IntTy
-convertMyTypeToTy AST.FloatTy = return S.FloatTy
-convertMyTypeToTy AST.BoolTy = return S.BoolTy
+convertMyTypeToTy (AST.IntTy _) = return S.IntTy
+convertMyTypeToTy (AST.FloatTy _) = return S.FloatTy
+convertMyTypeToTy (AST.BoolTy _) = return S.BoolTy
 convertMyTypeToTy _ = Failed "convertMyTypeToTy: Unsupported MyType"
 
 
@@ -212,10 +212,19 @@ convertPatMatch :: PatMatch -> E (C.Var, L2.LocVar)
 convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.PackedTy _ locRegion)) = do
     locVar <- convertLocRegionToLocVar locRegion
     return (C.toVar v, C.Single locVar)
-convertPatMatch (PatMatch (ValVar (AST.Var v)) myType) = do
-    newMyType <- convertMyTypeToTy myType
+convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.IntTy locRegion)) = do
+    locVar <- convertLocRegionToLocVar locRegion
     -- TODO figure out how to deal with boxed vs unboxed here
-    return (C.toVar v, C.Single "loc")  -- Placeholder loc variable, as non-packed types don't have a location
+    return (C.toVar v, C.Single locVar)
+convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.FloatTy locRegion)) = do
+    locVar <- convertLocRegionToLocVar locRegion
+    return (C.toVar v, C.Single locVar)
+convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.BoolTy locRegion)) = do
+    locVar <- convertLocRegionToLocVar locRegion
+    return (C.toVar v, C.Single locVar)
+convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.CharTy locRegion)) = do
+    locVar <- convertLocRegionToLocVar locRegion
+    return (C.toVar v, C.Single locVar)
 convertPatMatch _ = Failed "convertPatMatch: Unsupported pattern match"
 
 
@@ -291,9 +300,9 @@ convertDataCon (AST.DataCon dataCon) = return dataCon
 -- TODO good amount here
 convertMyTyUrTy :: AST.MyType -> E (S.TyOf L2.Exp2)
 convertMyTyUrTy myTy = case myTy of
-    AST.IntTy -> return S.IntTy
-    AST.FloatTy -> return S.FloatTy
-    AST.BoolTy -> return S.BoolTy
+    AST.IntTy _ -> return S.IntTy
+    AST.FloatTy _ -> return S.FloatTy
+    AST.BoolTy _ -> return S.BoolTy
     AST.PackedTy (TypeCon typeCon) locRegion -> do
         locVar <- convertLocRegionToLocVar locRegion
         return $ S.PackedTy typeCon (C.Single locVar)
