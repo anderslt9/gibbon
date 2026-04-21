@@ -133,7 +133,7 @@ DataField :: { DataField }
 
 CombinedType :: { MyType }
     : UVar      { PackedTy (TypeCon $1) EmptyLocRegion }
-    | BaseType  { $1 }
+    | BaseType  { $1 EmptyLocRegion }
 
 -- function declarations
 -- TODO make sure function variables match and modify FuncDecl to only have one FuncVar
@@ -150,8 +150,8 @@ FuncDeclRest
 --     : CombinedTypeCon '@' LocRegion { LocatedType $1 $3 }
 
 MyType :: { MyType }
-    : BaseType '@' LocRegion        { ($1 {LocRegion=$3}) }
-    | BaseType                      { $1 }
+    : BaseType '@' LocRegion        { $1 $3 }
+    | BaseType                      { $1 EmptyLocRegion }
     | UVar '@' LocRegion            { PackedTy (TypeCon $1) $3 }
 
 -- CombinedLocType :: { CombinedLocType }
@@ -165,12 +165,12 @@ TypeScheme :: { TypeScheme }
 --     : LocatedType                     { CTLocated $1 }
 --     | BaseType                        { CTBase $1 }
 
-BaseType :: { MyType }
-    : Int                         { IntTy EmptyLocRegion }
-    | Float                       { FloatTy EmptyLocRegion }
-    | Bool                        { BoolTy EmptyLocRegion }
-    | Char                        { CharTy EmptyLocRegion }
-    | String                      { StringTy EmptyLocRegion }
+BaseType :: { LocRegion -> MyType }
+    : Int                         { (\x -> IntTy x) }
+    | Float                       { (\x -> FloatTy x) }
+    | Bool                        { (\x -> BoolTy x) }
+    | Char                        { (\x -> CharTy x) }
+    | String                      { (\x -> StringTy x) }
 
 -- location expressions
 LocExpress :: { LocExpress }
