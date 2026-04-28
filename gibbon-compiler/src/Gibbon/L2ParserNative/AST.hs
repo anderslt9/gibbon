@@ -22,11 +22,31 @@ data MyType = IntTy LocRegion | FloatTy LocRegion | BoolTy LocRegion | CharTy Lo
 instance Eq MyType where
     (==) (PackedTy tc1 loc1) (PackedTy tc2 loc2) =
         tc1 == tc2 && loc1 == loc2
+    (==) (IntTy EmptyLocRegion) (IntTy EmptyLocRegion) = True
+    (==) (IntTy EmptyLocRegion) (IntTy _) = True
+    (==) (IntTy _) (IntTy EmptyLocRegion) = True
     (==) (IntTy loc1) (IntTy loc2) = loc1 == loc2
+    
+    (==) (FloatTy EmptyLocRegion) (FloatTy EmptyLocRegion) = True
+    (==) (FloatTy EmptyLocRegion) (FloatTy _) = True
+    (==) (FloatTy _) (FloatTy EmptyLocRegion) = True
     (==) (FloatTy loc1) (FloatTy loc2) = loc1 == loc2
+    
+    (==) (BoolTy EmptyLocRegion) (BoolTy EmptyLocRegion) = True
+    (==) (BoolTy EmptyLocRegion) (BoolTy _) = True
+    (==) (BoolTy _) (BoolTy EmptyLocRegion) = True
     (==) (BoolTy loc1) (BoolTy loc2) = loc1 == loc2
+
+    (==) (CharTy EmptyLocRegion) (CharTy EmptyLocRegion) = True
+    (==) (CharTy EmptyLocRegion) (CharTy _) = True
+    (==) (CharTy _) (CharTy EmptyLocRegion) = True
     (==) (CharTy loc1) (CharTy loc2) = loc1 == loc2
+
+    (==) (StringTy EmptyLocRegion) (StringTy EmptyLocRegion) = True
+    (==) (StringTy EmptyLocRegion) (StringTy _) = True
+    (==) (StringTy _) (StringTy EmptyLocRegion) = True
     (==) (StringTy loc1) (StringTy loc2) = loc1 == loc2
+    
     (==) NoneTy NoneTy = True
     (==) _ _ = False
 

@@ -133,12 +133,12 @@ DataField :: { DataField }
 
 CombinedType :: { MyType }
     : UVar                      { PackedTy (TypeCon $1) EmptyLocRegion }
-    | BaseType                  { $1 EmptyLocRegion }
+    | BaseType                  { $1 }
     | '(' CombinedTypeStar ')'  { ProdTy (reverseList MyTypes $2) }
 
 MyType :: { MyType }
-    : BaseType '@' LocRegion        { $1 $3 }
-    | BaseType                      { $1 EmptyLocRegion }
+    : BaseTypeFunc '@' LocRegion    { $1 $3 }
+    | BaseType                      { $1 }
     | UVar '@' LocRegion            { PackedTy (TypeCon $1) $3 }
     | '(' MyTypeCommaSepStar ')'    { ProdTy (reverseList MyTypes $2) }
 
@@ -167,12 +167,15 @@ TypeScheme :: { TypeScheme }
 --     : LocatedType                     { CTLocated $1 }
 --     | BaseType                        { CTBase $1 }
 
-BaseType :: { LocRegion -> MyType }
-    : Int                         { (\x -> IntTy x) }
-    | Float                       { (\x -> FloatTy x) }
-    | Bool                        { (\x -> BoolTy x) }
-    | Char                        { (\x -> CharTy x) }
-    | String                      { (\x -> StringTy x) }
+BaseType :: { MyType }
+    : BaseTypeFunc               { $1 EmptyLocRegion }
+
+BaseTypeFunc :: { LocRegion -> MyType }
+    : Int                        { (\x -> IntTy x) }
+    | Float                      { (\x -> FloatTy x) }
+    | Bool                       { (\x -> BoolTy x) }
+    | Char                       { (\x -> CharTy x) }
+    | String                     { (\x -> StringTy x) }
 
 -- location expressions
 LocExpress :: { LocExpress }
