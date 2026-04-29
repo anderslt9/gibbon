@@ -7,4 +7,4 @@ add1 t = case t of
 
 gibbon_main = let 
     result = add1 (Node (Leaf 1) (Leaf 2))
- in 0
+ in ()

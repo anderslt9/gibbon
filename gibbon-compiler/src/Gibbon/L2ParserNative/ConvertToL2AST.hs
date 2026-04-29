@@ -310,4 +310,7 @@ convertMyTyUrTy myTy = case myTy of
     AST.PackedTy (TypeCon typeCon) locRegion -> do
         locVar <- convertLocRegionToLocVar locRegion
         return $ S.PackedTy typeCon (C.Single locVar)
+    AST.ProdTy (MyTypes myTypes) -> do
+        newMyTypes <- mapM convertMyTyUrTy myTypes
+        return $ S.ProdTy newMyTypes
     _ -> Failed "convertMyTyUrTy: Unsupported MyTy type"
