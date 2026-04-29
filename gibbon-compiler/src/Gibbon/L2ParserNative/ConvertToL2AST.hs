@@ -232,6 +232,10 @@ convertVal :: Val -> E L2.Exp2
 convertVal val = case val of 
     (ValVar (AST.Var v)) -> return $ L2.VarE (C.toVar v)
     (ValLit lit) -> convertLit lit
+    (ValTuple (Exprs exprs)) -> do
+        newExprs <- mapM convertExpr exprs
+        return $ L2.MkProdE newExprs
+
 
 convertLit :: Lit -> E L2.Exp2
 convertLit lit = case lit of 

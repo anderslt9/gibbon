@@ -469,6 +469,9 @@ inferPatMatch (PatMatch (ValVar (Var var)) locatedType) = do
                 -- else lift . Failed $ "inferPatMatch: Type mismatch in pattern match: " ++ show (tType typedVal) ++ " vs " ++ show ty
 inferPatMatch (PatMatch (ValLit val) _) = do 
     lift . Failed $ "inferPatMatch: Requires variable for pattern match, received literal: " ++ show val
+-- todo handle supporting tuple patterns
+inferPatMatch (PatMatch (ValTuple (Exprs vals)) _) = do
+    lift . Failed $ "inferPatMatch: Tuple patterns not supported yet: " ++ show vals
 
 inferPat :: MyType -> Pat -> (InferM LocRegion) (TypedNode Pat)
 inferPat myTy (Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
@@ -500,6 +503,12 @@ inferVal val = case val of
         typedLit <- inferLit n
         let newIValLit = ValLit n
         return $ createTypedNode (tType typedLit) newIValLit
+    (ValTuple (Exprs exprs)) -> do
+        typedExprs <- mapM inferExpr exprs
+        let exprTypes = map tType typedExprs
+            newITuple = ValTuple (Exprs (map tNode typedExprs))
+        -- For now, just use NoneTy for tuples, but may want to create actual tuple types later
+        return $ createTypedNode (ProdTy (MyTypes exprTypes)) newITuple
     -- _ -> lift . Failed $ "inferVal: Not implemented for this value type"
 
 inferLit :: Lit -> (InferM LocRegion) (TypedNode Lit)

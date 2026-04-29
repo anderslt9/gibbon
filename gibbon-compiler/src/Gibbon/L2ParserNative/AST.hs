@@ -47,6 +47,8 @@ instance Eq MyType where
     (==) (StringTy _) (StringTy EmptyLocRegion) = True
     (==) (StringTy loc1) (StringTy loc2) = loc1 == loc2
     
+    (==) (ProdTy tys1) (ProdTy tys2) = tys1 == tys2
+
     (==) NoneTy NoneTy = True
     (==) _ _ = False
 
@@ -68,7 +70,7 @@ instance Eq LocRegion where
     (==) _ _ = False
 
 -- identifiers/literals
-data Val = ValVar Var | ValLit Lit deriving (Show,Eq)
+data Val = ValVar Var | ValLit Lit | ValTuple Exprs deriving (Show,Eq)
 data Lit = IntLit Int | FloatLit Float | BoolLit Bool | CharLit Char | StringLit String deriving (Show,Eq)
 
 -- expressions

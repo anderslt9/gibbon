@@ -189,8 +189,10 @@ LocRegion :: { LocRegion }
 
 -- identifiers/literals
 Val :: { Val }
-    : LVar                           { ValVar (Var $1) }
-    | Lit                            { ValLit $1 }
+    : LVar                                          { ValVar (Var $1) }
+    | Lit                                           { ValLit $1 }
+    | '(' ')'                                       { ValTuple (Exprs []) }
+    | '(' ExprInline ',' ExprInlineTupPlus ')'      { ValTuple (reverseList Exprs ($4 ++ [$2])) }
 
 Lit :: { Lit }
     : INT_LIT        { IntLit $1 }
@@ -203,16 +205,22 @@ Lit :: { Lit }
 -- expressions
 Expr :: { Expr }
     -- : ExprOr                      { $1 }
-    : ExprPrimApp                    { $1 }
-    | Val                            { ExprVal $1 }
-    | '(' Expr ')'                   { $2 }
-    | ExprFuncApp                    { $1 }
-    | ExprDataConApp                 { $1 }
+    : ExprInline                     { $1 }
     | ExprCase                       { $1 }
     | ExprLet                        { $1 }
     | ExprLetLoc                     { $1 }
     | ExprLetRegion                  { $1 }
     | ExprIf                         { $1 }
+
+ExprInline :: { Expr }
+    : Val                            { ExprVal $1 }
+    | ExprInlineComp                 { $1 }
+
+ExprInlineComp :: { Expr }
+    : ExprPrimApp                    { $1 }
+    | ExprFuncApp                    { $1 }
+    | ExprDataConApp                 { $1 }
+    | '(' ExprInlineComp ')'         { $2 }
 
 -- primitive operations
 ExprPrimApp :: { Expr }
@@ -226,29 +234,29 @@ ExprPrimApp :: { Expr }
 --     : PrintBool Expr              { ExprPrimApp PrintBool  [$2] }
 
 ExprArith :: { Expr }
-    : Expr '+' Expr         { ExprPrimApp Add  (Exprs [$1, $3]) }
-    | Expr '-' Expr         { ExprPrimApp Sub  (Exprs [$1, $3]) }
-    | Expr '.+.' Expr       { ExprPrimApp FAdd (Exprs [$1, $3]) }
-    | Expr '.-.' Expr       { ExprPrimApp FSub (Exprs [$1, $3]) }
-    | Expr '*' Expr         { ExprPrimApp Mul  (Exprs [$1, $3]) }
-    | Expr '/' Expr         { ExprPrimApp Div  (Exprs [$1, $3]) }
-    | Expr '.*.' Expr       { ExprPrimApp FMul (Exprs [$1, $3]) }
-    | Expr './.' Expr       { ExprPrimApp FDiv (Exprs [$1, $3]) }
-    | Expr '^' Expr         { ExprPrimApp Pow  (Exprs [$1, $3]) }
-    | Expr '==' Expr        { ExprPrimApp Eq   (Exprs [$1, $3]) }
-    | Expr '.==.' Expr      { ExprPrimApp FEq  (Exprs [$1, $3]) }
-    | Expr '*==*' Expr      { ExprPrimApp CEq  (Exprs [$1, $3]) }
-    | Expr '>' Expr         { ExprPrimApp Gt   (Exprs [$1, $3]) }
-    | Expr '<' Expr         { ExprPrimApp Lt   (Exprs [$1, $3]) }
-    | Expr '.>.' Expr       { ExprPrimApp FGt  (Exprs [$1, $3]) }
-    | Expr '.<.' Expr       { ExprPrimApp FLt  (Exprs [$1, $3]) }
-    | Expr '>=' Expr        { ExprPrimApp Ge   (Exprs [$1, $3]) }
-    | Expr '<=' Expr        { ExprPrimApp Le   (Exprs [$1, $3]) }
-    | Expr '.>=.' Expr      { ExprPrimApp FGe  (Exprs [$1, $3]) }
-    | Expr '.<=.' Expr      { ExprPrimApp FLe  (Exprs [$1, $3]) }
-    | Expr '/=' Expr        { ExprPrimApp Neq  (Exprs [$1, $3]) }
-    | Expr '&&' Expr        { ExprPrimApp And  (Exprs [$1, $3]) }
-    | Expr '||' Expr        { ExprPrimApp Or   (Exprs [$1, $3]) }
+    : ExprInline '+' ExprInline         { ExprPrimApp Add  (Exprs [$1, $3]) }
+    | ExprInline '-' ExprInline         { ExprPrimApp Sub  (Exprs [$1, $3]) }
+    | ExprInline '.+.' ExprInline       { ExprPrimApp FAdd (Exprs [$1, $3]) }
+    | ExprInline '.-.' ExprInline       { ExprPrimApp FSub (Exprs [$1, $3]) }
+    | ExprInline '*' ExprInline         { ExprPrimApp Mul  (Exprs [$1, $3]) }
+    | ExprInline '/' ExprInline         { ExprPrimApp Div  (Exprs [$1, $3]) }
+    | ExprInline '.*.' ExprInline       { ExprPrimApp FMul (Exprs [$1, $3]) }
+    | ExprInline './.' ExprInline       { ExprPrimApp FDiv (Exprs [$1, $3]) }
+    | ExprInline '^' ExprInline         { ExprPrimApp Pow  (Exprs [$1, $3]) }
+    | ExprInline '==' ExprInline        { ExprPrimApp Eq   (Exprs [$1, $3]) }
+    | ExprInline '.==.' ExprInline      { ExprPrimApp FEq  (Exprs [$1, $3]) }
+    | ExprInline '*==*' ExprInline      { ExprPrimApp CEq  (Exprs [$1, $3]) }
+    | ExprInline '>' ExprInline         { ExprPrimApp Gt   (Exprs [$1, $3]) }
+    | ExprInline '<' ExprInline         { ExprPrimApp Lt   (Exprs [$1, $3]) }
+    | ExprInline '.>.' ExprInline       { ExprPrimApp FGt  (Exprs [$1, $3]) }
+    | ExprInline '.<.' ExprInline       { ExprPrimApp FLt  (Exprs [$1, $3]) }
+    | ExprInline '>=' ExprInline        { ExprPrimApp Ge   (Exprs [$1, $3]) }
+    | ExprInline '<=' ExprInline        { ExprPrimApp Le   (Exprs [$1, $3]) }
+    | ExprInline '.>=.' ExprInline      { ExprPrimApp FGe  (Exprs [$1, $3]) }
+    | ExprInline '.<=.' ExprInline      { ExprPrimApp FLe  (Exprs [$1, $3]) }
+    | ExprInline '/=' ExprInline        { ExprPrimApp Neq  (Exprs [$1, $3]) }
+    | ExprInline '&&' ExprInline        { ExprPrimApp And  (Exprs [$1, $3]) }
+    | ExprInline '||' ExprInline        { ExprPrimApp Or   (Exprs [$1, $3]) }
 
 -- ExprOr :: { Expr }
 --     : ExprAnd                 { $1 }
@@ -329,10 +337,10 @@ ExprLet :: { Expr }
 --     | LetBindings LetBinding                        { \expr -> ExprLet $2 $4 $6 $7 }
 
 ExprFuncApp :: { Expr }
-    : LVar '[' LocRegionStar ']' ExprsPlus   { ExprFuncApp (FuncVar $1) (reverseList LocRegions $3) (reverseList Exprs $5)}
+    : LVar '[' LocRegionStar ']' ExprInlinePlus   { ExprFuncApp (FuncVar $1) (reverseList LocRegions $3) (reverseList Exprs $5)}
 
 ExprDataConApp :: { Expr }
-    : UVar LocRegion ExprsPlus    { ExprDataConApp (DataCon $1) $2 (reverseList Exprs $3)}
+    : UVar LocRegion ExprInlinePlus    { ExprDataConApp (DataCon $1) $2 (reverseList Exprs $3)}
 
 -- TODO change this so Val is Expr
 ExprCase :: { Expr }
@@ -439,6 +447,14 @@ MyTypeArrowPlus :: { [MyType] }
 ExprsPlus :: { [Expr] }
     : Expr                              { [$1] }
     | ExprsPlus Expr                    { $2 : $1 }
+
+ExprInlinePlus :: { [Expr] }
+    : ExprInline                        { [$1] }
+    | ExprInlinePlus ExprInline         { $2 : $1 }
+
+ExprInlineTupPlus :: { [Expr] }
+    : ExprInline                        { [$1] }
+    | ExprInlineTupPlus ',' ExprInline  { $3 : $1 }
 
 -- Vals :: { [Val] }
 --     : {- empty -}                   { [] }    

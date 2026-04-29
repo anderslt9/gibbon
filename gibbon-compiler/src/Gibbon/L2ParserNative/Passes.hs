@@ -268,6 +268,10 @@ walkVal pass (ValLit lit) = do
     lit' <- walkLit pass lit
     let newVal = ValLit lit'
     onVal pass newVal
+walkVal pass (ValTuple exprs) = do
+    exprs' <- walkExprs pass exprs
+    let newVal = ValTuple exprs'
+    onVal pass newVal
 
 walkLit :: Pass -> Lit -> (InferM LocRegion) Lit
 walkLit pass (IntLit n) = onLit pass (IntLit n)
