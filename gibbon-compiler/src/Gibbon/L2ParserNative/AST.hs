@@ -83,6 +83,7 @@ data PrimFunc =
         Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
         | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | 
         FLe | Neq | And | Or 
+        | PrintInt | PrintChar | PrintFloat | PrintBool
         
         -- | PrintInt | PrintChar | PrintFloat | PrintBool
         deriving (Show,Eq)

@@ -622,3 +622,11 @@ primFuncToType op = case op of
     Neq -> ([IntTy EmptyLocRegion, IntTy EmptyLocRegion], BoolTy EmptyLocRegion)
     And -> ([BoolTy EmptyLocRegion, BoolTy EmptyLocRegion], BoolTy EmptyLocRegion)
     Or  -> ([BoolTy EmptyLocRegion, BoolTy EmptyLocRegion], BoolTy EmptyLocRegion)
+
+    -- print primitives
+    PrintInt -> ([IntTy EmptyLocRegion], ProdTy (MyTypes []))
+    PrintChar -> ([CharTy EmptyLocRegion], ProdTy (MyTypes []))
+    PrintFloat -> ([FloatTy EmptyLocRegion], ProdTy (MyTypes []))
+    PrintBool -> ([BoolTy EmptyLocRegion], ProdTy (MyTypes []))
+
+

@@ -74,7 +74,13 @@ data Token
     | TokenBoolLit Pos Bool
     | TokenCharLit Pos Char
     | TokenStringLit Pos String
-    
+
+    -- primitive application tokens
+    | TokenPrintInt Pos
+    | TokenPrintChar Pos
+    | TokenPrintFloat Pos
+    | TokenPrintBool Pos
+
     -- other
     | TokenMain Pos
     | TokenNewLine Pos
@@ -156,6 +162,12 @@ pos (TokenFloatLit p _) = p
 pos (TokenBoolLit p _)  = p
 pos (TokenCharLit p _)  = p
 pos (TokenStringLit p _) = p
+
+-- primitive application tokens
+pos (TokenPrintInt p) = p
+pos (TokenPrintChar p) = p
+pos (TokenPrintFloat p) = p
+pos (TokenPrintBool p) = p
 
 -- other
 pos (TokenMain p)       = p

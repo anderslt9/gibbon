@@ -26,6 +26,7 @@ lexer' p (c:cs)
     | c == '\'' = 
         case cs of 
             (d:'\'':tailRest) -> TokenCharLit p d : lexer' (advanceStr p ['\'', d, '\'']) tailRest
+            ('\\':'n':'\'':tailRest) -> TokenCharLit p '\n' : lexer' (advanceStr p ['\'', '\\', 'n', '\'']) tailRest
             _ -> []
 lexer' p ('=':'=':cs)   =  TokenEq p : lexer' (advanceStr p "==") cs
 lexer' p ('=':cs)       =  TokenAssign p : lexer' (advance p '=') cs
@@ -130,6 +131,12 @@ lexVar p cs =
         ("True", rest)  -> TokenBoolLit p True : lexer' (advanceStr p "True") rest
         ("False", rest) -> TokenBoolLit p False : lexer' (advanceStr p "False") rest
         
+        -- other primitive application keywords
+        ("printInt", rest) -> TokenPrintInt p : lexer' (advanceStr p "printInt") rest
+        ("printChar", rest) -> TokenPrintChar p : lexer' (advanceStr p "printChar") rest
+        ("printFloat", rest) -> TokenPrintFloat p : lexer' (advanceStr p "printFloat") rest
+        ("printBool", rest) -> TokenPrintBool p : lexer' (advanceStr p "printBool") rest
+
         -- main function
         ("main", rest) -> TokenMain p : lexer' (advanceStr p "main") rest
         

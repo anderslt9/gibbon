@@ -88,10 +88,10 @@ import Gibbon.L2ParserNative.Lexer
     '||'        { TokenOr _ }
 
     -- other primitive applications
-    -- PrintInt    { TokenPrintInt _ }
-    -- PrintChar   { TokenPrintChar _ }
-    -- PrintFloat  { TokenPrintFloat _ }
-    -- PrintBool   { TokenPrintBool _ }
+    printInt    { TokenPrintInt _ }
+    printChar   { TokenPrintChar _ }
+    printFloat  { TokenPrintFloat _ }
+    printBool   { TokenPrintBool _ }
 
     -- base types
     Int         { TokenIntType _ }
@@ -225,13 +225,13 @@ ExprInlineComp :: { Expr }
 -- primitive operations
 ExprPrimApp :: { Expr }
     : ExprArith                      { $1 }
-    -- | ExprPrint                      { $1 }
+    | ExprPrint                      { $1 }
 
--- ExprPrint :: { Expr }
---     : PrintInt Expr               { ExprPrimApp PrintInt   [$2] }
---     : PrintChar Expr              { ExprPrimApp PrintChar  [$2] }
---     : PrintFloat Expr             { ExprPrimApp PrintFloat [$2] }
---     : PrintBool Expr              { ExprPrimApp PrintBool  [$2] }
+ExprPrint :: { Expr }
+    : printInt Expr               { ExprPrimApp PrintInt   (Exprs [$2]) }
+    | printChar Expr              { ExprPrimApp PrintChar  (Exprs [$2]) }
+    | printFloat Expr             { ExprPrimApp PrintFloat (Exprs [$2]) }
+    | printBool Expr              { ExprPrimApp PrintBool  (Exprs [$2]) }
 
 ExprArith :: { Expr }
     : ExprInline '+' ExprInline         { ExprPrimApp Add  (Exprs [$1, $3]) }

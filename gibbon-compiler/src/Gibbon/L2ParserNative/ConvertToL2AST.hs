@@ -135,7 +135,11 @@ convertMyTypeToTy (AST.PackedTy (TypeCon typeCon) locRegion) = do
     return $ S.PackedTy typeCon (C.Single locVar)
 convertMyTypeToTy (AST.IntTy _) = return S.IntTy
 convertMyTypeToTy (AST.FloatTy _) = return S.FloatTy
+convertMyTypeToTy (AST.CharTy _) = return S.CharTy
 convertMyTypeToTy (AST.BoolTy _) = return S.BoolTy
+convertMyTypeToTy (AST.ProdTy (MyTypes myTypes)) = do
+    convertedTypes <- mapM convertMyTypeToTy myTypes
+    return $ S.ProdTy convertedTypes
 convertMyTypeToTy _ = Failed "convertMyTypeToTy: Unsupported MyType"
 
 
@@ -270,6 +274,13 @@ convertPrimFunc p = case p of
     FLe ->  return S.FLtEqP
     And ->  return S.AndP
     Or ->   return S.OrP
+
+    -- print primitives
+    AST.PrintInt -> return S.PrintInt
+    AST.PrintChar -> return S.PrintChar
+    AST.PrintFloat -> return S.PrintFloat
+    AST.PrintBool -> return S.PrintBool
+
     _ ->   Failed "convertPrimFunc: Unsupported primitive function"
 
 convertLocRegionToLocVar :: LocRegion -> E C.Var
@@ -307,6 +318,7 @@ convertMyTyUrTy myTy = case myTy of
     AST.IntTy _ -> return S.IntTy
     AST.FloatTy _ -> return S.FloatTy
     AST.BoolTy _ -> return S.BoolTy
+    AST.CharTy _ -> return S.CharTy
     AST.PackedTy (TypeCon typeCon) locRegion -> do
         locVar <- convertLocRegionToLocVar locRegion
         return $ S.PackedTy typeCon (C.Single locVar)
