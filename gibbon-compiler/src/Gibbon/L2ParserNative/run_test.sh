@@ -1,8 +1,8 @@
 results_folder="output_results"
 home_dir=$(realpath "$(pwd)/../../../..")
 l2_parser_native_dir="$home_dir/gibbon-compiler/src/Gibbon/L2ParserNative"
-input_l2_files=$(ls $l2_parser_native_dir/tests/*.hs)
-stripped_input_l2_files=$(ls $l2_parser_native_dir/tests/*.hs | xargs -n 1 basename -s .hs)
+input_l2_files=$(ls -v $l2_parser_native_dir/tests/*.hs)
+stripped_input_l2_files=$(ls -v $l2_parser_native_dir/tests/*.hs | xargs -n 1 basename -s .hs)
 
 mkdir -p $results_folder
 

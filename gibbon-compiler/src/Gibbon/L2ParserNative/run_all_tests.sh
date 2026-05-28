@@ -1,6 +1,6 @@
 #!/bin/bash
 
-input_files=$(ls tests/*.hs)
+input_files=$(ls -v tests/*.hs)
 output_files=()
 
 for file in $input_files; do
