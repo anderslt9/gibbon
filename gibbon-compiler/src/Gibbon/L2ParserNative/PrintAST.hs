@@ -123,6 +123,9 @@ instance PrintAST LocRegion where
 instance PrintAST Val where
     printAST depth temp = indent depth (show temp)
 
+instance PrintAST PatDeconstruct where
+    printAST depth temp = indent depth (show temp)
+
 -- TODO
 instance PrintAST Lit where
     printAST depth temp = indent depth (show temp)
@@ -225,3 +228,6 @@ instance PrintAST LocRegions where
 
 instance PrintAST MyTypes where
     printAST depth (MyTypes myTypes) = addList depth "My Types" myTypes
+
+instance PrintAST PatDeconstructs where
+    printAST depth (PatDeconstructs patDeconstructs) = addList depth "Pattern Deconstruction" patDeconstructs

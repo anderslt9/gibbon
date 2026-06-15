@@ -4,8 +4,10 @@ import Gibbon.L2ParserNative.AST
 import Gibbon.L2ParserNative.ConvertToTypedAST
 import Control.Monad (foldM)
 -- import Control.Monad.IO.Class (liftIO)
-import Gibbon.L2ParserNative.Helper (E)
-import Control.Monad.Reader (ReaderT(runReaderT))
+import Gibbon.L2ParserNative.Helper (E(Failed))
+-- import Gibbon.L2ParserNative.Helper (E(Failed), concatMapM)
+import Control.Monad.Reader (ReaderT(runReaderT), lift)
+
 
 data PassNamed = PassNamed 
     { passName :: String
@@ -26,6 +28,7 @@ data Pass = Pass
     , onLocExpress :: LocExpress -> (InferM LocRegion) LocExpress
     , onLocRegion :: LocRegion -> (InferM LocRegion) LocRegion
     , onVal :: Val -> (InferM LocRegion) Val
+    , onPatDeconstruct:: PatDeconstruct -> (InferM LocRegion) PatDeconstruct
     , onLit :: Lit -> (InferM LocRegion) Lit
     , onExpr :: Expr -> (InferM LocRegion) Expr
     , onPat :: Pat -> (InferM LocRegion) Pat
@@ -49,13 +52,14 @@ data Pass = Pass
     , onFuncDecls :: FuncDecls -> (InferM LocRegion) FuncDecls
     , onLocRegions :: LocRegions -> (InferM LocRegion) LocRegions
     , onMyTypes :: MyTypes -> (InferM LocRegion) MyTypes
+    , onPatDeconstructs :: PatDeconstructs -> (InferM LocRegion) PatDeconstructs
     }
 
 idPass :: Pass
 idPass = Pass return return return return return return return return return return
               return return return return return return return return return return
               return return return return return return return return return return
-              return
+              return return return
     -- { onProgram = return . createTypedNode (LocRelativeVar "idPassProgram") . id
     -- , onDataTypeDecl = return . createTypedNode (LocRelativeVar
 
@@ -273,6 +277,16 @@ walkVal pass (ValTuple exprs) = do
     let newVal = ValTuple exprs'
     onVal pass newVal
 
+walkPatDeconstruct :: Pass -> PatDeconstruct -> (InferM LocRegion) PatDeconstruct
+walkPatDeconstruct pass (PatVar n) = do
+    n' <- walkVar pass n
+    let newPatDeconstruct = PatVar n'
+    onPatDeconstruct pass newPatDeconstruct
+walkPatDeconstruct pass (PatTuple tup) = do
+    tup' <- walkPatDeconstructs pass tup
+    let newPatDeconstruct = PatTuple tup'
+    onPatDeconstruct pass newPatDeconstruct
+
 walkLit :: Pass -> Lit -> (InferM LocRegion) Lit
 walkLit pass (IntLit n) = onLit pass (IntLit n)
 walkLit pass (FloatLit f) = onLit pass (FloatLit f)
@@ -307,13 +321,31 @@ walkExpr pass (ExprCase val pats) = do
     pats' <- walkPats pass pats
     let newExpr = ExprCase val' pats'
     onExpr pass newExpr
-walkExpr pass (ExprLet v@(Var var) myType expr1 expr2) = do
-    var' <- walkVar pass v
+walkExpr pass (ExprLet patDeconstruct myType expr1 expr2) = do
+    patDeconstruct' <- walkPatDeconstruct pass patDeconstruct
     combinedType' <- walkMyType pass myType
     expr1' <- walkExpr pass expr1
-    expr2' <- extendVEnv var myType (walkExpr pass expr2) 
-    let newExpr = ExprLet var' combinedType' expr1' expr2'
+    varTypePairs <- getVarTypePairsFromPatDeconstruct patDeconstruct' combinedType'
+    expr2' <- extendVEnvs varTypePairs (walkExpr pass expr2) 
+    let newExpr = ExprLet patDeconstruct' combinedType' expr1' expr2'
     onExpr pass newExpr
+    where
+        getVarTypePairsFromPatDeconstruct :: PatDeconstruct -> MyType -> (InferM LocRegion) [(String, MyType)]
+        getVarTypePairsFromPatDeconstruct (PatVar (Var v)) myTy = return [(v, myTy)]
+        getVarTypePairsFromPatDeconstruct (PatTuple (PatDeconstructs patDeconstructs)) (ProdTy (MyTypes myTypes)) = mapVarTypePairs' patDeconstructs myTypes
+        getVarTypePairsFromPatDeconstruct _ _ = error "Unsupported pattern deconstruct or type in getVarTypePairsFromPatDeconstruct"
+
+        mapVarTypePairs' :: [PatDeconstruct] -> [MyType] -> (InferM LocRegion) [(String, MyType)]
+        mapVarTypePairs' [] [] = return []
+        mapVarTypePairs' (PatVar (Var v) : restDeconstructs) (ty : restTypes) = do
+            let newVarTypePair = (v, ty)
+            nextDeconstructs <- mapVarTypePairs' restDeconstructs restTypes
+            return $ newVarTypePair : nextDeconstructs
+        mapVarTypePairs' (PatTuple (PatDeconstructs patDeconstructs) : restDeconstructs) (ProdTy (MyTypes myTypes) : restTypes) = do
+            currDeconstructs <- mapVarTypePairs' patDeconstructs myTypes
+            nextDeconstructs <- mapVarTypePairs' restDeconstructs restTypes
+            return $ currDeconstructs ++ nextDeconstructs
+        mapVarTypePairs' _ _ = lift . Failed $ "mapVarTypePairs': Not implemented for this pattern deconstruct and type combination"
 walkExpr pass (ExprLetLoc locRegion locExpress expr) = do
     locRegion' <- walkLocRegion pass locRegion
     locExpress' <- walkLocExpress pass locExpress
@@ -331,10 +363,13 @@ walkExpr pass (ExprIf cond thenExpr elseExpr) = do
     elseExpr' <- walkExpr pass elseExpr
     let newExpr = ExprIf cond' thenExpr' elseExpr'
     onExpr pass newExpr
+    
 
 walkPat :: Pass -> Pat -> (InferM LocRegion) Pat
 walkPat pass (Pat dc@(DataCon _dataCon) pms@(PatMatches patMatches) expr) = do
-    let varTypePairs = map (\(PatMatch (ValVar (Var v)) myType) -> (v, myType)) patMatches
+    
+    -- TODO need to add support for patterns of varying forms
+    let varTypePairs = map (\(PatMatch (PatVar (Var v)) myType) -> (v, myType)) patMatches
     expr' <- extendVEnvs varTypePairs (walkExpr pass expr)
     dataCon' <- walkDataCon pass dc
     patMatches' <- walkPatMatches pass pms
@@ -342,10 +377,10 @@ walkPat pass (Pat dc@(DataCon _dataCon) pms@(PatMatches patMatches) expr) = do
     onPat pass newPat
 
 walkPatMatch :: Pass -> PatMatch -> (InferM LocRegion) PatMatch
-walkPatMatch pass (PatMatch val myType) = do
-    val' <- walkVal pass val
+walkPatMatch pass (PatMatch patDeconstruct myType) = do
+    patDeconstruct' <- walkPatDeconstruct pass patDeconstruct
     myType' <- walkMyType pass myType
-    let newPatMatch = PatMatch val' myType'
+    let newPatMatch = PatMatch patDeconstruct' myType'
     onPatMatch pass newPatMatch
 
 walkPrimFunc :: Pass -> PrimFunc -> (InferM LocRegion) PrimFunc
@@ -437,3 +472,9 @@ walkMyTypes pass (MyTypes myTypes) = do
     myTypes' <- mapM (walkMyType pass) myTypes
     let newMyTypes = MyTypes myTypes'
     onMyTypes pass newMyTypes
+
+walkPatDeconstructs :: Pass -> PatDeconstructs -> (InferM LocRegion) PatDeconstructs
+walkPatDeconstructs pass (PatDeconstructs patDeconstructs) = do
+    patDeconstructs' <- mapM (walkPatDeconstruct pass) patDeconstructs
+    let newPatDeconstructs = PatDeconstructs patDeconstructs'
+    onPatDeconstructs pass newPatDeconstructs

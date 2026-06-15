@@ -1,6 +1,7 @@
 {-# LANGUAGE InstanceSigs #-}
 module Gibbon.L2ParserNative.Helper where
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad (liftM)
 
 makeGreen :: String -> String
 makeGreen s = "\x1b[32m" ++ s ++ "\x1b[0m"
@@ -40,6 +41,10 @@ splitLast [x] = return ([], x)
 splitLast (x:xs) = do
     (rest, lastElem) <- splitLast xs
     return (x:rest, lastElem)
+
+concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
+concatMapM f xs = liftM concat (mapM f xs)
+
 instance Functor E where
     fmap f (Ok x)      = Ok (f x)
     fmap _ (Failed e)  = Failed e

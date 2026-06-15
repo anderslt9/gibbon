@@ -194,6 +194,11 @@ Val :: { Val }
     | '(' ')'                                       { ValTuple (Exprs []) }
     | '(' ExprInline ',' ExprInlineTupPlus ')'      { ValTuple (reverseList Exprs ($4 ++ [$2])) }
 
+PatDeconstruct :: { PatDeconstruct }
+    : LVar                                              { PatVar (Var $1) }
+    | '(' PatDeconstruct ',' PatDeconstructPlus ')'     { PatTuple (reverseList PatDeconstructs ($4 ++ [$2])) }
+
+
 Lit :: { Lit }
     : INT_LIT        { IntLit $1 }
     | FLOAT_LIT      { FloatLit $1 }
@@ -326,7 +331,7 @@ ExprLetLoc :: { Expr }
 
 -- TODO support let bindings
 ExprLet :: { Expr }
-    : let LVar ':' MyType '=' Expr in Expr   { ExprLet (Var $2) $4 $6 $8 }
+    : let PatDeconstruct ':' MyType '=' Expr in Expr   { ExprLet $2 $4 $6 $8 }
 
 -- LetBinding :: { Expr -> ExprLet }
 --     : Var ':' CombinedType '=' Expr   { ExprLet $1 $3 $5 }
@@ -350,7 +355,8 @@ Pat :: { Pat }
     : UVar PatMatchStar '->' Expr      { Pat (DataCon $1) (reverseList PatMatches $2) $4 }
 
 PatMatch :: { PatMatch }
-    : Val ':' MyType       { PatMatch $1 $3}
+    : PatDeconstruct ':' MyType       { PatMatch $1 $3}
+
 
 -- BinOp :: { BinOp }
 --     : '+'         { Add }
@@ -455,6 +461,14 @@ ExprInlinePlus :: { [Expr] }
 ExprInlineTupPlus :: { [Expr] }
     : ExprInline                        { [$1] }
     | ExprInlineTupPlus ',' ExprInline  { $3 : $1 }
+
+PatDeconstructStar :: { [PatDeconstruct] }
+    : {- empty -}                           { [] }
+    | PatDeconstructPlus                    { $1 }
+
+PatDeconstructPlus :: { [PatDeconstruct] }
+    : PatDeconstruct                            { [$1] }
+    | PatDeconstructPlus ',' PatDeconstruct     { $3 : $1 }
 
 -- Vals :: { [Val] }
 --     : {- empty -}                   { [] }    

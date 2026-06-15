@@ -71,14 +71,15 @@ instance Eq LocRegion where
 
 -- identifiers/literals
 data Val = ValVar Var | ValLit Lit | ValTuple Exprs deriving (Show,Eq)
+data PatDeconstruct = PatVar Var | PatTuple PatDeconstructs deriving (Show,Eq)
 data Lit = IntLit Int | FloatLit Float | BoolLit Bool | CharLit Char | StringLit String deriving (Show,Eq)
 
 -- expressions
 data Expr = ExprVal Val | ExprPrimApp PrimFunc Exprs | ExprFuncApp FuncVar LocRegions Exprs | ExprDataConApp DataCon LocRegion Exprs
-            | ExprCase Val Pats | ExprLet Var MyType Expr Expr | ExprLetLoc LocRegion LocExpress Expr
+            | ExprCase Val Pats | ExprLet PatDeconstruct MyType Expr Expr | ExprLetLoc LocRegion LocExpress Expr
             | ExprLetRegion RegionVar Expr | ExprIf Expr Expr Expr deriving (Show,Eq)
 data Pat = Pat DataCon PatMatches Expr deriving (Show,Eq)
-data PatMatch = PatMatch Val MyType deriving (Show,Eq)
+data PatMatch = PatMatch PatDeconstruct MyType deriving (Show,Eq)
 data PrimFunc = 
         Add | Sub | FAdd | FSub | FMul | Mul | Div | FDiv | Pow
         | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | 
@@ -113,3 +114,4 @@ newtype DataTypeDecls = DataTypeDecls [DataTypeDecl] deriving (Show,Eq)
 newtype FuncDecls = FuncDecls [FuncDecl] deriving (Show,Eq)
 newtype LocRegions = LocRegions [LocRegion] deriving (Show,Eq)
 newtype MyTypes = MyTypes [MyType] deriving (Show,Eq)
+newtype PatDeconstructs = PatDeconstructs [PatDeconstruct] deriving (Show,Eq)

@@ -4,7 +4,7 @@ module Gibbon.L2ParserNative.ConvertToTypedAST where
 import Gibbon.L2ParserNative.AST as AST
 import Gibbon.L2ParserNative.Helper
 -- import Gibbon.Language.Syntax as S
-import Control.Monad (foldM)
+import Control.Monad (foldM, zipWithM)
 import Control.Monad.Reader
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -355,12 +355,13 @@ inferExpr expr = case expr of
 
         -- [x] TODO infer patterns and ensure types match
         -- For now, just return the type of the value being matched on
-    (ExprLet (Var var) combinedType expr1 expr2) -> do
+    (ExprLet patDeconstruct combinedType expr1 expr2) -> do
         typedExpr1 <- inferExpr expr1
         let expr1Type = tType typedExpr1
-        typedExpr2 <- extendVEnv var combinedType (inferExpr expr2) 
+        varTypePairs <- getVarTypePairsFromPatDeconstruct patDeconstruct combinedType
+        typedExpr2 <- extendVEnvs varTypePairs (inferExpr expr2)
         if combinedType ==^^ expr1Type
-        then return $ createTypedNode (tType typedExpr2) (ExprLet (Var var) combinedType (tNode typedExpr1) (tNode typedExpr2))
+        then return $ createTypedNode (tType typedExpr2) (ExprLet patDeconstruct combinedType (tNode typedExpr1) (tNode typedExpr2))
         else lift . Failed $ "Type mismatch in let binding: " ++ show combinedType ++ " vs " ++ show expr1Type
     
     (ExprLetRegion (RegionVar rv) expr1) -> do
@@ -431,7 +432,23 @@ inferExpr expr = case expr of
             else lift . Failed $ "Type mismatch in branches of if expression: " ++ show (tType typedThen) ++ " vs " ++ show (tType typedElse)
         else lift . Failed $ "Condition in if expression must be of type Bool, got: " ++ show (tType typedCond)
     _ -> lift . Failed $ "inferExpr: Not implemented for this expression type: " ++ takeAlphaNum (show expr)
+    where 
+        getVarTypePairsFromPatDeconstruct :: PatDeconstruct -> MyType -> (InferM LocRegion) [(String, MyType)]
+        getVarTypePairsFromPatDeconstruct (PatVar (Var v)) myType = return [(v, myType)]
+        getVarTypePairsFromPatDeconstruct (PatTuple (PatDeconstructs patDeconstructs)) (ProdTy (MyTypes myTypes)) = mapVarTypePairs' patDeconstructs myTypes
+        getVarTypePairsFromPatDeconstruct _ _ = error "Unsupported pattern deconstruct or type in getVarTypePairsFromPatDeconstruct"
 
+        mapVarTypePairs' :: [PatDeconstruct] -> [MyType] -> (InferM LocRegion) [(String, MyType)]
+        mapVarTypePairs' [] [] = return []
+        mapVarTypePairs' (PatVar (Var v) : restDeconstructs) (ty : restTypes) = do
+            let newVarTypePair = (v, ty)
+            nextDeconstructs <- mapVarTypePairs' restDeconstructs restTypes
+            return $ newVarTypePair : nextDeconstructs
+        mapVarTypePairs' (PatTuple (PatDeconstructs patDeconstructs) : restDeconstructs) (ProdTy (MyTypes myTypes) : restTypes) = do
+            currDeconstructs <- mapVarTypePairs' patDeconstructs myTypes
+            nextDeconstructs <- mapVarTypePairs' restDeconstructs restTypes
+            return $ currDeconstructs ++ nextDeconstructs
+        mapVarTypePairs' _ _ = lift . Failed $ "mapVarTypePairs': Not implemented for this pattern deconstruct and type combination"
 -- inferLocExpress :: LocExpress -> LocRegion -> InferM Bool
 -- inferLocExpress locExpress (LocRegion (LocVar locVar) (RegionVar regVar) (IndexVar indexVar)) = case locExpress of
 --     LocExpressStart (RegionVar regVar2) -> do
@@ -455,7 +472,7 @@ inferExpr expr = case expr of
 
 -- TODO check if val should be var???  also need to deal with location regions
 inferPatMatch :: PatMatch -> (InferM LocRegion) (TypedNode PatMatch)
-inferPatMatch (PatMatch (ValVar (Var var)) locatedType) = do
+inferPatMatch (PatMatch (PatVar (Var var)) locatedType) = do
     -- [x]BUG HERE: val doesn't have type, but need to make sure variable not in scope
     -- typedVal <- inferVal val
     varExists <- checkVarNameExists var
@@ -463,15 +480,36 @@ inferPatMatch (PatMatch (ValVar (Var var)) locatedType) = do
         then lift . Failed $ "inferPatMatch: Variable " ++ show var ++ " already defined in environment"
         else do
             -- let typedVal = createTypedNode (combinedLocTypeToType combinedLocType) (ValVar (AST.Var var))
-            let newIPatMatch = PatMatch (ValVar (AST.Var var)) locatedType
+            let newIPatMatch = PatMatch (PatVar (AST.Var var)) locatedType
             -- if tType typedVal == ty
             return $ createTypedNode locatedType newIPatMatch
                 -- else lift . Failed $ "inferPatMatch: Type mismatch in pattern match: " ++ show (tType typedVal) ++ " vs " ++ show ty
-inferPatMatch (PatMatch (ValLit val) _) = do 
-    lift . Failed $ "inferPatMatch: Requires variable for pattern match, received literal: " ++ show val
--- todo handle supporting tuple patterns
-inferPatMatch (PatMatch (ValTuple (Exprs vals)) _) = do
-    lift . Failed $ "inferPatMatch: Tuple patterns not supported yet: " ++ show vals
+-- inferPatMatch (PatMatch (ValLit val) _) = do 
+--     lift . Failed $ "inferPatMatch: Requires variable for pattern match, received literal: " ++ show val
+inferPatMatch (PatMatch (PatTuple (PatDeconstructs patDeconstructs)) (ProdTy (MyTypes innerTypes))) = do
+    innerNodes <- zipWithM inferPatDeconstruct innerTypes patDeconstructs
+    let newIPatMatch = PatMatch (PatTuple (PatDeconstructs (map tNode innerNodes))) (ProdTy (MyTypes (map tType innerNodes)))
+    return $ createTypedNode (ProdTy (MyTypes (map tType innerNodes))) newIPatMatch
+    -- lift . Failed $ "inferPatMatch: Tuple patterns not supported yet: " ++ show patDeconstructs
+inferPatMatch _ = lift . Failed $ "inferPatMatch: Not implemented for this pattern match type"
+
+inferPatDeconstruct :: MyType -> PatDeconstruct -> (InferM LocRegion) (TypedNode PatDeconstruct)
+inferPatDeconstruct myTy (PatVar (Var var)) = do
+    varExists <- checkVarNameExists var
+    if varExists
+        then lift . Failed $ "inferPatDeconstruct: Variable " ++ show var ++ " already defined in environment"
+        else do
+            let newIPatDeconstruct = PatVar (AST.Var var)
+            return $ createTypedNode myTy newIPatDeconstruct -- TODO need to figure out type for this
+inferPatDeconstruct (ProdTy (MyTypes tys)) (PatTuple (PatDeconstructs patDeconstructs)) = do
+    if length tys /= length patDeconstructs
+    then lift . Failed $ "inferPatDeconstruct: Tuple pattern length mismatch: " ++ show (length tys) ++ " vs " ++ show (length patDeconstructs)
+    else do
+        innerNodes <- zipWithM inferPatDeconstruct tys patDeconstructs
+        let newIPatDeconstruct = PatTuple (PatDeconstructs (map tNode innerNodes))
+        return $ createTypedNode (ProdTy (MyTypes (map tType innerNodes))) newIPatDeconstruct
+
+inferPatDeconstruct _ _ = lift . Failed $ "inferPatDeconstruct: Not implemented for this pattern deconstruct type"
 
 inferPat :: MyType -> Pat -> (InferM LocRegion) (TypedNode Pat)
 inferPat myTy (Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
@@ -487,11 +525,38 @@ inferPat myTy (Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
             if not $ result ==^^ myTy
                 then lift . Failed $ "inferPat: Result type mismatch in pattern for data constructor " ++ show dataCon ++ ": " ++ show result ++ " vs " ++ show myTy
                 else do
-                    -- TODO need to change PatMatch to have var, not val
-                    let varTypePairs = map (\(PatMatch (ValVar (Var v)) locatedType) -> (v, locatedType)) patMatches
+                    varTypePairs <- mapVarTypePairs patMatches
                     typedExpr <- extendVEnvs varTypePairs (inferExpr expr)
                     let newIPat = Pat (DataCon dataCon) (PatMatches (map tNode matchedTypes)) (tNode typedExpr)
                     return $ createTypedNode (tType typedExpr) newIPat
+
+    where   
+        mapVarTypePairs :: [PatMatch] -> (InferM LocRegion) [(String, MyType)]
+        mapVarTypePairs [] = return []
+        mapVarTypePairs ((PatMatch patDeconstruct locatedType : rest)) = do
+            pairs <- mapVarTypePairs' [patDeconstruct] [locatedType]
+            restPairs <- mapVarTypePairs rest
+            return $ pairs ++ restPairs
+        -- mapVarTypePairs ((PatMatch (PatTuple (PatDeconstructs patDeconstructs)) (ProdTy (MyTypes myTypes))) : rest) = do
+            
+            
+            -- let innerVarTypePairs = concat $ zipWith mapVarTypePairs (map (\(PatDeconstruct patDeconstruct) -> PatMatch patDeconstruct) patDeconstructs) (map (\ty -> case ty of
+            --         PackedTy tc _ -> PackedTy tc EmptyLocRegion
+            --         ty -> ty) myTypes)
+            -- in innerVarTypePairs ++ mapVarTypePairs rest
+        
+        mapVarTypePairs' :: [PatDeconstruct] -> [MyType] -> (InferM LocRegion) [(String, MyType)]
+        mapVarTypePairs' [] [] = return []
+        mapVarTypePairs' (PatVar (Var v) : restDeconstructs) (ty : restTypes) = do
+            let newVarTypePair = (v, ty)
+            nextDeconstructs <- mapVarTypePairs' restDeconstructs restTypes
+            return $ newVarTypePair : nextDeconstructs
+        mapVarTypePairs' (PatTuple (PatDeconstructs patDeconstructs) : restDeconstructs) (ProdTy (MyTypes myTypes) : restTypes) = do
+            currDeconstructs <- mapVarTypePairs' patDeconstructs myTypes
+            nextDeconstructs <- mapVarTypePairs' restDeconstructs restTypes
+            return $ currDeconstructs ++ nextDeconstructs
+        mapVarTypePairs' _ _ = lift . Failed $ "mapVarTypePairs': Not implemented for this pattern deconstruct and type combination"
+            
 
 inferVal :: Val -> (InferM LocRegion) (TypedNode Val)
 inferVal val = case val of 

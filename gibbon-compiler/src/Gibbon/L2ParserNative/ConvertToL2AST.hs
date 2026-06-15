@@ -9,6 +9,7 @@ import Data.Map (fromList)
 import Gibbon.L2ParserNative.ConvertToTypedAST as My
 import Gibbon.L2ParserNative.Helper
 import GHC.Float ( float2Double )
+-- import Control.Monad.Reader (lift)
 -- import TestRunner (Result(Fail))
 
 
@@ -166,12 +167,22 @@ convertExpr expr = do
             newPats <- convertPats pats
             newVal <- convertVal val
             return $ L2.CaseE newVal newPats
-        (ExprLet (Var var) myType e1 e2) -> do
-            let newVar = C.toVar var
-            newMyType <- convertMyTypeToTy myType
-            newE1 <- convertExpr e1
-            newE2 <- convertExpr e2
-            return $ L2.LetE (newVar, [], newMyType, newE1) newE2
+        (ExprLet patDeconstruct myType e1 e2) -> do
+            mappedPairs <- mapVarType patDeconstruct myType
+            if length mappedPairs == 0 then Failed "convertExpr: No variable mappings found in let expression"
+            else do
+                let ((firstEl,firstTy,_,_): varTypePairs) = mappedPairs
+                e1' <- convertExpr e1
+                e2' <- convertExpr e2
+                firstTy' <- convertMyTypeToTy firstTy
+                nextExpr <- concatMapLetExprs varTypePairs e2'
+                return $ L2.LetE (C.toVar firstEl, [], firstTy', e1') nextExpr
+
+            -- let newVar = C.toVar $ fst $ head varTypePairs
+            -- newMyType <- convertMyTypeToTy myType
+            -- newE1 <- convertExpr e1
+            -- newE2 <- convertExpr e2
+            -- return $ L2.LetE (newVar, [], newMyType, newE1) newE2
         (ExprLetLoc locRegion locExpress e) -> do
             locVar <- convertLocRegionToLocVar locRegion
             newE <- convertExpr e
@@ -200,6 +211,85 @@ convertExpr expr = do
         
             -- Failed "convertExpr: Not implemented for letregion expressions"
         -- _ -> Failed "convertExpr: Not implemented for this expression type"
+    where
+        -- getVarTypePairsFromPatDeconstruct :: PatDeconstruct -> MyType -> E [(String, MyType)]
+        -- getVarTypePairsFromPatDeconstruct (PatVar (Var v)) myType = return [(v, myType)]
+        -- getVarTypePairsFromPatDeconstruct (PatTuple (PatDeconstructs patDeconstructs)) (AST.ProdTy (MyTypes myTypes)) = mapVarTypePairs' patDeconstructs myTypes
+        -- getVarTypePairsFromPatDeconstruct _ _ = error "Unsupported pattern deconstruct or type in getVarTypePairsFromPatDeconstruct"
+
+
+        -- TODO change to generate fresh pairs for each inner tuple
+        -- mapVarTypePairs' :: [PatDeconstruct] -> [MyType] -> [Int] -> E [(String, MyType)]
+        -- mapVarTypePairs' [] [] _ = return []
+        -- mapVarTypePairs' (PatVar (Var v) : restDeconstructs) t@(ty : restTypes) (i : restIndices) = do
+        --     let overallVarName = "tup_" ++ v
+        --         newVarTypePair = (v, ty)
+        --     nextDeconstructs <- mapVarTypePairs' restDeconstructs restTypes restIndices
+        --     return $ newVarTypePair : nextDeconstructs
+        -- mapVarTypePairs' (PatTuple (PatDeconstructs patDeconstructs) : restDeconstructs) (AST.ProdTy (MyTypes myTypes) : restTypes) (i : restIndices) = do
+        --     currDeconstructs <- mapVarTypePairs' patDeconstructs myTypes restIndices
+        --     nextDeconstructs <- mapVarTypePairs' restDeconstructs restTypes restIndices
+        --     return $ currDeconstructs ++ nextDeconstructs
+        -- mapVarTypePairs' _ _ _ = Failed $ "mapVarTypePairs': Not implemented for this pattern deconstruct and type combination"
+
+        -- getTupName :: [PatDeconstruct] -> String
+        -- getTupName [] = ""
+        -- getTupName patDeconstructs = "tup" ++ getTupName' patDeconstructs
+
+        -- getTupName' :: [PatDeconstruct] -> String
+        -- getTupName' [] = ""
+        -- getTupName' (PatVar (Var v) : rest) = ('_' : v) ++ getTupName' rest
+        -- getTupName' (PatTuple (PatDeconstructs patDeconstructs) : rest) = "tup" ++ getTupName' patDeconstructs ++ "_" ++ getTupName' rest
+        concatMapLetExprs :: [(String, MyType, Int, String)] -> L2.Exp2 -> E L2.Exp2
+        concatMapLetExprs [] express = return express
+        concatMapLetExprs ((varName, varType, projIndex, refTupName) : rest) express = do 
+            nextExprs <- concatMapLetExprs rest express
+            newVarType <- convertMyTypeToTy varType
+            
+            if projIndex < 0 then Failed $ "concatMapLetExprs: Invalid projIndex " ++ show projIndex ++ " for variable " ++ varName
+            else return $ L2.LetE (C.toVar varName, [], newVarType, L2.ProjE projIndex (L2.VarE $ C.toVar refTupName)) nextExprs
+            
+
+        -- TODO technically this should probably be moved to before translation to L2 proper because I don't check created variable name against environment variables
+        -- This means if I have multiple statements of form "let () = ...", it will not work correctly
+        mapVarType :: PatDeconstruct -> MyType -> E [(String, MyType, Int, String)]
+        mapVarType p t = mapVarType' p t (-1) ""
+
+        -- returns list of (tuple name, type, proj index, reference tuple name)
+        mapVarType' :: PatDeconstruct -> MyType -> Int -> String -> E [(String, MyType, Int, String)]
+        mapVarType' (PatVar (Var v)) ty i refTupName = do 
+            -- if just a variable mapping, simple mapping
+            if i < 0 then return [(v, ty, i, refTupName)]
+            else return [(v, ty, i, refTupName)]
+        mapVarType' p@(PatTuple (PatDeconstructs patDeconstructs)) t@(AST.ProdTy (MyTypes myTypes)) i refTupName = do
+            let newTupName = getTupName'' p
+            innerMaps <- mapVarTypes patDeconstructs myTypes [0..] newTupName
+            return $ (newTupName, t, i, refTupName) : innerMaps
+
+        
+        mapVarType' _ _ _ _ = Failed "mapVarType': Not implemented for this pattern deconstruct and type combination"
+
+            -- return $ L2.VarE (C.toVar v)
+
+        mapVarTypes :: [PatDeconstruct] -> [MyType] -> [Int] -> String -> E [(String, MyType, Int, String)]
+        mapVarTypes [] [] _ _ = return []
+        mapVarTypes (p:ps) (ty:tys) (i:is) refTupName = do
+            currVarTypes <- mapVarType' p ty i refTupName
+            nextVarTypes <- mapVarTypes ps tys is refTupName
+            return $ currVarTypes ++ nextVarTypes
+        mapVarTypes _ _ _ _ = Failed "mapVarTypes: Not implemented for this pattern deconstruct and type combination"
+
+        getTupName'' :: PatDeconstruct -> String 
+        getTupName'' (PatVar (Var v)) = '_' : v
+        getTupName'' (PatTuple (PatDeconstructs patDeconstructs)) = "tup" ++ concatMap getTupName'' patDeconstructs ++ "_"
+
+
+
+
+
+
+
+
 
 
 convertPats :: Pats -> E [(C.DataCon, [(C.Var, L2.LocVar)], L2.Exp2)]
@@ -213,22 +303,27 @@ convertPat (Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
     return (dataCon, newPatMatches, newExpr)
 
 convertPatMatch :: PatMatch -> E (C.Var, L2.LocVar)
-convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.PackedTy _ locRegion)) = do
+convertPatMatch (PatMatch (PatVar (AST.Var v)) (AST.PackedTy _ locRegion)) = do
     locVar <- convertLocRegionToLocVar locRegion
     return (C.toVar v, C.Single locVar)
-convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.IntTy locRegion)) = do
+convertPatMatch (PatMatch (PatVar (AST.Var v)) (AST.IntTy locRegion)) = do
     locVar <- convertLocRegionToLocVar locRegion
     -- TODO figure out how to deal with boxed vs unboxed here
     return (C.toVar v, C.Single locVar)
-convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.FloatTy locRegion)) = do
+convertPatMatch (PatMatch (PatVar (AST.Var v)) (AST.FloatTy locRegion)) = do
     locVar <- convertLocRegionToLocVar locRegion
     return (C.toVar v, C.Single locVar)
-convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.BoolTy locRegion)) = do
+convertPatMatch (PatMatch (PatVar (AST.Var v)) (AST.BoolTy locRegion)) = do
     locVar <- convertLocRegionToLocVar locRegion
     return (C.toVar v, C.Single locVar)
-convertPatMatch (PatMatch (ValVar (AST.Var v)) (AST.CharTy locRegion)) = do
+convertPatMatch (PatMatch (PatVar (AST.Var v)) (AST.CharTy locRegion)) = do
     locVar <- convertLocRegionToLocVar locRegion
     return (C.toVar v, C.Single locVar)
+-- TODO add support for tuples here, need more in original language
+-- convertPatMatch (PatMatch (PatVar (AST.Var v)) (AST.ProdTy (MyTypes myTypes))) = do
+    -- sa,f
+    -- lq3rlmw
+-- convertPatMatch (PatMatch (PatTuple (PatDeconstructs patDeconstructs)) (AST.ProdTy (MyTypes myTypes))) = do
 convertPatMatch _ = Failed "convertPatMatch: Unsupported pattern match"
 
 
