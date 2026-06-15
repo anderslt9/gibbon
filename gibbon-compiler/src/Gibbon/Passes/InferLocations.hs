@@ -1859,6 +1859,9 @@ inferExp ddefs env@FullEnv{dataDefs} ex0 dest =
               acs = concat $ [c | (_,_,c) <- lsrec]
               aty = [b | (_,b,_) <- lsrec]
            -- unify projection locations with variable type locations: this kind of does what copyTuple should be doing
+          
+          -- anderslt: this is returning the incorrect type.  It bases it the type off of the 
+          -- let expression left side type rather than the right side
           adests <- mapM destFromType' tys
           let e' = L2.LetE (vr,[], ty, L2.MkProdE als) bod'
           let go (e'', tys) r@(l, t, dt)
@@ -1875,7 +1878,9 @@ inferExp ddefs env@FullEnv{dataDefs} ex0 dest =
           (L2.LetE bind@(vr',_,_,_) bod1, ty1) <- foldM go (e', aty) $ zip3 als aty adests
           (bod'',ty'',cs''') <- handleTrailingBindLoc vr' (bod1, ProdTy ty1, L.nub $ cs' ++ acs)
           fcs <- tryInRegion cs'''
-          tryBindReg (L2.LetE bind bod'', ty'', fcs)
+          tryBindReg (L2.LetE bind bod'', ty', fcs)
+          -- anderslt: this is the original, changing ty'' to ty' for now
+          -- tryBindReg (L2.LetE bind bod'', ty'', fcs)
 
         WithArenaE v e -> do
           (e',ty,cs) <- inferExp ddefs (extendVEnv v ArenaTy env) e NoDest
