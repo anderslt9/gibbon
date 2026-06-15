@@ -1150,6 +1150,14 @@ generateTupleProjs toplevel env ((p,n):pats) tup exp2 =
         (PWildCard _) -> do
           generateTupleProjs toplevel env pats tup exp2
 
+        (PTuple _ Boxed pats') -> do 
+          w <- gensym "tup"
+          ty' <- newMetaTy
+          let tupexp = LetE (w, [], ty', ProjE n tup)
+          innerTups <- generateTupleProjs toplevel env (reverse $ zip pats' [0..]) (VarE w) exp2 
+          restTups <- generateTupleProjs toplevel env pats tup innerTups
+          pure $ tupexp restTups
+
         _ -> error $ "generateTupleProjs: Pattern not handled: " ++ prettyPrint p
 
   where
