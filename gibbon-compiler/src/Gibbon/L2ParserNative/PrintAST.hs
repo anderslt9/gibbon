@@ -63,8 +63,8 @@ instance PrintAST Program where
 
 --------- data type and function declarations --------- 
 instance PrintAST DataTypeDecl where
-    printAST depth (DataTypeDecl typeCon dataFields) =
-        getFullExpr depth "Data Type Declaration" (getChildren depth typeCon dataFields)
+    printAST depth (DataTypeDecl typeCon typeArgs dataFields) =
+        getFullExpr depth "Data Type Declaration" (getChildren depth typeCon typeArgs dataFields)
 
 instance PrintAST DataField where
     printAST depth (DataField dataCon combinedTypeCons) =
@@ -231,3 +231,9 @@ instance PrintAST MyTypes where
 
 instance PrintAST PatDeconstructs where
     printAST depth (PatDeconstructs patDeconstructs) = addList depth "Pattern Deconstruction" patDeconstructs
+
+instance PrintAST TypeArgs where
+    printAST depth (TypeArgs typeArgs) = addList depth "Type Arguments" typeArgs
+
+instance PrintAST Char where
+    printAST _depth char = [char]

@@ -32,6 +32,7 @@ data SimpleCfg = SimpleCfg {
                     showRaw :: Bool,
                     showInitialParse :: Bool,
                     showTyped :: Bool,
+                    showAfterPasses :: Bool,
                     showL2AST :: Bool
                     } deriving Show
 
@@ -41,6 +42,7 @@ baseCfg = SimpleCfg {   inFiles = [],
                         showTokens = True,
                         showRaw = False,
                         showInitialParse = True,
+                        showAfterPasses = False,
                         showTyped = False,
                         showL2AST = True
 }
@@ -89,8 +91,8 @@ printTest config = do
             parsed_str = fmap (printAST 0) ast
             -- gets typed AST
             -- programPasses = [Pass.replaceLocRegionNames, Pass.replaceLocRegionInAfterExprs]
-            ast' = ast >>= Pass.runProgramPasses Pass.all_passes
-            typed_ast = ast' >>= inferProgram
+        ast' <- Pass.runProgramPasses Pass.allPasses ast
+        let typed_ast = ast' >>= inferProgram
             -- gets L2 AST
             l2_ast = typed_ast >>= convertToL2AST
         
@@ -99,6 +101,9 @@ printTest config = do
         
         -- displays pretty result
         displayResult parsed_str "Pretty Parse Result" i config id showInitialParse
+
+        -- displays result after passes
+        displayResult ast' "After Passes" i config (printAST 0) showAfterPasses
         
         -- displays typed AST
         displayResult typed_ast "Typed AST" i config (\t_ast -> "Return type: " ++ show (tType t_ast) ++ "\n" ++ printAST 0 (tNode t_ast)) showTyped
@@ -130,6 +135,7 @@ setConfig args = setConfig' args baseCfg ""
             | "--show-tokens" `isPrefixOf` arg = setConfig' rest (cfg {showTokens = getBoolean arg}) ""
             | "--show-raw" `isPrefixOf` arg = setConfig' rest (cfg {showRaw = getBoolean arg}) "" 
             | "--show-initial-parse" `isPrefixOf` arg = setConfig' rest (cfg {showInitialParse = getBoolean arg}) ""
+            | "--show-after-passes" `isPrefixOf` arg = setConfig' rest (cfg {showAfterPasses = getBoolean arg}) ""
             | "--show-typed" `isPrefixOf` arg = setConfig' rest (cfg {showTyped = getBoolean arg}) ""
             | "--show-l2ast" `isPrefixOf` arg = setConfig' rest (cfg {showL2AST = getBoolean arg}) ""
 

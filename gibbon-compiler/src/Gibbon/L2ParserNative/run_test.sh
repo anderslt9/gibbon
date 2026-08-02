@@ -51,10 +51,10 @@ for file in $corr_files; do
     echo "Running test for file: $file.hs with extra parameters: $extra_parameters"
     echo "Output will be saved to: $output_file"
     echo "Output from L2 Parser: " > $output_file
-    cabal v2-run gibbon -v0 -- --run --l2 --packed --no-ran $extra_parameters $l2_parser_native_dir/tests/$file.hs >> $output_file
+    cabal v2-run gibbon -v0 -- --run --l2 --packed --no-ran $extra_parameters $l2_parser_native_dir/tests/$file.hs >> $output_file 2>&1
     echo "" >> $output_file
     echo "Output from Native Gibbon: " >> $output_file
-    cabal v2-run gibbon -v0 -- --run --packed --no-ran $extra_parameters $l2_parser_native_dir/tests/gibbon-native/$file.hs >> $output_file
+    cabal v2-run gibbon -v0 -- --run --packed --no-ran $extra_parameters $l2_parser_native_dir/tests/gibbon-native/$file.hs >> $output_file 2>&1
     rm $l2_parser_native_dir/tests/$file.c
     rm $l2_parser_native_dir/tests/$file.exe
     rm $l2_parser_native_dir/tests/gibbon-native/$file.c

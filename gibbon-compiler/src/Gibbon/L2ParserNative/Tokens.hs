@@ -81,6 +81,9 @@ data Token
     | TokenPrintFloat Pos
     | TokenPrintBool Pos
 
+    | TokenReadPackedFile Pos
+    | TokenWritePackedFile Pos
+
     -- other
     | TokenMain Pos
     | TokenNewLine Pos
@@ -168,6 +171,9 @@ pos (TokenPrintInt p) = p
 pos (TokenPrintChar p) = p
 pos (TokenPrintFloat p) = p
 pos (TokenPrintBool p) = p
+
+pos (TokenReadPackedFile p) = p
+pos (TokenWritePackedFile p) = p
 
 -- other
 pos (TokenMain p)       = p

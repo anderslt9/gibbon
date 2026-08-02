@@ -93,6 +93,9 @@ import Gibbon.L2ParserNative.Lexer
     printFloat  { TokenPrintFloat _ }
     printBool   { TokenPrintBool _ }
 
+    readPackedFile { TokenReadPackedFile _ }
+    writePackedFile { TokenWritePackedFile _ }
+
     -- base types
     Int         { TokenIntType _ }
     Float       { TokenFloatType _ }
@@ -126,20 +129,24 @@ MainExpr :: { Expr }
 
 -- data type declarations
 DataTypeDecl :: { DataTypeDecl }
-    : data UVar '=' DataFieldStar { DataTypeDecl (TypeCon $2) (reverseList DataFields $4) }
+    : data UVar LVarStar'=' DataFieldStar { DataTypeDecl (TypeCon $2) (reverseList TypeArgs $3) (reverseList DataFields $5) }
 
 DataField :: { DataField }
     : UVar CombinedTypeStar { DataField (DataCon $1) (reverseList MyTypes $2) }
 
 CombinedType :: { MyType }
     : UVar                      { PackedTy (TypeCon $1) EmptyLocRegion }
+    | LVar                      { InferTy $1 EmptyLocRegion }
     | BaseType                  { $1 }
     | '(' CombinedTypeStar ')'  { ProdTy (reverseList MyTypes $2) }
 
+-- TODO probably need to add new type for handling type variables
 MyType :: { MyType }
     : BaseTypeFunc '@' LocRegion    { $1 $3 }
     | BaseType                      { $1 }
     | UVar '@' LocRegion            { PackedTy (TypeCon $1) $3 }
+    | LVar '@' LocRegion            { InferTy $1 $3 }
+    | LVar                          { InferTy $1 EmptyLocRegion }
     | '(' MyTypeCommaSepStar ')'    { ProdTy (reverseList MyTypes $2) }
 
 -- function declarations
@@ -231,12 +238,14 @@ ExprInlineComp :: { Expr }
 ExprPrimApp :: { Expr }
     : ExprArith                      { $1 }
     | ExprPrint                      { $1 }
+    | ExprFile                       { $1 }
 
 ExprPrint :: { Expr }
     : printInt Expr               { ExprPrimApp PrintInt   (Exprs [$2]) }
     | printChar Expr              { ExprPrimApp PrintChar  (Exprs [$2]) }
     | printFloat Expr             { ExprPrimApp PrintFloat (Exprs [$2]) }
     | printBool Expr              { ExprPrimApp PrintBool  (Exprs [$2]) }
+    -- TODO | printSym
 
 ExprArith :: { Expr }
     : ExprInline '+' ExprInline         { ExprPrimApp Add  (Exprs [$1, $3]) }
@@ -263,6 +272,10 @@ ExprArith :: { Expr }
     | ExprInline '&&' ExprInline        { ExprPrimApp And  (Exprs [$1, $3]) }
     | ExprInline '||' ExprInline        { ExprPrimApp Or   (Exprs [$1, $3]) }
 
+-- TODO if I add type argument support, change readPackedFile
+ExprFile :: { Expr }
+    : readPackedFile STRING_LIT MyType          { ExprPrimApp (ReadPackedFile (Just $2) (TypeCon "") Nothing $3) (Exprs []) }
+    | writePackedFile STRING_LIT MyType Expr    { ExprPrimApp (WritePackedFile $2 $3) (Exprs [$4]) }
 -- ExprOr :: { Expr }
 --     : ExprAnd                 { $1 }
 --     | ExprOr '||' ExprAnd     { ExprBinOp Or $1 $3 }

@@ -3,8 +3,8 @@ module Gibbon.L2ParserNative.Passes where
 import Gibbon.L2ParserNative.AST
 import Gibbon.L2ParserNative.ConvertToTypedAST
 import Control.Monad (foldM)
--- import Control.Monad.IO.Class (liftIO)
-import Gibbon.L2ParserNative.Helper (E(Failed))
+import Control.Monad.IO.Class (liftIO)
+import Gibbon.L2ParserNative.Helper (E(Ok, Failed))
 -- import Gibbon.L2ParserNative.Helper (E(Failed), concatMapM)
 import Control.Monad.Reader (ReaderT(runReaderT), lift)
 
@@ -53,13 +53,14 @@ data Pass = Pass
     , onLocRegions :: LocRegions -> (InferM LocRegion) LocRegions
     , onMyTypes :: MyTypes -> (InferM LocRegion) MyTypes
     , onPatDeconstructs :: PatDeconstructs -> (InferM LocRegion) PatDeconstructs
+    , onTypeArgs :: TypeArgs -> (InferM LocRegion) TypeArgs
     }
 
 idPass :: Pass
 idPass = Pass return return return return return return return return return return
               return return return return return return return return return return
               return return return return return return return return return return
-              return return return
+              return return return return
     -- { onProgram = return . createTypedNode (LocRelativeVar "idPassProgram") . id
     -- , onDataTypeDecl = return . createTypedNode (LocRelativeVar
 
@@ -69,18 +70,26 @@ runProgramPass' program pass = walkProgram pass program
 runProgramPasses' :: Program -> [Pass] -> E Program
 runProgramPasses' = foldM runProgramPass'
 
-runProgramPass :: Program -> PassNamed -> E Program
-runProgramPass program (PassNamed _name pass) = do
-    -- liftIO $ putStrLn $ "Running pass: " ++ name
-    runProgramPass' program pass
 
-runProgramPasses :: [PassNamed] -> Program -> E Program
-runProgramPasses passes program = foldM runProgramPass program passes
+-- TODO add some infrastructure here to do different printing (maybe use Config)
+
+runProgramPass :: E Program -> PassNamed -> IO (E Program)
+runProgramPass program (PassNamed name pass) = do
+    liftIO $ putStrLn $ "Running pass: " ++ name
+    case program of 
+        Ok p -> return $ runProgramPass' p pass
+        Failed e -> return $ Failed e
+
+runProgramPasses :: [PassNamed] -> E Program -> IO (E Program)
+runProgramPasses passes program = liftIO $ foldM runProgramPass program passes
 
 ----------------------------------------------------------------------------------------
 ------------------------ Passes --------------------------------------------------------
-all_passes :: [PassNamed]
-all_passes = [replaceLocRegionNames, replaceLocRegionInAfterExprs, replaceNeq]
+allPasses :: [PassNamed]
+allPasses =    [ replaceLocRegionNames
+                , replaceLocRegionInAfterExprs
+                , replaceNeq
+                ]
 
 replaceLocRegionNames :: PassNamed
 replaceLocRegionNames = PassNamed "Replace Location Region Names" $ idPass
@@ -115,6 +124,26 @@ replaceNeq = PassNamed "Replace Not Equal with If-Then-Else" $ idPass
         e -> return e
     }
 
+-- TODO type checking pass for special primTys
+
+-- TODO rewrite primTYs
+
+-- replaceInferTy :: PassNamed
+-- replaceInferTy = PassNamed "Replace InferTy" $ idPass 
+--     { onMyType = \case
+--         InferTy s loc -> do
+--             envType <- getEnvType s
+--             -- lift . Failed $ s ++ ": " ++ show envType
+--             case envType of
+--                 Just EnvDataCon -> do
+--                     let newMyType = PackedTy (TypeCon s) loc
+--                     return newMyType
+--                 Nothing -> return $ InferTy s loc
+--                 _ -> lift . Failed $ "replaceInferTy: Unexpected EnvType for InferTy: " ++ s
+--         e -> return e
+--             }
+
+
 ----------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------
 
@@ -131,10 +160,11 @@ walkProgram pass (Program dataTypeDecls fd@(FuncDecls funcDecls) expr) = do
         ) env2
 
 walkDataTypeDecl :: Pass -> DataTypeDecl -> (InferM LocRegion) DataTypeDecl
-walkDataTypeDecl pass (DataTypeDecl typeCon dataFields) = do
+walkDataTypeDecl pass (DataTypeDecl typeCon typeArgs dataFields) = do
     typeCon' <- walkTypeCon pass typeCon
+    typeArgs' <- walkTypeArgs pass typeArgs
     dataFields' <- walkDataFields pass dataFields
-    let newDataTypeDecl = DataTypeDecl typeCon' dataFields'
+    let newDataTypeDecl = DataTypeDecl typeCon' typeArgs' dataFields'
     onDataTypeDecl pass newDataTypeDecl
 
 walkDataField :: Pass -> DataField -> (InferM LocRegion) DataField
@@ -231,6 +261,10 @@ walkMyType pass (StringTy loc) = do
 walkMyType pass (ProdTy myTypes) = do
     myTypes' <- walkMyTypes pass myTypes
     let newMyType = ProdTy myTypes'
+    onMyType pass newMyType
+walkMyType pass (InferTy s loc) = do
+    loc' <- walkLocRegion pass loc
+    let newMyType = InferTy s loc'
     onMyType pass newMyType
 walkMyType pass NoneTy = onMyType pass NoneTy
 
@@ -478,3 +512,7 @@ walkPatDeconstructs pass (PatDeconstructs patDeconstructs) = do
     patDeconstructs' <- mapM (walkPatDeconstruct pass) patDeconstructs
     let newPatDeconstructs = PatDeconstructs patDeconstructs'
     onPatDeconstructs pass newPatDeconstructs
+
+walkTypeArgs :: Pass -> TypeArgs -> (InferM LocRegion) TypeArgs
+walkTypeArgs pass t@(TypeArgs _typeArgs) = do
+    onTypeArgs pass t

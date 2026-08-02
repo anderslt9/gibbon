@@ -4,7 +4,7 @@ module Gibbon.L2ParserNative.AST where
 data Program = Program DataTypeDecls FuncDecls Expr deriving (Show,Eq)
 
 -- data type declarations
-data DataTypeDecl = DataTypeDecl TypeCon DataFields deriving (Show,Eq)
+data DataTypeDecl = DataTypeDecl TypeCon TypeArgs DataFields deriving (Show,Eq)
 data DataField = DataField DataCon MyTypes deriving (Show,Eq)
 -- data CombinedTypeCon = CTCTypeCon TypeCon | CTCBase BaseType deriving (Show,Eq)
 
@@ -17,11 +17,9 @@ data FuncDecl = FuncDecl FuncVar TypeScheme FuncVar LocRegions Vars Expr derivin
 newtype TypeScheme = TypeScheme MyTypes deriving (Show,Eq)
 -- data CombinedType = CTLocated LocatedType | CTBase BaseType deriving (Show,Eq)
 data MyType = IntTy LocRegion | FloatTy LocRegion | BoolTy LocRegion | CharTy LocRegion | StringTy LocRegion 
-            | PackedTy TypeCon LocRegion | ProdTy MyTypes | NoneTy deriving Show
+            | PackedTy TypeCon LocRegion | ProdTy MyTypes | InferTy String LocRegion | NoneTy deriving Show
 
 instance Eq MyType where
-    (==) (PackedTy tc1 loc1) (PackedTy tc2 loc2) =
-        tc1 == tc2 && loc1 == loc2
     (==) (IntTy EmptyLocRegion) (IntTy EmptyLocRegion) = True
     (==) (IntTy EmptyLocRegion) (IntTy _) = True
     (==) (IntTy _) (IntTy EmptyLocRegion) = True
@@ -46,9 +44,17 @@ instance Eq MyType where
     (==) (StringTy EmptyLocRegion) (StringTy _) = True
     (==) (StringTy _) (StringTy EmptyLocRegion) = True
     (==) (StringTy loc1) (StringTy loc2) = loc1 == loc2
+
+    (==) (PackedTy tc1 loc1) (PackedTy tc2 loc2) =
+        tc1 == tc2 && loc1 == loc2
     
     (==) (ProdTy tys1) (ProdTy tys2) = tys1 == tys2
 
+    (==) (InferTy s1 EmptyLocRegion) (InferTy s2 EmptyLocRegion) = s1 == s2
+    (==) (InferTy s1 EmptyLocRegion) (InferTy s2 _) = s1 == s2
+    (==) (InferTy s1 _) (InferTy s2 EmptyLocRegion) = s1 == s2
+    (==) (InferTy s1 loc1) (InferTy s2 loc2) = s1 == s2 && loc1 == loc2
+    
     (==) NoneTy NoneTy = True
     (==) _ _ = False
 
@@ -78,6 +84,7 @@ data Lit = IntLit Int | FloatLit Float | BoolLit Bool | CharLit Char | StringLit
 data Expr = ExprVal Val | ExprPrimApp PrimFunc Exprs | ExprFuncApp FuncVar LocRegions Exprs | ExprDataConApp DataCon LocRegion Exprs
             | ExprCase Val Pats | ExprLet PatDeconstruct MyType Expr Expr | ExprLetLoc LocRegion LocExpress Expr
             | ExprLetRegion RegionVar Expr | ExprIf Expr Expr Expr deriving (Show,Eq)
+
 data Pat = Pat DataCon PatMatches Expr deriving (Show,Eq)
 data PatMatch = PatMatch PatDeconstruct MyType deriving (Show,Eq)
 data PrimFunc = 
@@ -85,6 +92,7 @@ data PrimFunc =
         | Eq | FEq | CEq | Gt | Lt | FGt | FLt | Ge | Le | FGe | 
         FLe | Neq | And | Or 
         | PrintInt | PrintChar | PrintFloat | PrintBool
+        | ReadPackedFile (Maybe FilePath) TypeCon (Maybe Var) MyType | WritePackedFile FilePath MyType
         
         -- | PrintInt | PrintChar | PrintFloat | PrintBool
         deriving (Show,Eq)
@@ -115,3 +123,4 @@ newtype FuncDecls = FuncDecls [FuncDecl] deriving (Show,Eq)
 newtype LocRegions = LocRegions [LocRegion] deriving (Show,Eq)
 newtype MyTypes = MyTypes [MyType] deriving (Show,Eq)
 newtype PatDeconstructs = PatDeconstructs [PatDeconstruct] deriving (Show,Eq)
+newtype TypeArgs = TypeArgs [String] deriving (Show,Eq)

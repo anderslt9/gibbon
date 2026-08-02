@@ -22,12 +22,18 @@ type TyEnv a b = M.Map a b
 emptyTyEnv :: TyEnv a b
 emptyTyEnv = M.empty
 
-data MyEnv a = MyEnv { dcEnv  :: TyEnv String ([MyType], MyType) -- Data constructor maps to type constructors and result type
+data MyEnv a = MyEnv { dcEnv  :: TyEnv String DataTypeInfo -- Data constructor maps to type constructors and result type
                      , vEnv   :: TyEnv String MyType
                      , fEnv   :: TyEnv String FuncInfo -- Function maps to argument types and return type
                      , locEnv :: TyEnv String LocInfo -- Location variable maps to (type, region variable)
                      , regEnv :: TyEnv String RegInfo -- Region variable maps to type
                      } deriving Show
+
+data DataTypeInfo = DataTypeInfo 
+    { dataTypeInfoCon :: MyType 
+    , dataTypeInfoFields :: [MyType]
+    , dataTypeInfoTyArgs :: [String]
+    } deriving Show
 
 data FuncInfo = FuncInfo
     { funcArgTypes :: [MyType]
@@ -106,22 +112,22 @@ lookupVar v = do
         Just ty -> return ty
         Nothing -> lift . Failed $ "Variable " ++ show v ++ " not found in environment"
 
-lookupDataCon :: String -> InferM a ([MyType], MyType)
+lookupDataCon :: String -> InferM a DataTypeInfo
 lookupDataCon dc = do
     env <- asks dcEnv
     case M.lookup dc env of
-        Just ty -> return ty
+        Just dataInfo -> return dataInfo
         Nothing -> lift . Failed $ "Data constructor " ++ show dc ++ " not found in environment"
 
-lookupModDataCon :: String -> LocRegion -> InferM LocRegion ([MyType], MyType)
+lookupModDataCon :: String -> LocRegion -> InferM LocRegion DataTypeInfo
 lookupModDataCon dc loc = do
     env <- asks dcEnv
     case M.lookup dc env of
-        Just (argTys, resTy) -> do
-            let newResTy = case resTy of
+        Just (DataTypeInfo dataTypeCon dataTypeFields dataTypeTyArgs) -> do
+            let newDataTypeCon = case dataTypeCon of
                     PackedTy tc _ -> PackedTy tc loc
-                    _             -> resTy
-            return (argTys, newResTy)
+                    _             -> dataTypeCon
+            return (DataTypeInfo newDataTypeCon dataTypeFields dataTypeTyArgs)
         Nothing -> lift . Failed $ "Data constructor " ++ show dc ++ " not found in environment"
 
 lookupFunc :: String -> InferM a FuncInfo
@@ -147,7 +153,7 @@ lookupReg rv = do
 
 -- Extension Functions
 -- TODO go through and make sure variable not already in environment for all additions to environment
-extendDataConEnv :: String -> ([MyType], MyType) -> (InferM a) b -> (InferM a) b
+extendDataConEnv :: String -> DataTypeInfo -> (InferM a) b -> (InferM a) b
 extendDataConEnv dc ty = local (\env -> env { dcEnv = M.insert dc ty (dcEnv env) })
 
 extendVEnv :: String -> MyType -> (InferM a) b -> (InferM a) b
@@ -209,6 +215,8 @@ getEnvType v = do
                                     case M.lookup v envR of
                                         Just _ -> return $ Just EnvReg
                                         Nothing -> return Nothing
+
+-- checkDataTypeExists :: String -> (InferM a) Bool
 
 checkVarNameExists :: String -> (InferM a) Bool
 checkVarNameExists v = do
@@ -334,7 +342,7 @@ inferExpr expr = case expr of
     -- TODO deal with location region stuff
     (ExprDataConApp (DataCon dataCon) locRegion (Exprs exprs)) -> do
         typedExprs <- mapM inferExpr exprs
-        (fieldTys, resTy) <- lookupModDataCon dataCon locRegion
+        (DataTypeInfo resTy fieldTys _) <- lookupModDataCon dataCon locRegion
         let argTys = map tType typedExprs
             newIDataConApp = ExprDataConApp (DataCon dataCon) locRegion (Exprs (map tNode typedExprs))
         if and $ zipWith (==^^) argTys fieldTys
@@ -420,7 +428,6 @@ inferExpr expr = case expr of
             -- TODO this only occurs when an empty location expression is given, ensure correctness
             _ -> lift . Failed $ "inferExpr: Not implemented for this locExpress type in letloc"
                     
-    -- [x] TODO deal with letloc and letregion
     (ExprIf condExpr thenExpr elseExpr) -> do
         typedCond <- inferExpr condExpr
         typedThen <- inferExpr thenExpr
@@ -473,8 +480,6 @@ inferExpr expr = case expr of
 -- TODO check if val should be var???  also need to deal with location regions
 inferPatMatch :: PatMatch -> (InferM LocRegion) (TypedNode PatMatch)
 inferPatMatch (PatMatch (PatVar (Var var)) locatedType) = do
-    -- [x]BUG HERE: val doesn't have type, but need to make sure variable not in scope
-    -- typedVal <- inferVal val
     varExists <- checkVarNameExists var
     if varExists
         then lift . Failed $ "inferPatMatch: Variable " ++ show var ++ " already defined in environment"
@@ -515,7 +520,7 @@ inferPat :: MyType -> Pat -> (InferM LocRegion) (TypedNode Pat)
 inferPat myTy (Pat (DataCon dataCon) (PatMatches patMatches) expr) = do
     matchedTypes <- mapM inferPatMatch patMatches
     let argTypes = map tType matchedTypes
-    (typeCons, result) <- lookupDataCon dataCon
+    (DataTypeInfo result typeCons _) <- lookupDataCon dataCon
     
     -- check to make sure actual type constructors match expected
     if not $ and $ zipWith (==^^) argTypes typeCons
@@ -586,12 +591,12 @@ inferLit lit = case lit of
     -- _ -> lift . Failed $ "inferLit: Not implemented for this literal type"
 
 -- Data Declaration Loading
-extractDataCons :: DataTypeDecl -> [(DataCon, ([MyType], MyType))]
-extractDataCons (DataTypeDecl typeCon (DataFields dataFields)) = map extractDataField dataFields
+extractDataCons :: DataTypeDecl -> [(DataCon, DataTypeInfo)]
+extractDataCons (DataTypeDecl typeCon (TypeArgs typeArgs) (DataFields dataFields)) = map extractDataField dataFields
     where
-        extractDataField :: DataField -> (DataCon, ([MyType], MyType))
+        extractDataField :: DataField -> (DataCon, DataTypeInfo)
         extractDataField (DataField dataCon (MyTypes myTys)) =
-            (dataCon, (myTys, PackedTy typeCon EmptyLocRegion))
+            (dataCon, DataTypeInfo (PackedTy typeCon EmptyLocRegion) myTys typeArgs)
 
 loadDataDecls :: DataTypeDecls -> MyEnv LocRegion -> E (MyEnv LocRegion)
 loadDataDecls (DataTypeDecls decls) env = foldM loadDataDecl env decls
@@ -599,11 +604,11 @@ loadDataDecls (DataTypeDecls decls) env = foldM loadDataDecl env decls
         loadDataDecl :: MyEnv LocRegion -> DataTypeDecl -> E (MyEnv LocRegion)
         loadDataDecl env2 decl = foldM loadCon env2 (extractDataCons decl)
 
-        loadCon :: MyEnv LocRegion -> (DataCon, ([MyType], MyType)) -> E (MyEnv LocRegion)
-        loadCon env2 (DataCon dataCon, (fieldTys, resTy)) 
+        loadCon :: MyEnv LocRegion -> (DataCon, DataTypeInfo) -> E (MyEnv LocRegion)
+        loadCon env2 (DataCon dataCon, dataTypeInfo) 
             | M.member dataCon (dcEnv env2) = 
                 Failed $ "Data constructor " ++ show dataCon ++ " already defined in environment"
-            | otherwise = Ok env2 { dcEnv = M.insert dataCon (fieldTys, resTy) (dcEnv env2) }
+            | otherwise = Ok env2 { dcEnv = M.insert dataCon dataTypeInfo (dcEnv env2) }
 
 -- Function Declaration Loading
 extractFuncDecls :: FuncDecls -> [(FuncVar, FuncInfo)]
@@ -694,4 +699,9 @@ primFuncToType op = case op of
     PrintFloat -> ([FloatTy EmptyLocRegion], ProdTy (MyTypes []))
     PrintBool -> ([BoolTy EmptyLocRegion], ProdTy (MyTypes []))
 
+    -- file primitives
+    ReadPackedFile (Just _) (TypeCon _) _ ty -> ([], ty)
+    WritePackedFile _ _ -> ([], ProdTy (MyTypes []))
+
+    _ -> error $ "primFuncToType: Not implemented for this primitive function: " ++ show op
 

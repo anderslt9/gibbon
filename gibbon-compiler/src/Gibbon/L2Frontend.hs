@@ -14,9 +14,9 @@ parseL2 _config filePath = do
     contents <- readFile filePath
     let tokens = lexer contents
         ast = l2ParserNative tokens
-        programPasses = [Pass.replaceLocRegionNames, Pass.replaceLocRegionInAfterExprs]
-        ast' = ast >>= Pass.runProgramPasses programPasses
-        typed_ast = ast' >>= ToTyped.inferProgram
+        programPasses = Pass.allPasses
+    ast' <- Pass.runProgramPasses programPasses ast
+    let typed_ast = ast' >>= ToTyped.inferProgram
         l2_ast = typed_ast >>= ToL2AST.convertToL2AST
     case l2_ast of
         Ok l2Ast -> return . pure $ l2Ast

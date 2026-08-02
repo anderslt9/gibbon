@@ -13,8 +13,8 @@ parseIntoL2 filePath = do
     contents <- readFile filePath
     let tokens = lexer contents
         ast = l2ParserNative tokens
-        ast' = ast >>= Pass.runProgramPasses Pass.all_passes
-        typed_ast = ast' >>= ToTyped.inferProgram
+    ast' <- Pass.runProgramPasses Pass.allPasses ast
+    let typed_ast = ast' >>= ToTyped.inferProgram
         l2_ast = typed_ast >>= ToL2AST.convertToL2AST
     case l2_ast of
         Ok l2Ast -> return l2Ast

@@ -45,10 +45,11 @@ convertDataTypeDecls (DataTypeDecls decls) = do
 
 -- setting this as linear for now, unsure how this works
 convertDataTypeDecl :: DataTypeDecl -> E (S.DDef L2.Ty2)
-convertDataTypeDecl (DataTypeDecl typeCon dataFields) = do
+convertDataTypeDecl (DataTypeDecl typeCon typeArgs dataFields) = do
     newTypeCon <- convertTypeCon typeCon
+    newTypeArgs <- convertTypeArgs typeArgs
     newDataFields <- convertDataFields dataFields
-    return $ S.DDef (C.toVar newTypeCon) [] newDataFields S.Linear
+    return $ S.DDef (C.toVar newTypeCon) newTypeArgs newDataFields S.Linear
 
 convertDataFields :: DataFields -> E [(C.DataCon, [(S.IsBoxed, L2.Ty2)])]
 convertDataFields (DataFields dataFields) = do
@@ -346,7 +347,7 @@ convertLit lit = case lit of
     _               -> Failed "convertLit: Unsupported literal type"
 -- convertLit (StringLit s) = L2.LitE s  currently no StringE in L2
 
-convertPrimFunc :: PrimFunc -> E (S.Prim a)
+convertPrimFunc :: PrimFunc -> E (S.Prim (UrTy L2.LocVar))
 convertPrimFunc p = case p of 
     Add ->  return S.AddP
     Sub ->  return S.SubP
@@ -376,6 +377,18 @@ convertPrimFunc p = case p of
     AST.PrintFloat -> return S.PrintFloat
     AST.PrintBool -> return S.PrintBool
 
+    -- file primitives
+    AST.ReadPackedFile filePath typeCon var myType -> do
+        urTy <- convertMyTyUrTy myType
+        typeCon' <- convertTypeCon typeCon
+        var' <- case var of
+            Just (Var v) -> return $ Just $ C.toVar v
+            Nothing -> Failed "convertPrimFunc: ReadPackedFile missing variable"
+        return $ S.ReadPackedFile filePath typeCon' var' urTy
+    AST.WritePackedFile filePath myType -> do 
+        urTy <- convertMyTyUrTy myType
+        return $ S.WritePackedFile filePath urTy
+
     _ ->   Failed "convertPrimFunc: Unsupported primitive function"
 
 convertLocRegionToLocVar :: LocRegion -> E C.Var
@@ -400,6 +413,10 @@ convertLocRegionToRelLocVar _ = Failed "convertLocRegionToRelLocVar: Only LocRel
 convertTypeCon :: TypeCon -> E S.TyCon
 convertTypeCon (TypeCon typeCon) = do
     return typeCon
+
+convertTypeArgs :: TypeArgs -> E [C.TyVar]
+convertTypeArgs (TypeArgs typeArgs) = do
+    return $ map (C.BoundTv . C.toVar) typeArgs
 
 convertVarsToVars :: Vars -> E [C.Var]
 convertVarsToVars (Vars vars) = return $ map (\(Var v) -> C.toVar v) vars

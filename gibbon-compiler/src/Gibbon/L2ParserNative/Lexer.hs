@@ -13,6 +13,7 @@ lexer' p (c:cs)
         -- TokenNewLine p : lexer' (advance p c) cs
         case cs of 
             (d:_) | isSpace d -> lexer' (advance p c) cs
+            [] -> lexer' (advance p c) cs
             _  -> TokenNewLine p : lexer' (advance p c) cs
     | isSpace c = lexer' (advance p c) cs
     | isAlpha c = lexVar p (c:cs)
@@ -136,6 +137,10 @@ lexVar p cs =
         ("printChar", rest) -> TokenPrintChar p : lexer' (advanceStr p "printChar") rest
         ("printFloat", rest) -> TokenPrintFloat p : lexer' (advanceStr p "printFloat") rest
         ("printBool", rest) -> TokenPrintBool p : lexer' (advanceStr p "printBool") rest
+
+        -- file read/write keywords
+        ("readPackedFile", rest) -> TokenReadPackedFile p : lexer' (advanceStr p "readPackedFile") rest
+        ("writePackedFile", rest) -> TokenWritePackedFile p : lexer' (advanceStr p "writePackedFile") rest
 
         -- main function
         ("main", rest) -> TokenMain p : lexer' (advanceStr p "main") rest
