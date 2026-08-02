@@ -117,12 +117,19 @@ import Gibbon.L2ParserNative.Lexer
     '\n'        { TokenNewLine _ }
     EOF         { TokenEOF _ }
 
-
-
 %%
 -- top-level program
+
+-- Program :: { Program }
+--     : DataTypeDeclStar FuncDeclStar MainExpr EOF { Program (reverseList DataTypeDecls $1) (reverseList FuncDecls $2) $3 }
+
 Program :: { Program }
-    : DataTypeDeclStar FuncDeclStar MainExpr EOF { Program (reverseList DataTypeDecls $1) (reverseList FuncDecls $2) $3 }
+    : TopLevelPlus EOF { assembleTopLevelProgram $1 }
+
+TopLevel :: { TopLevel }
+    : DataTypeDecl        { TopDataDecl $1 }         
+    | FuncDecl            { TopFuncDecl $1 }
+    | MainExpr            { TopMainExpr $1 }
 
 MainExpr :: { Expr }
     : main '=' Expr     { $3 }
@@ -425,6 +432,14 @@ UVar :: { String }
     : IDENT_UC       { $1 }
 
 -- repeated productions to model * operator
+TopLevelStar :: { [TopLevel] }
+    : {- empty -}                   { [] }
+    | TopLevelPlus                  { $1 }
+
+TopLevelPlus :: { [TopLevel] }
+    : TopLevel '\n'                  { [$1] }
+    | TopLevelPlus TopLevel '\n'     { $2 : $1 }
+
     -- lists of identifiers
 LVarStar :: { [String] }
     : {- empty -}            { [] }
@@ -606,6 +621,13 @@ catchE m k =
 reverseList :: ([a] -> b) -> [a] -> b
 reverseList f = f . reverse
 
-
-
+assembleTopLevelProgram :: [TopLevel] -> Program
+assembleTopLevelProgram topLevels =
+    let dataDecls = [d | TopDataDecl d <- topLevels]
+        funcDecls = [f | TopFuncDecl f <- topLevels]
+        mainExprs = [e | TopMainExpr e <- topLevels]
+    in 
+    if length mainExprs == 1
+    then Program (reverseList DataTypeDecls dataDecls) (reverseList FuncDecls funcDecls) (head mainExprs)
+    else Program (DataTypeDecls []) (FuncDecls []) (ExprVal (ValLit (IntLit 0))) -- default main expression if none or multiple are provided
 }

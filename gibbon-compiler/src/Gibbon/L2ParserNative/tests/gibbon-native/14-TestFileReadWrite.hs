@@ -1,3 +1,4 @@
+-- this is expected to fail because the parser doesn't support reading/writing packed files correctly
 data Tree = Leaf Int | Node Tree Tree
 
 mkTree :: Int -> Tree

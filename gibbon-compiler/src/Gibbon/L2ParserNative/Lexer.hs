@@ -7,7 +7,7 @@ lexer = lexer' (Pos 1 1)
 
 -- actual lexer
 lexer' :: Pos -> String -> [Token]
-lexer' p [] = [TokenEOF p]
+lexer' p [] = [TokenNewLine p, TokenEOF (advanceStr p "\n")]
 lexer' p (c:cs)
     | c == '\n' = 
         -- TokenNewLine p : lexer' (advance p c) cs
@@ -22,7 +22,7 @@ lexer' p (c:cs)
         let (str, rest) = span (/= '"') cs
         in case rest of 
             ('"':tailRest) -> TokenStringLit p str : lexer' (advanceStr p ('"':str ++ "\"")) tailRest
-            [] -> [TokenStringLit p str, TokenEOF (advanceStr p str)]
+            [] -> [TokenStringLit p str, TokenNewLine (advanceStr p str), TokenEOF (advanceStr p str)]
             _ -> []
     | c == '\'' = 
         case cs of 
@@ -84,7 +84,7 @@ lexComment cs =
 lexNum :: Pos -> [Char] -> [Token]
 lexNum p cs = 
     case span isDigit cs of
-        (num, "")   -> TokenIntLit p (read num) : [TokenEOF (advanceStr p num)]
+        (num, "")   -> TokenIntLit p (read num) : [TokenNewLine (advanceStr p num), TokenEOF (advanceStr p num)]
         (num,rest)  -> case rest of 
             ('.':ds) -> case span isDigit ds of
                             (num2, rest2) -> 

@@ -1092,9 +1092,10 @@ passes'' config@Config{dynflags} progType progl1 = case progType of
                 then do
                   -- extra L1 passes
                   l1 <- passesL1' config l1
-
+                  
                   -- L1 -> L2' (new L2 IR)
                   l2 <- passesL1ToL2 config l1
+                  -- error $ "L1: " ++ sdoc l1 ++ "\nL2: " ++ sdoc l2 
                   passes'' config (ProgL2 l2) (Just l1)
 
                 -- L1 -> L3 directly for non-packed code

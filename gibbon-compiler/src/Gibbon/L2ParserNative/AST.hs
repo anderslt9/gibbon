@@ -1,4 +1,9 @@
-module Gibbon.L2ParserNative.AST where 
+module Gibbon.L2ParserNative.AST where  
+
+data TopLevel = TopDataDecl DataTypeDecl
+              | TopFuncDecl FuncDecl
+              | TopMainExpr Expr
+              deriving (Show, Eq)
 
 -- top-level program
 data Program = Program DataTypeDecls FuncDecls Expr deriving (Show,Eq)
@@ -111,6 +116,7 @@ newtype DataCon = DataCon String deriving (Show, Eq, Ord)
 newtype Var = Var String deriving (Show, Eq, Ord)
 
 -- repeated productions to model * operator
+newtype TopLevels = TopLevels [TopLevel] deriving (Show,Eq)
 newtype Vars = Vars [Var] deriving (Show,Eq)
 newtype DataFields = DataFields [DataField] deriving (Show,Eq)
 -- newtype CombinedTypeCons = CombinedTypeCons [CombinedTypeCon] deriving (Show,Eq)
