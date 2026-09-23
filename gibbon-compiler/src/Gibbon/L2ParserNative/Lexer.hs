@@ -42,6 +42,10 @@ lexer' p (',':cs)       =  TokenComma p : lexer' (advance p ',') cs
 lexer' p ('(':cs)       =  TokenLParen p : lexer' (advance p '(') cs
 lexer' p (')':cs)       =  TokenRParen p : lexer' (advance p ')') cs
 lexer' p ('-':'-':cs)   =  lexer' (advance p '\n') (lexComment cs)
+lexer' p ('{':cs)       =  TokenLCBracket p : lexer' (advance p '{') cs
+lexer' p ('}':cs)       =  TokenRCBracket p : lexer' (advance p '}') cs
+lexer' p ('-':'#':cs)   =  TokenPragmaStart p : lexer' (advanceStr p "-#") cs
+lexer' p ('#':'-':cs)   =  TokenPragmaEnd p : lexer' (advanceStr p "#-") cs
 lexer' p ('^':cs)       =  TokenPow p : lexer' (advance p '^') cs
 lexer' p ('*':'=':'=':'*':cs) = TokenCEq p : lexer' (advanceStr p "*==*") cs
 lexer' p ('*':cs)       =  TokenMul p : lexer' (advance p '*') cs
@@ -145,5 +149,9 @@ lexVar p cs =
         -- main function
         ("main", rest) -> TokenMain p : lexer' (advanceStr p "main") rest
         
+        -- annotations
+        ("ANN", rest) -> TokenAnn p : lexer' (advanceStr p "ann") rest
+        ("type", rest) -> TokenType p : lexer' (advanceStr p "type") rest
+
         -- variables
         (_, _)    -> matchVar p cs

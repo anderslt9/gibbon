@@ -2,14 +2,16 @@ module Gibbon.L2ParserNative.AST where
 
 data TopLevel = TopDataDecl DataTypeDecl
               | TopFuncDecl FuncDecl
+              | TopAnnPragma Annotation
               | TopMainExpr Expr
+              
               deriving (Show, Eq)
 
 -- top-level program
-data Program = Program DataTypeDecls FuncDecls Expr deriving (Show,Eq)
+data Program = Program DataTypeDecls FuncDecls Annotations Expr deriving (Show,Eq)
 
 -- data type declarations
-data DataTypeDecl = DataTypeDecl TypeCon TypeArgs DataFields deriving (Show,Eq)
+data DataTypeDecl = DataTypeDecl TypeCon TypeArgs DataFields TypeAnnotationOpt deriving (Show,Eq)
 data DataField = DataField DataCon MyTypes deriving (Show,Eq)
 -- data CombinedTypeCon = CTCTypeCon TypeCon | CTCBase BaseType deriving (Show,Eq)
 
@@ -102,6 +104,10 @@ data PrimFunc =
         -- | PrintInt | PrintChar | PrintFloat | PrintBool
         deriving (Show,Eq)
 
+
+data Annotation = TypeAnn TypeCon TypeAnnotationOpt deriving (Show,Eq)
+data TypeAnnotationOpt = TypeLinear | TypeFactored deriving (Show,Eq)
+
 -- specific variable types
 -- newtype LVar = LVar String deriving (Show, Eq, Ord)
 -- newtype UVar = UVar String deriving (Show, Eq, Ord)
@@ -130,3 +136,4 @@ newtype LocRegions = LocRegions [LocRegion] deriving (Show,Eq)
 newtype MyTypes = MyTypes [MyType] deriving (Show,Eq)
 newtype PatDeconstructs = PatDeconstructs [PatDeconstruct] deriving (Show,Eq)
 newtype TypeArgs = TypeArgs [String] deriving (Show,Eq)
+newtype Annotations = Annotations [Annotation] deriving (Show,Eq)

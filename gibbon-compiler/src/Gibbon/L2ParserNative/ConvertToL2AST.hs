@@ -30,7 +30,7 @@ import GHC.Float ( float2Double )
 
 
 convertToL2AST :: TypedNode Program -> E L2.Prog2
-convertToL2AST (TypedNode locReg (Program dataTypeDecls funcDecls expr)) = do
+convertToL2AST (TypedNode locReg (Program dataTypeDecls funcDecls _anns expr)) = do
     -- L2.Prog2 (convertDataTypeDecls dataTypeDecls) (map convertFuncDecl funcDecls) (convertExpr expr)
     newDataTypeDecls <- convertDataTypeDecls dataTypeDecls
     newExpr <- convertExpr expr
@@ -45,11 +45,12 @@ convertDataTypeDecls (DataTypeDecls decls) = do
 
 -- setting this as linear for now, unsure how this works
 convertDataTypeDecl :: DataTypeDecl -> E (S.DDef L2.Ty2)
-convertDataTypeDecl (DataTypeDecl typeCon typeArgs dataFields) = do
+convertDataTypeDecl (DataTypeDecl typeCon typeArgs dataFields memLayout) = do
     newTypeCon <- convertTypeCon typeCon
     newTypeArgs <- convertTypeArgs typeArgs
     newDataFields <- convertDataFields dataFields
-    return $ S.DDef (C.toVar newTypeCon) newTypeArgs newDataFields S.Linear
+    newMemLayout <- convertMemLayout memLayout
+    return $ S.DDef (C.toVar newTypeCon) newTypeArgs newDataFields newMemLayout
 
 convertDataFields :: DataFields -> E [(C.DataCon, [(S.IsBoxed, L2.Ty2)])]
 convertDataFields (DataFields dataFields) = do
@@ -91,6 +92,10 @@ convertDataField (DataField dataCon myTypes) = do
 --     Bool   -> return S.BoolTy
 --     _      -> Failed "convertBaseType: Unsupported base type"
 -- convertBaseType String = S.StringTy   Unsure how to deal with this for now
+
+convertMemLayout :: TypeAnnotationOpt -> E L2.MemoryLayout
+convertMemLayout TypeLinear = return L2.Linear
+convertMemLayout TypeFactored = return L2.FullyFactored
 
 convertFuncDecls :: FuncDecls -> E (L2.FunDefs C.Var L2.Exp2)
 convertFuncDecls (FuncDecls funcDecls) = do

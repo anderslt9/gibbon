@@ -89,6 +89,7 @@ allPasses :: [PassNamed]
 allPasses =    [ replaceLocRegionNames
                 , replaceLocRegionInAfterExprs
                 , replaceNeq
+                , loadMemoryLayouts
                 ]
 
 replaceLocRegionNames :: PassNamed
@@ -124,6 +125,17 @@ replaceNeq = PassNamed "Replace Not Equal with If-Then-Else" $ idPass
         e -> return e
     }
 
+loadMemoryLayouts :: PassNamed
+loadMemoryLayouts = PassNamed "Load Memory Layouts" $ idPass
+    { onDataTypeDecl = \case
+        DataTypeDecl tc@(TypeCon typeCon) typeArgs dataFields _memLayout -> do
+            dataType <- lookupDataType typeCon
+            -- lift . Failed $ "loadMemoryLayouts: DataTypeDecl " ++ typeCon ++ " has no memory layout. Found: " ++ show dataType
+            return $ DataTypeDecl tc typeArgs dataFields (dataTypeFactoredType dataType)
+        -- e -> return e
+    }
+
+
 -- TODO type checking pass for special primTys
 
 -- TODO rewrite primTYs
@@ -148,23 +160,26 @@ replaceNeq = PassNamed "Replace Not Equal with If-Then-Else" $ idPass
 ----------------------------------------------------------------------------------------
 
 walkProgram :: Pass -> Program -> E Program
-walkProgram pass (Program dataTypeDecls fd@(FuncDecls funcDecls) expr) = do
-    env1 <- loadDataDecls dataTypeDecls emptyEnv
+walkProgram pass (Program dts@(DataTypeDecls dataTypeDecls) fd@(FuncDecls funcDecls) anns expr) = do
+    env1 <- loadDataDecls dts emptyEnv
     env2 <- loadFuncDecls fd env1
+    env3 <- loadAnns anns env2
     
     runReaderT (do
         main' <- walkExpr pass expr
         funcs' <- mapM (walkFuncDecl pass) funcDecls
-        let newProgram = Program dataTypeDecls (FuncDecls funcs') main'
+        dataTypeDecls' <- mapM (walkDataTypeDecl pass) dataTypeDecls
+        let newProgram = Program (DataTypeDecls dataTypeDecls') (FuncDecls funcs') anns main'
         onProgram pass newProgram
-        ) env2
+        ) env3
 
 walkDataTypeDecl :: Pass -> DataTypeDecl -> (InferM LocRegion) DataTypeDecl
-walkDataTypeDecl pass (DataTypeDecl typeCon typeArgs dataFields) = do
+walkDataTypeDecl pass (DataTypeDecl typeCon typeArgs dataFields memLayout) = do
     typeCon' <- walkTypeCon pass typeCon
     typeArgs' <- walkTypeArgs pass typeArgs
     dataFields' <- walkDataFields pass dataFields
-    let newDataTypeDecl = DataTypeDecl typeCon' typeArgs' dataFields'
+    memLayout' <- walkMemLayout pass memLayout
+    let newDataTypeDecl = DataTypeDecl typeCon' typeArgs' dataFields' memLayout'
     onDataTypeDecl pass newDataTypeDecl
 
 walkDataField :: Pass -> DataField -> (InferM LocRegion) DataField
@@ -173,6 +188,9 @@ walkDataField pass (DataField dataCon myTypes) = do
     myTypes' <- walkMyTypes pass myTypes
     let newDataField = DataField dataCon' myTypes'
     onDataField pass newDataField
+
+walkMemLayout :: Pass -> TypeAnnotationOpt -> (InferM LocRegion) TypeAnnotationOpt
+walkMemLayout _pass = return 
 
 -- walkCombinedTypeCon :: Pass -> CombinedTypeCon -> (InferM LocRegion) CombinedTypeCon
 -- walkCombinedTypeCon pass (CTCTypeCon typeCon) = do

@@ -46,7 +46,11 @@ import Gibbon.L2ParserNative.Lexer
     '('         { TokenLParen _ }
     ')'         { TokenRParen _ }
     '--'        { TokenComment _ }
-    
+    '{'         { TokenLCBracket _ }
+    '}'         { TokenRCBracket _ }
+    '-#'        { TokenPragmaStart _ }
+    '#-'        { TokenPragmaEnd _ }
+
     -- common expr keywords
     let         { TokenLet _ }
     in          { TokenIn _ }
@@ -115,6 +119,8 @@ import Gibbon.L2ParserNative.Lexer
     -- other
     main        { TokenMain _ }
     '\n'        { TokenNewLine _ }
+    ANN         { TokenAnn _ }
+    TYPE        { TokenType _ }
     EOF         { TokenEOF _ }
 
 %%
@@ -130,13 +136,14 @@ TopLevel :: { TopLevel }
     : DataTypeDecl        { TopDataDecl $1 }         
     | FuncDecl            { TopFuncDecl $1 }
     | MainExpr            { TopMainExpr $1 }
+    | Annotation          { TopAnnPragma $1 }
 
 MainExpr :: { Expr }
     : main '=' Expr     { $3 }
 
 -- data type declarations
 DataTypeDecl :: { DataTypeDecl }
-    : data UVar LVarStar'=' DataFieldStar { DataTypeDecl (TypeCon $2) (reverseList TypeArgs $3) (reverseList DataFields $5) }
+    : data UVar LVarStar'=' DataFieldStar { DataTypeDecl (TypeCon $2) (reverseList TypeArgs $3) (reverseList DataFields $5) TypeLinear }
 
 DataField :: { DataField }
     : UVar CombinedTypeStar { DataField (DataCon $1) (reverseList MyTypes $2) }
@@ -378,6 +385,18 @@ PatMatch :: { PatMatch }
     : PatDeconstruct ':' MyType       { PatMatch $1 $3}
 
 
+-- annotation
+Annotation :: { Annotation }
+    : TypeAnnotation     { $1 }
+
+TypeAnnotation :: { Annotation }
+    : '{' '-#' ANN TYPE UVar TypeAnnotationOpt '#-' '}'     { TypeAnn (TypeCon $5) $6 }
+
+TypeAnnotationOpt :: { TypeAnnotationOpt }
+    : STRING_LIT       { case $1 of
+                            "Linear" -> TypeLinear
+                            "Factored" -> TypeFactored
+                            _ -> error "Unknown type annotation option" }
 -- BinOp :: { BinOp }
 --     : '+'         { Add }
 --     | '-'         { Sub }
@@ -626,8 +645,9 @@ assembleTopLevelProgram topLevels =
     let dataDecls = [d | TopDataDecl d <- topLevels]
         funcDecls = [f | TopFuncDecl f <- topLevels]
         mainExprs = [e | TopMainExpr e <- topLevels]
+        annPragmas = [a | TopAnnPragma a <- topLevels]
     in 
     if length mainExprs == 1
-    then Program (reverseList DataTypeDecls dataDecls) (reverseList FuncDecls funcDecls) (head mainExprs)
-    else Program (DataTypeDecls []) (FuncDecls []) (ExprVal (ValLit (IntLit 0))) -- default main expression if none or multiple are provided
+    then Program (reverseList DataTypeDecls dataDecls) (reverseList FuncDecls funcDecls) (reverseList Annotations annPragmas) (head mainExprs)
+    else Program (DataTypeDecls []) (FuncDecls []) (Annotations []) (ExprVal (ValLit (IntLit 0))) -- default main expression if none or multiple are provided
 }

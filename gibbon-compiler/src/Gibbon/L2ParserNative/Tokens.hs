@@ -18,6 +18,10 @@ data Token
     | TokenLParen Pos
     | TokenRParen Pos
     | TokenComment Pos
+    | TokenLCBracket Pos
+    | TokenRCBracket Pos
+    | TokenPragmaStart Pos
+    | TokenPragmaEnd Pos
 
     -- common expr keywords
     | TokenLet Pos
@@ -87,6 +91,8 @@ data Token
     -- other
     | TokenMain Pos
     | TokenNewLine Pos
+    | TokenAnn Pos
+    | TokenType Pos
     | TokenEOF Pos
     deriving Show
 
@@ -109,6 +115,10 @@ pos (TokenComma p)      = p
 pos (TokenLParen p)     = p
 pos (TokenRParen p)     = p
 pos (TokenComment p)    = p
+pos (TokenLCBracket p)   = p
+pos (TokenRCBracket p)   = p
+pos (TokenPragmaStart p) = p
+pos (TokenPragmaEnd p)   = p
 
 -- common expr keywords
 pos (TokenLet p)        = p
@@ -178,5 +188,7 @@ pos (TokenWritePackedFile p) = p
 -- other
 pos (TokenMain p)       = p
 pos (TokenNewLine p)    = p
+pos (TokenAnn p)        = p
+pos (TokenType p)       = p
 pos (TokenEOF p)        = p
 

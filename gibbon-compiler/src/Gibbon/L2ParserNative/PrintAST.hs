@@ -58,13 +58,13 @@ getChildren depth = children depth []
 --------- top-level program --------- 
 -- program defined
 instance PrintAST Program where
-    printAST depth (Program dataTypeDecls funcDecls expr) =
-        getFullExpr depth "Program" (getChildren depth dataTypeDecls funcDecls expr)
+    printAST depth (Program dataTypeDecls funcDecls anns expr) =
+        getFullExpr depth "Program" (getChildren depth dataTypeDecls funcDecls anns expr)
 
 --------- data type and function declarations --------- 
 instance PrintAST DataTypeDecl where
-    printAST depth (DataTypeDecl typeCon typeArgs dataFields) =
-        getFullExpr depth "Data Type Declaration" (getChildren depth typeCon typeArgs dataFields)
+    printAST depth (DataTypeDecl typeCon typeArgs dataFields memLayout) =
+        getFullExpr depth "Data Type Declaration" (getChildren depth typeCon typeArgs dataFields memLayout)
 
 instance PrintAST DataField where
     printAST depth (DataField dataCon combinedTypeCons) =
@@ -105,6 +105,13 @@ instance PrintAST TypeScheme where
 -- instance PrintAST CombinedType where
 --     printAST depth temp = indent depth (show temp)
 
+
+instance PrintAST Annotation where
+    printAST depth (TypeAnn typeCon val) =
+        getFullExpr depth "Annotation" (getChildren depth typeCon val)
+
+instance PrintAST TypeAnnotationOpt where
+    printAST depth temp = indent depth (show temp)
 -- TODO
 instance PrintAST MyType where
     printAST depth temp = indent depth (show temp)
@@ -234,6 +241,9 @@ instance PrintAST PatDeconstructs where
 
 instance PrintAST TypeArgs where
     printAST depth (TypeArgs typeArgs) = addList depth "Type Arguments" typeArgs
+
+instance PrintAST Annotations where
+    printAST depth (Annotations annotations) = addList depth "Annotations" annotations
 
 instance PrintAST Char where
     printAST _depth char = [char]
