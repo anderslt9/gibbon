@@ -1,0 +1,44 @@
+Running program DomTree: 
+Running pass SumArea (fold, uses=6): 
+ITER TIMES: [0.019609]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.960946e-02
+SELFTIMED: 1.960946e-02
+End
+Running pass find max Bottom (fold, uses=5): 
+ITER TIMES: [0.018816]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.881602e-02
+SELFTIMED: 1.881602e-02
+End
+Running pass count styled (fold, uses=3): 
+ITER TIMES: [0.011506]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.150570e-02
+SELFTIMED: 1.150570e-02
+End
+Running pass sumTextWidth (fold, uses=3): 
+ITER TIMES: [0.011725]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.172479e-02
+SELFTIMED: 1.172479e-02
+End
+Running pass computeWidths (map, uses=14): 
+ITER TIMES: [0.045570]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 4.557008e-02
+SELFTIMED: 4.557008e-02
+End
+Running pass scaleLayout (map, uses=15): 
+ITER TIMES: [0.033549]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 3.354856e-02
+SELFTIMED: 3.354856e-02
+End
+'#(42278584320 230 1052688 2348810240 5284823040 21139292160)

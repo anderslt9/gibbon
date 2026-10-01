@@ -35,8 +35,9 @@
 #include <cilk/cilk_api.h>
 #endif
 
-
-
+#ifdef _GIBBON_ENABLE_PAPI
+#include <papi.h>
+#endif
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * Globals and their accessors
@@ -61,6 +62,8 @@ static int64_t gib_global_region_count = 0;
 // Invariant: should always be equal to max(sym_table_keys).
 static GibSym gib_global_gensym_counter = 0;
 
+//PAPI: specify the region to instrument
+static uint64_t papi_region_id = 0;
 
 
 size_t gib_get_biginf_init_chunk_size(void)
@@ -128,6 +131,30 @@ GibSym gib_read_gensym_counter(void)
     return gib_global_gensym_counter;
 }
 
+#ifndef GIB_PTR_ALIGN
+#define GIB_PTR_ALIGN 8
+#endif
+
+__attribute__((unused))
+static inline size_t gib_align_up_sz_rt(size_t n, size_t a) {
+    return (n + (a - 1)) & ~(a - 1);
+}
+
+__attribute__((unused))
+static inline uintptr_t gib_align_up_ptr_rt(uintptr_t p, uintptr_t a) {
+    return (p + (a - 1)) & ~(a - 1);
+}
+
+uint64_t get_papi_region_id(void)
+{
+    return papi_region_id;
+}
+
+void increment_papi_region_id(void)
+{
+    papi_region_id++;
+}
+
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  * Allocators
@@ -145,7 +172,7 @@ GibSym gib_read_gensym_counter(void)
 #ifdef _GIBBON_POINTER
 
 #ifdef _GIBBON_BUMPALLOC_HEAP
-#pragma message "Using bump allocator."
+GIB_PRAGMA_MESSAGE("Using bump allocator.")
 
 static __thread char *gib_global_ptr_bumpalloc_heap_ptr = (char *) NULL;
 static __thread char *gib_global_ptr_bumpalloc_heap_ptr_end = (char *) NULL;
@@ -471,7 +498,7 @@ int gib_print_symbol(GibSym idx)
         GibSymtable *s;
         HASH_FIND(hh, global_sym_table, &idx, sizeof(GibSym), s);
         if (s == NULL) {
-            return printf("%" PRId64, idx);
+            return printf("%" PRIu64, idx);
         } else {
             return printf("%s", s->value);
         }
@@ -512,7 +539,7 @@ GibCursor *gib_array_alloc(GibCursor *arr, size_t size)
         exit(1);
     }
 
-    #pragma GCC unroll 2
+    GIB_PRAGMA_UNROLL(2)
     for (size_t i = 0; i < size; i++){
         arr_on_heap[i] = arr[i];
     }
@@ -561,13 +588,13 @@ GibVector *gib_vector_slice(GibInt i, GibInt n, GibVector *vec)
     GibInt lower = vec->lower + i;
     GibInt upper = vec->lower + i + n;
     if ((lower > vec->upper)) {
-        fprintf(stderr, "gib_vector_slice: lower out of bounds, %" PRId64
-                " > %" PRId64, lower, vec->upper);
+        fprintf(stderr, "gib_vector_slice: lower out of bounds, %" GIBBON_PRIdInt
+                " > %" GIBBON_PRIdInt, lower, vec->upper);
         exit(1);
     }
     if ((upper > vec->upper)) {
-        fprintf(stderr, "gib_vector_slice: upper out of bounds, %" PRId64
-                " > %" PRId64, upper, vec->upper);
+        fprintf(stderr, "gib_vector_slice: upper out of bounds, %" GIBBON_PRIdInt
+                " > %" GIBBON_PRIdInt, upper, vec->upper);
         exit(1);
     }
     GibVector *vec2 = (GibVector *) gib_alloc(sizeof(GibVector));
@@ -671,8 +698,8 @@ void gib_vector_free(GibVector *vec)
 GibVector *gib_vector_merge(GibVector *vec1, GibVector *vec2)
 {
     if (vec1->upper != vec2->lower) {
-        fprintf(stderr,"gib_vector_merge: non-contiguous slices, (%" PRId64
-                ",%" PRId64 "), (%" PRId64 ",%" PRId64 ")",
+        fprintf(stderr,"gib_vector_merge: non-contiguous slices, (%" GIBBON_PRIdInt
+                ",%" GIBBON_PRIdInt "), (%" GIBBON_PRIdInt ",%" GIBBON_PRIdInt ")",
                vec1->lower, vec1->upper, vec2->lower, vec2->upper);
         exit(1);
     }
@@ -724,7 +751,7 @@ double gib_sum_timing_array(GibVector *times)
 
 #ifdef _GIBBON_BUMPALLOC_LISTS
 // #define _GIBBON_DEBUG
-#pragma message "Using bump allocator."
+GIB_PRAGMA_MESSAGE("Using bump allocator.")
 
 static __thread char *gib_global_list_bumpalloc_heap_ptr = (char *) NULL;
 static __thread char *gib_global_list_bumpalloc_heap_ptr_end = (char *) NULL;
@@ -875,7 +902,7 @@ void gib_write_ppm(char* filename, GibInt width, GibInt height, GibVector *pixel
     fp = fopen(filename, "w+");
     fprintf(fp, "P3\n");
     // fprintf(fp, "%lld %lld\n255\n", width, height);
-    fprintf(fp, "%" PRId64 " %" PRId64 "\n255\n", width, height);
+    fprintf(fp, "%" GIBBON_PRIdInt " %" GIBBON_PRIdInt "\n255\n", width, height);
     GibInt len = gib_vector_length(pixels);
     gib_write_ppm_loop(fp, 0, len, pixels);
     fclose(fp);
@@ -897,7 +924,7 @@ void gib_write_ppm_loop(FILE *fp, GibInt idx, GibInt end, GibVector *pixels)
         GibInt z = tup.field2;
         // write to file.
         // fprintf(fp, "%lld %lld %lld\n", x, y, z);
-        fprintf(fp, "%" PRId64 " %" PRId64 " %" PRId64 "\n", x, y, z);
+        fprintf(fp, "%" GIBBON_PRIdInt " %" GIBBON_PRIdInt " %" GIBBON_PRIdInt "\n", x, y, z);
         gib_write_ppm_loop(fp, (idx+1), end, pixels);
     }
 }
@@ -1054,26 +1081,26 @@ void gib_print_gc_config(void) {
     printf("C config\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 
 #if defined _GIBBON_GENGC && _GIBBON_GENGC == 0
-    #pragma message "Generational GC is disabled."
+    GIB_PRAGMA_MESSAGE("Generational GC is disabled.")
     printf("Generational GC is disabled.\n");
 #else
-    #pragma message "Generational GC is enabled."
+    GIB_PRAGMA_MESSAGE("Generational GC is enabled.")
     printf("Generational GC is enabled.\n");
 #endif
 
 #if defined _GIBBON_EAGER_PROMOTION && _GIBBON_EAGER_PROMOTION == 0
-    #pragma message "Eager promotion is disabled."
+    GIB_PRAGMA_MESSAGE("Eager promotion is disabled.")
     printf("Eager promotion is disabled.\n");
 #else
-    #pragma message "Eager promotion is enabled."
+    GIB_PRAGMA_MESSAGE("Eager promotion is enabled.")
     printf("Eager promotion is enabled.\n");
 #endif
 
 #if defined _GIBBON_SIMPLE_WRITE_BARRIER && _GIBBON_SIMPLE_WRITE_BARRIER == 0
-    #pragma message "Simple write barrier is disabled."
+    GIB_PRAGMA_MESSAGE("Simple write barrier is disabled.")
     printf("Simple write barrier is disabled.\n");
 #else
-    #pragma message "Simple write barrier is enabled."
+    GIB_PRAGMA_MESSAGE("Simple write barrier is enabled.")
     printf("Simple write barrier is enabled.\n");
 #endif
 
@@ -1122,7 +1149,10 @@ STATIC_INLINE GibChunk gib_alloc_region_in_nursery_fast(size_t size, bool collec
 #endif
         nursery->alloc = bump;
         char *footer = old - sizeof(GibNurseryChunkFooter);
-        *(GibNurseryChunkFooter *) footer = size;
+        GibNurseryChunkFooter *nursery_footer = (GibNurseryChunkFooter *) footer;
+        nursery_footer->size = size;
+        gib_scalar_count_footer_init(&nursery_footer->scalar_counts);
+        gib_scalar_count_register_chunk(bump, footer);
 
 #if defined _GIBBON_VERBOSITY && _GIBBON_VERBOSITY >= 3
         fprintf(stderr, "Allocated a nursery chunk of size %ld, (%p, %p).\n",
@@ -1155,25 +1185,44 @@ static GibChunk gib_alloc_region_in_nursery_slow(size_t size, bool collected)
     return gib_alloc_region_in_nursery_fast(size, true);
 }
 
+// GibChunk gib_alloc_region_on_heap(size_t size)
+// {
+//     size_t size_aligned = gib_align_up_sz(size, GIB_PTR_ALIGN);
+// char *heap_start = gib_alloc(size_aligned);
+// if (heap_start == NULL) {
+//     fprintf(stderr, "gib_alloc_region_on_heap: gib_alloc failed: %zu", size_aligned);
+//     exit(1);
+// }
+// char *heap_end = heap_start + size_aligned;
+// char *footer_start = gib_init_footer_at(heap_end, size_aligned, 1);
+// #ifdef _GIBBON_GCSTATS
+//     GC_STATS->oldgen_regions++;
+//     GC_STATS->mem_allocated_in_oldgen += size;
+// #endif
+//
+// #if defined _GIBBON_VERBOSITY && _GIBBON_VERBOSITY >= 3
+//         fprintf(stderr, "Allocated a oldgen chunk of size %ld, (%p, %p).\n",
+//                 size, heap_start, footer_start);
+// #endif
+//
+//     return (GibChunk) {heap_start, footer_start};
+// }
+
 GibChunk gib_alloc_region_on_heap(size_t size)
 {
-    char *heap_start = gib_alloc(size);
+    size_t size_aligned = gib_align_up_sz(size, GIB_PTR_ALIGN);
+
+    char *heap_start = (char *) gib_alloc(size_aligned);
     if (heap_start == NULL) {
-        fprintf(stderr, "gib_alloc_region_on_heap: gib_alloc failed: %zu",size);
+        fprintf(stderr, "gib_alloc_region_on_heap: gib_alloc failed: %zu", size_aligned);
         exit(1);
     }
-    char *heap_end = heap_start + size;
-    char *footer_start = gib_init_footer_at(heap_end, size, 1);
 
-#ifdef _GIBBON_GCSTATS
-    GC_STATS->oldgen_regions++;
-    GC_STATS->mem_allocated_in_oldgen += size;
-#endif
+    char *heap_end = heap_start + size_aligned;
 
-#if defined _GIBBON_VERBOSITY && _GIBBON_VERBOSITY >= 3
-        fprintf(stderr, "Allocated a oldgen chunk of size %ld, (%p, %p).\n",
-                size, heap_start, footer_start);
-#endif
+    // IMPORTANT: pass size_aligned consistently.
+    char *footer_start = gib_init_footer_at(heap_end, size_aligned, 1);
+    gib_scalar_count_register_chunk(heap_start, footer_start);
 
     return (GibChunk) {heap_start, footer_start};
 }
@@ -1295,6 +1344,385 @@ STATIC_INLINE void gib_perform_GC_(bool force_major)
 }
 
 static void gib_bump_global_region_count(void);
+
+typedef struct gib_scalar_count_debug_state {
+    uint64_t depth;
+#ifdef _GIBBON_DEBUG
+    size_t length;
+    size_t capacity;
+    char **footers;
+#endif
+} GibScalarCountDebugState;
+
+typedef struct gib_scalar_count_region_state {
+    GibRegionInfo *reg_info;
+    GibOldgenChunkFooter *current_footer;
+    GibOldgenChunkFooter *write_footer;
+    GibScalarCountFooter first_counts;
+} GibScalarCountRegionState;
+
+static GibScalarCountDebugState gib_global_scalar_count_debug_state = {
+    .depth = 0,
+#ifdef _GIBBON_DEBUG
+    .length = 0,
+    .capacity = 0,
+    .footers = NULL,
+#endif
+};
+
+static GibScalarCountRegionState *gib_global_scalar_count_region_states = NULL;
+static size_t gib_global_scalar_count_region_states_length = 0;
+static size_t gib_global_scalar_count_region_states_capacity = 0;
+
+void gib_scalar_count_register_chunk(char *chunk_start, char *footer_ptr)
+{
+    (void) chunk_start;
+    (void) footer_ptr;
+}
+
+static GibScalarCountFooter *gib_scalar_count_footer_for_addr(char *footer_ptr)
+{
+    if (gib_addr_in_nursery(footer_ptr)) {
+        return &((GibNurseryChunkFooter *) footer_ptr)->scalar_counts;
+    } else {
+        return &((GibOldgenChunkFooter *) footer_ptr)->scalar_counts;
+    }
+}
+
+static void gib_scalar_count_debug_touch(char *footer_ptr)
+{
+#ifndef _GIBBON_DEBUG
+    (void) footer_ptr;
+#else
+    GibScalarCountDebugState *state = &gib_global_scalar_count_debug_state;
+
+    for (size_t i = 0; i < state->length; i++) {
+        if (state->footers[i] == footer_ptr) {
+            return;
+        }
+    }
+
+    if (state->length == state->capacity) {
+        size_t new_capacity = state->capacity == 0 ? 8 : state->capacity * 2;
+        char **new_footers = realloc(state->footers, new_capacity * sizeof(char *));
+        if (new_footers == NULL) {
+            fprintf(stderr, "gib_scalar_count_debug_touch: realloc failed\n");
+            exit(1);
+        }
+        state->footers = new_footers;
+        state->capacity = new_capacity;
+    }
+
+    state->footers[state->length] = footer_ptr;
+    state->length++;
+#endif
+}
+
+static void gib_scalar_count_footer_copy_fixed(
+    GibScalarCountFooter *dst,
+    const GibScalarCountFooter *src
+) {
+    dst->count = src->count;
+    dst->is_touched = src->is_touched;
+    memcpy(dst->_padding, src->_padding, sizeof(dst->_padding));
+}
+
+static void gib_scalar_count_footer_bump_fixed(GibScalarCountFooter *footer)
+{
+    if (!footer->is_touched) {
+        footer->count = 0;
+        footer->is_touched = 1;
+        memset(footer->_padding, 0, sizeof(footer->_padding));
+    }
+
+    footer->count++;
+}
+
+static void gib_scalar_count_footer_set_fixed(GibScalarCountFooter *footer, uint64_t count)
+{
+    footer->count = count;
+    footer->is_touched = 1;
+    memset(footer->_padding, 0, sizeof(footer->_padding));
+}
+
+static uint64_t gib_scalar_count_footer_get_fixed(const GibScalarCountFooter *footer)
+{
+    if (!footer->is_touched) {
+        return 0;
+    }
+
+    return footer->count;
+}
+
+static bool gib_scalar_count_footer_is_touched(const GibScalarCountFooter *footer)
+{
+    return footer->is_touched != 0;
+}
+
+static GibScalarCountRegionState *gib_scalar_count_region_state_for_footer(
+    GibOldgenChunkFooter *footer
+) {
+    GibRegionInfo *reg_info = footer->reg_info;
+
+    for (size_t i = 0; i < gib_global_scalar_count_region_states_length; i++) {
+        GibScalarCountRegionState *state = &gib_global_scalar_count_region_states[i];
+        if (state->reg_info == reg_info) {
+            return state;
+        }
+    }
+
+    if (gib_global_scalar_count_region_states_length ==
+        gib_global_scalar_count_region_states_capacity) {
+        size_t new_capacity =
+            gib_global_scalar_count_region_states_capacity == 0
+                ? 8
+                : gib_global_scalar_count_region_states_capacity * 2;
+        GibScalarCountRegionState *new_states =
+            realloc(gib_global_scalar_count_region_states,
+                    new_capacity * sizeof(GibScalarCountRegionState));
+        if (new_states == NULL) {
+            fprintf(stderr, "gib_scalar_count_region_state_for_footer: realloc failed\n");
+            exit(1);
+        }
+        gib_global_scalar_count_region_states = new_states;
+        gib_global_scalar_count_region_states_capacity = new_capacity;
+    }
+
+    GibScalarCountRegionState *state =
+        &gib_global_scalar_count_region_states[gib_global_scalar_count_region_states_length];
+    gib_global_scalar_count_region_states_length++;
+    state->reg_info = reg_info;
+    state->current_footer = footer;
+    state->write_footer = NULL;
+    gib_scalar_count_footer_init(&state->first_counts);
+    return state;
+}
+
+void gib_scalar_count_footer_begin(void)
+{
+    GibScalarCountDebugState *state = &gib_global_scalar_count_debug_state;
+
+    if (state->depth == 0) {
+#ifdef _GIBBON_DEBUG
+        state->length = 0;
+#endif
+        gib_global_scalar_count_region_states_length = 0;
+    }
+    state->depth++;
+}
+
+void gib_scalar_count_on_grow(char *old_footer_ptr, char *new_footer_ptr)
+{
+    if (old_footer_ptr == NULL || new_footer_ptr == NULL) {
+        return;
+    }
+
+    // Nursery scalar-count metadata is deliberately left as a later step.
+    if (gib_addr_in_nursery(old_footer_ptr) || gib_addr_in_nursery(new_footer_ptr)) {
+        return;
+    }
+
+    GibOldgenChunkFooter *old_footer = (GibOldgenChunkFooter *) old_footer_ptr;
+    GibOldgenChunkFooter *new_footer = (GibOldgenChunkFooter *) new_footer_ptr;
+    GibScalarCountRegionState *region_state =
+        gib_scalar_count_region_state_for_footer(old_footer);
+
+    region_state->write_footer = old_footer;
+    region_state->current_footer = new_footer;
+    gib_scalar_count_footer_init(&old_footer->scalar_counts);
+    gib_scalar_count_footer_copy_fixed(&new_footer->scalar_counts,
+                                       &region_state->first_counts);
+    if (gib_scalar_count_footer_is_touched(&region_state->first_counts)) {
+        gib_scalar_count_debug_touch(new_footer_ptr);
+    }
+}
+
+void gib_scalar_count_footer_bump(char *footer_ptr)
+{
+    if (footer_ptr == NULL) {
+        return;
+    }
+
+    if (gib_addr_in_nursery(footer_ptr)) {
+        GibScalarCountFooter *footer = gib_scalar_count_footer_for_addr(footer_ptr);
+        gib_scalar_count_footer_bump_fixed(footer);
+        gib_scalar_count_debug_touch(footer_ptr);
+        return;
+    }
+
+    GibOldgenChunkFooter *footer = (GibOldgenChunkFooter *) footer_ptr;
+    GibScalarCountRegionState *region_state =
+        gib_scalar_count_region_state_for_footer(footer);
+
+    if (region_state->write_footer == NULL) {
+        gib_scalar_count_footer_bump_fixed(&region_state->first_counts);
+        gib_scalar_count_footer_bump_fixed(&region_state->current_footer->scalar_counts);
+        gib_scalar_count_debug_touch((char *) region_state->current_footer);
+    } else {
+        gib_scalar_count_footer_bump_fixed(&region_state->write_footer->scalar_counts);
+        gib_scalar_count_debug_touch((char *) region_state->write_footer);
+    }
+}
+
+void gib_scalar_count_footer_set(char *footer_ptr, uint64_t count)
+{
+    if (footer_ptr == NULL) {
+        return;
+    }
+
+    if (gib_addr_in_nursery(footer_ptr)) {
+        GibScalarCountFooter *footer = gib_scalar_count_footer_for_addr(footer_ptr);
+        gib_scalar_count_footer_set_fixed(footer, count);
+        gib_scalar_count_debug_touch(footer_ptr);
+        return;
+    }
+
+    GibOldgenChunkFooter *footer = (GibOldgenChunkFooter *) footer_ptr;
+    GibScalarCountRegionState *region_state =
+        gib_scalar_count_region_state_for_footer(footer);
+
+    if (region_state->write_footer == NULL) {
+        gib_scalar_count_footer_set_fixed(&region_state->first_counts, count);
+        gib_scalar_count_footer_set_fixed(&region_state->current_footer->scalar_counts, count);
+        gib_scalar_count_debug_touch((char *) region_state->current_footer);
+    } else {
+        gib_scalar_count_footer_set_fixed(&region_state->write_footer->scalar_counts, count);
+        gib_scalar_count_debug_touch((char *) region_state->write_footer);
+    }
+}
+
+uint64_t gib_scalar_count_footer_get(char *footer_ptr)
+{
+    GibScalarCountFooter *footer = gib_scalar_count_footer_for_addr(footer_ptr);
+    return gib_scalar_count_footer_get_fixed(footer);
+}
+
+char *gib_scalar_count_first_footer(char *footer_ptr)
+{
+    if (footer_ptr == NULL || gib_addr_in_nursery(footer_ptr)) {
+        return NULL;
+    }
+
+    GibOldgenChunkFooter *footer = (GibOldgenChunkFooter *) footer_ptr;
+    return footer->reg_info->first_chunk_footer;
+}
+
+char *gib_scalar_count_footer_next(char *footer_ptr)
+{
+    if (footer_ptr == NULL || gib_addr_in_nursery(footer_ptr)) {
+        return NULL;
+    }
+
+    GibOldgenChunkFooter *footer = (GibOldgenChunkFooter *) footer_ptr;
+    return (char *) footer->next;
+}
+
+void gib_scalar_count_copy_chain(char *dst_final_footer_ptr, char *src_final_footer_ptr)
+{
+    if (dst_final_footer_ptr == NULL || src_final_footer_ptr == NULL) {
+        return;
+    }
+
+    // Nursery chunks do not carry an oldgen footer chain.  A nursery value can
+    // only be copied directly here; the normal multi-chunk case below is
+    // O(chunks) over the oldgen footer list.
+    if (gib_addr_in_nursery(dst_final_footer_ptr) ||
+        gib_addr_in_nursery(src_final_footer_ptr)) {
+        GibScalarCountFooter *dst =
+            gib_scalar_count_footer_for_addr(dst_final_footer_ptr);
+        GibScalarCountFooter *src =
+            gib_scalar_count_footer_for_addr(src_final_footer_ptr);
+        gib_scalar_count_footer_copy_fixed(dst, src);
+        if (gib_scalar_count_footer_is_touched(src)) {
+            gib_scalar_count_debug_touch(dst_final_footer_ptr);
+        }
+        return;
+    }
+
+    GibOldgenChunkFooter *dst_final =
+        (GibOldgenChunkFooter *) dst_final_footer_ptr;
+    GibOldgenChunkFooter *src_final =
+        (GibOldgenChunkFooter *) src_final_footer_ptr;
+    GibOldgenChunkFooter *dst =
+        (GibOldgenChunkFooter *) dst_final->reg_info->first_chunk_footer;
+    GibOldgenChunkFooter *src =
+        (GibOldgenChunkFooter *) src_final->reg_info->first_chunk_footer;
+
+    while (dst != NULL && src != NULL) {
+        gib_scalar_count_footer_copy_fixed(&dst->scalar_counts,
+                                           &src->scalar_counts);
+        if (gib_scalar_count_footer_is_touched(&src->scalar_counts)) {
+            gib_scalar_count_debug_touch((char *) dst);
+        }
+        dst = dst->next;
+        src = src->next;
+    }
+
+#ifdef _GIBBON_DEBUG
+    if (dst != NULL || src != NULL) {
+        fprintf(stderr,
+                "gib_scalar_count_copy_chain: source/destination chunk count mismatch\n");
+    }
+#endif
+}
+
+void gib_scalar_count_copy_all(char **dst_final_footers, char **src_final_footers, int len)
+{
+    if (dst_final_footers == NULL || src_final_footers == NULL || len <= 0) {
+        return;
+    }
+
+    for (int i = 0; i < len; i++) {
+        gib_scalar_count_copy_chain(dst_final_footers[i], src_final_footers[i]);
+    }
+}
+
+void gib_scalar_count_footer_end(const char *build_fun_name)
+{
+    GibScalarCountDebugState *state = &gib_global_scalar_count_debug_state;
+
+    if (state->depth == 0) {
+        fprintf(stderr, "gib_scalar_count_footer_end called without a matching begin\n");
+        return;
+    }
+
+    state->depth--;
+    if (state->depth != 0) {
+        return;
+    }
+
+    // No final repair pass is needed here.  The cyclic invariant is maintained
+    // eagerly in gib_scalar_count_on_grow: each fresh final footer is seeded
+    // with first_counts, and the previous footer accumulates the next chunk.
+#ifdef _GIBBON_DEBUG
+    printf("SCALAR_COUNT_FOOTERS %s touched=%zu\n", build_fun_name, state->length);
+    for (size_t i = 0; i < state->length; i++) {
+        gib_scalar_count_footer_print(state->footers[i]);
+    }
+#else
+    (void) build_fun_name;
+#endif
+    gib_global_scalar_count_region_states_length = 0;
+}
+
+void gib_scalar_count_footer_print(char *footer_ptr)
+{
+#ifndef _GIBBON_DEBUG
+    (void) footer_ptr;
+#else
+    GibScalarCountFooter *footer = gib_scalar_count_footer_for_addr(footer_ptr);
+    const char *kind = gib_addr_in_nursery(footer_ptr) ? "nursery" : "oldgen";
+    bool touched = gib_scalar_count_footer_is_touched(footer);
+
+    printf("SCALAR_COUNT_FOOTER footer=%p kind=%s touched=%u\n",
+           (void *) footer_ptr,
+           kind,
+           touched ? 1 : 0);
+    if (touched) {
+        printf("SCALAR_COUNT count=%" PRIu64 "\n", footer->count);
+    }
+#endif
+}
 
 // Functions related to counting the number of allocated regions.
 GibChunk gib_alloc_counted_region(size_t size)

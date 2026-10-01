@@ -1,0 +1,65 @@
+Running program ObjectGraph Simulated a GC Program: 
+Running pass totalHeapSize (fold, uses=3): 
+ITER TIMES: [0.010566]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.056600e-02
+SELFTIMED: 1.056600e-02
+End
+Running pass countMarked (fold, uses=3): 
+ITER TIMES: [0.010696]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.069629e-02
+SELFTIMED: 1.069629e-02
+End
+Running pass countLargeItems (fold, uses=3): 
+ITER TIMES: [0.010822]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.082165e-02
+SELFTIMED: 1.082165e-02
+End
+Running pass liveBytes (fold, uses=4): 
+ITER TIMES: [0.012535]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.253512e-02
+SELFTIMED: 1.253512e-02
+End
+Running pass deadBytes (fold, uses=4): 
+ITER TIMES: [0.012519]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.251852e-02
+SELFTIMED: 1.251852e-02
+End
+Running pass countSurvivors (fold, uses=4): 
+ITER TIMES: [0.013160]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.315960e-02
+SELFTIMED: 1.315960e-02
+End
+Running pass sumObjIds (fold, uses=3): 
+ITER TIMES: [0.010421]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.042111e-02
+SELFTIMED: 1.042111e-02
+End
+Running pass sweepUnmarked (map, uses=5): 
+ITER TIMES: [0.051155]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 5.115532e-02
+SELFTIMED: 5.115532e-02
+End
+Running pass touchHotObjects (map, uses=5): 
+ITER TIMES: [0.052884]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 5.288449e-02
+SELFTIMED: 5.288449e-02
+End
+'#(167771910 5592405 8191 93206670 74565240 5591040 16777191 0 123778350)

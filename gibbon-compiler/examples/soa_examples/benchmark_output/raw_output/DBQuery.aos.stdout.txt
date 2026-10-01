@@ -1,0 +1,58 @@
+Running Data base Query Pass: 
+Running pass sumCost (fold, uses=6): 
+ITER TIMES: [0.019430]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.942962e-02
+SELFTIMED: 1.942962e-02
+End
+Running pass sumRows (fold, uses=6): 
+ITER TIMES: [0.026483]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 2.648302e-02
+SELFTIMED: 2.648302e-02
+End
+Running pass countJoins (fold, uses=3): 
+ITER TIMES: [0.019418]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.941751e-02
+SELFTIMED: 1.941751e-02
+End
+Running pass sumMemory (fold, uses=6): 
+ITER TIMES: [0.019313]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.931277e-02
+SELFTIMED: 1.931277e-02
+End
+Running pass hashJoinPressure (fold, uses=5): 
+ITER TIMES: [0.020794]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 2.079401e-02
+SELFTIMED: 2.079401e-02
+End
+Running pass filterSelectivitySkew (fold, uses=5): 
+ITER TIMES: [0.019437]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.943701e-02
+SELFTIMED: 1.943701e-02
+End
+Running pass scaleCosts (map, uses=15): 
+ITER TIMES: [0.066385]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 6.638540e-02
+SELFTIMED: 6.638540e-02
+End
+Running pass clearQueryFlags (map, uses=14): 
+ITER TIMES: [0.064952]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 6.495250e-02
+SELFTIMED: 6.495250e-02
+End
+'#(1934085218 88847992746469004 1216305 900831835 395668927 886504088 19340852180 19340852180)

@@ -116,8 +116,8 @@ case_test_1 :: Assertion
 case_test_1 = assertValue t1 IntTy
 
 t1 :: Exp
-t1 =  AppE "mul" []
-     [LitE 10, AppE "add" [] [LitE 40, LitE 2]]
+t1 =  AppE "mul" UnknownTailType []
+     [LitE 10, AppE "add" UnknownTailType [] [LitE 40, LitE 2]]
 
 
 t1Prog :: Prog1
@@ -131,7 +131,8 @@ t1Prog = Prog {ddefs = M.fromList [],
                                       [(VarE "x_y1"), (VarE "x_y1")],
                             funMeta = FunMeta { funInline = Inline,
                                                 funRec = NotRec,
-                                                funCanTriggerGC = False
+                                                funCanTriggerGC = False,
+                                                funOpt = []
 
                                               }
                            }),
@@ -144,11 +145,12 @@ t1Prog = Prog {ddefs = M.fromList [],
                                        (VarE "x_y0")],
                             funMeta = FunMeta { funInline = Inline,
                                                 funRec = NotRec,
-                                                funCanTriggerGC = False
+                                                funCanTriggerGC = False,
+                                                funOpt = []
                                               }
                            })],
         mainExp = Just
-                  (  AppE "mul2" [] [LitE 10, AppE "add2" [] [LitE 40, LitE 2]]
+                  (  AppE "mul2" UnknownTailType [] [LitE 10, AppE "add2" UnknownTailType [] [LitE 40, LitE 2]]
                   , IntTy)
               }
 

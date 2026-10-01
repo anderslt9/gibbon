@@ -451,7 +451,20 @@ pub mod c {
         }
     }
 
-    pub type GibNurseryChunkFooter = u16;
+    #[repr(C)]
+    #[derive(Debug, Clone)]
+    pub struct GibScalarCountFooter {
+        pub count: u64,
+        pub is_touched: u8,
+        pub _padding: [u8; 7],
+    }
+
+    #[repr(C)]
+    #[derive(Debug, Clone)]
+    pub struct GibNurseryChunkFooter {
+        pub size: u16,
+        pub scalar_counts: GibScalarCountFooter,
+    }
 
     #[repr(C)]
     #[derive(Debug, Clone)]
@@ -459,6 +472,7 @@ pub mod c {
         pub reg_info: *mut GibRegionInfo,
         pub size: usize,
         pub next: *mut GibOldgenChunkFooter,
+        pub scalar_counts: GibScalarCountFooter,
     }
 
     /*

@@ -1,0 +1,9 @@
+Running program OctTree Physics Simulation: 
+Running pass sumMass (fold, uses=10): 
+ITER TIMES: [0.035096]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 3.509621e-02
+SELFTIMED: 3.509621e-02
+End
+50331639

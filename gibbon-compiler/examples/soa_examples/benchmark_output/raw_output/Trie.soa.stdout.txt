@@ -1,0 +1,51 @@
+Running program Trie: 
+Running pass sumPrefixFreq (fold, uses=3): 
+ITER TIMES: [0.005756]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 5.755930e-03
+SELFTIMED: 5.755930e-03
+End
+Running pass countTerminals (fold, uses=3): 
+ITER TIMES: [0.005752]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 5.751890e-03
+SELFTIMED: 5.751890e-03
+End
+Running pass sumSubtreeHints (fold, uses=3): 
+ITER TIMES: [0.005850]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 5.850270e-03
+SELFTIMED: 5.850270e-03
+End
+Running pass autocompleteTopKProxy (fold, uses=5): 
+ITER TIMES: [0.008157]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 8.157480e-03
+SELFTIMED: 8.157480e-03
+End
+Running pass countLazyNodes (fold, uses=4): 
+ITER TIMES: [0.006772]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 6.772081e-03
+SELFTIMED: 6.772081e-03
+End
+Running pass decayTrieStats (map, uses=10): 
+ITER TIMES: [0.178214]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.782139e-01
+SELFTIMED: 1.782139e-01
+End
+Running pass resetTraversalState (map, uses=10): 
+ITER TIMES: [0.084484]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 8.448373e-02
+SELFTIMED: 8.448373e-02
+End
+'#(255855588 8388084 343908960 624034042 1140694 228592174 228592174)

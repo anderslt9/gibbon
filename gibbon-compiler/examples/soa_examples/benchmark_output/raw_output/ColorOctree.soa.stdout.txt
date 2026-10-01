@@ -1,0 +1,16 @@
+Running program ColorOctree Quantization: 
+Running pass paletteEntriesQuantized (fold, uses=13): 
+ITER TIMES: [0.034767]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 3.476717e-02
+SELFTIMED: 3.476717e-02
+End
+Running pass quantizationErrorProxy (fold, uses=10): 
+ITER TIMES: [0.043032]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 4.303189e-02
+SELFTIMED: 4.303189e-02
+End
+'#(16777216 24540)

@@ -31,6 +31,7 @@ import           Gibbon.Common
 import qualified Gibbon.Language  as L
 import qualified Gibbon.L2.Syntax as L2
 import qualified Gibbon.L3.Syntax as L3
+import Gibbon.L2.Syntax (EndRegionModality)
 
 
 --------------------------------------------------------------------------------
@@ -61,11 +62,16 @@ data Triv
     | SymTriv Word16    -- ^ An index into the symbol table.
     | ProdTriv [Triv]   -- ^ Tuples
     | ProjTriv Int Triv -- ^ Projections
+    | IndexCursorArrayTriv Int Triv -- ^ Indexing operation
+    | UninitTriv Var Ty Int -- ^ uninitialized values
+    | SizeOf Ty         -- ^ Size of a type
   deriving (Show, Ord, Eq, Generic, NFData, Out)
 
 typeOfTriv :: M.Map Var Ty -> Triv -> Ty
 typeOfTriv env trv =
   case trv of
+    SizeOf{} -> IntTy
+    UninitTriv _ ty _ -> ty
     VarTriv v   -> env M.! v
     IntTriv{}   -> IntTy
     CharTriv{}  -> CharTy
@@ -73,6 +79,7 @@ typeOfTriv env trv =
     BoolTriv{}  -> BoolTy
     TagTriv{}   -> TagTyPacked
     SymTriv{}   -> SymTy
+    IndexCursorArrayTriv{} -> CursorTy
     ProdTriv ts -> ProdTy (map (typeOfTriv env) ts)
     ProjTriv i trv1 -> case typeOfTriv env trv1 of
                          ProdTy tys -> tys !! i
@@ -160,6 +167,21 @@ data Tail
     | LetAvailT { vars :: [Var]
                 , bod :: Tail }
 
+    | ForLoopT { idx :: Var
+               , bound :: Triv
+               , loopBody :: Tail
+               , bod :: Tail
+               }
+    | WhileCursorT { ref :: Var
+                   , loopBody :: Tail
+                   , bod :: Tail
+                   }
+    | WhileCursorEndT { ref :: Var
+                      , endRef :: Var
+                      , loopBody :: Tail
+                      , bod :: Tail
+                      }
+
     | IfT { tst  :: Triv,
             con  :: Tail,
             els  :: Tail }
@@ -201,6 +223,11 @@ data Ty
     | RegionTy -- ^ Region start and a refcount
     | ChunkTy  -- ^ Start and end pointers
     | CursorArrayTy Int
+    | MutCursorTy
+    | SimdTy Ty Int
+      -- ^ Fixed-width SIMD register.  The element type and lane count are
+      -- explicit so lowering can pick an SSE2/AVX/AVX512 backend later.
+
 
 -- TODO: Make Ptrs more type safe like this:
 --    | StructPtrTy { fields :: [Ty] } -- ^ A pointer to a struct containing the given fields.
@@ -280,7 +307,7 @@ data Prim
     | WritePackedFile FilePath TyCon
     | ReadArrayFile (Maybe (FilePath, Int)) Ty
 
-    | NewBuffer L2.Multiplicity
+    | NewBuffer L2.Multiplicity EndRegionModality
     -- ^ Allocate a new buffer, return a cursor.
 
     | NewParBuffer L2.Multiplicity
@@ -294,7 +321,7 @@ data Prim
     | ScopedParBuffer L2.Multiplicity
     -- ^ Like ScopedBuffer, but for parallel allocations.
 
-    | EndOfBuffer L2.Multiplicity
+    | EndOfBuffer L2.Multiplicity EndRegionModality
 
     | MMapFileSize Var
 
@@ -304,20 +331,61 @@ data Prim
     | WriteTag
     -- ^ Write a static tag value, takes a cursor to target.
 
+    | WriteTagPacked
+    -- ^ Write a runtime tag byte that was read from the input stream.
+
     | TagCursor
     -- ^ Create a tagged a cursor
 
     | ReadTaggedCursor
 
+    | WriteCursorIndirection
+
+    | WriteCursorSelectiveIndirection
+
+    | UnwrapSelectiveIndirections Int
+
     | WriteTaggedCursor
+
+    | MemCpy
 
     | ReadCursor
     -- ^ Read and return a cursor
 
-    | WriteCursor
+    | GrowRegion
+
+    | WriteCursorMutable
 
     | ReadScalar L3.Scalar
     | WriteScalar L3.Scalar
+    | ScalarCountFooterBegin
+    | ScalarCountBump
+    | ScalarCountSet
+    | ScalarCountCopyAll Int
+    | ScalarCountFooterEnd String
+    | ScalarCountGet
+    | ScalarCountFirstFooter
+    | ScalarCountNextFooter
+    | VecBroadcast L3.Scalar Int
+      -- ^ Broadcast one scalar value into a vector register.
+    | VecLoad L3.Scalar Int
+      -- ^ Load a vector register from a mutable cursor reference.
+    | VecAdd L3.Scalar Int
+      -- ^ Add two vector registers lane-wise.
+    | VecSub L3.Scalar Int
+      -- ^ Subtract two vector registers lane-wise.
+    | VecMul L3.Scalar Int
+      -- ^ Multiply two vector registers lane-wise, where supported.
+    | VecDiv L3.Scalar Int
+      -- ^ Divide two vector registers lane-wise, where supported.
+    | VecMod L3.Scalar Int
+      -- ^ Modulo two vector registers lane-wise, where supported.
+    | VecEq L3.Scalar Int
+      -- ^ Equality mask over two vector registers lane-wise, where supported.
+    | VecSelect L3.Scalar Int
+      -- ^ Lane-wise select: mask, then-value, else-value.
+    | VecStore L3.Scalar Int
+      -- ^ Store a vector register to a mutable cursor reference.
 
     | ReadList
     | WriteList
@@ -325,7 +393,7 @@ data Prim
     | ReadVector
     | WriteVector
 
-    | BoundsCheck
+    | BoundsCheck L2.Modality
 
     | BoundsCheckVector
 
@@ -369,6 +437,9 @@ data Prim
     | IndexCursorArray 
     | MakeCursorArray
     | CastPtr
+    | AddrOfCursor 
+    | DerefMutCursor
+    | BumpCursorMutable
 
   deriving (Show, Ord, Eq, Generic, NFData, Out)
 
@@ -378,6 +449,7 @@ data FunDecl = FunDecl
   , funRetTy :: Ty
   , funBody  :: Tail
   , isPure   :: Bool
+  , funMeta   :: L.FunMeta
   } deriving (Show, Ord, Eq, Generic, NFData, Out)
 
 voidTy :: Ty
@@ -419,6 +491,9 @@ withTail (tl0,retty) fn =
     (LetTimedT { isIter, binds, timed, bod })  -> LetTimedT isIter binds timed  <$> go bod
     (LetArenaT { lhs, bod })                   -> LetArenaT lhs                 <$> go bod
     (LetAvailT { vars, bod })                  -> LetAvailT vars                <$> go bod
+    (ForLoopT { idx, bound, loopBody, bod })   -> ForLoopT idx bound loopBody   <$> go bod
+    (WhileCursorT { ref, loopBody, bod })      -> WhileCursorT ref loopBody     <$> go bod
+    (WhileCursorEndT { ref, endRef, loopBody, bod }) -> WhileCursorEndT ref endRef loopBody <$> go bod
 
     -- We could DUPLICATE code in both branches or just let-bind the result instead:
     (IfT { tst, con, els }) -> IfT tst <$> go con <*> go els
@@ -449,6 +524,8 @@ fromL3Ty ty =
     L.PtrTy      -> PtrTy
     L.CursorTy   -> CursorTy
     L.CursorArrayTy size -> CursorArrayTy size
+    L.MutCursorTy -> MutCursorTy
+    L.SimdTy el_ty lanes -> SimdTy (fromL3Ty el_ty) lanes
     -- L.PackedTy{} -> error "fromL3Ty: Cannot convert PackedTy"
     L.VectorTy el_ty  -> VectorTy (fromL3Ty el_ty)
     _ -> IntTy -- [2019.06.10]: CSK, Why do we need this?
@@ -480,6 +557,7 @@ inlineTrivL4 (Prog info_tbl sym_tbl fundefs mb_main) =
             VarTriv w -> case M.lookup w env of
                            Nothing -> inline_tail (M.insert v trv env) bod
                            Just pr -> inline_tail (M.insert v pr env) bod
+            UninitTriv{} -> inline_tail env bod 
             _         -> inline_tail (M.insert v trv env) bod
         LetIfT{ife,bod} -> tl { ife = (\(a,b,c) -> (inline env a,
                                                     go b,
@@ -490,6 +568,17 @@ inlineTrivL4 (Prog info_tbl sym_tbl fundefs mb_main) =
         LetAllocT{vals,bod} -> tl { vals = map (\(a,b) -> (a, inline env b)) vals
                                   , bod  = go bod }
         LetAvailT{bod}   -> tl { bod = go bod }
+        ForLoopT{idx,bound,loopBody,bod} ->
+          let env' = M.delete idx env
+          in ForLoopT idx (inline env bound) (inline_tail env' loopBody) (go bod)
+        WhileCursorT{loopBody,bod} ->
+          tl { loopBody = go loopBody
+             , bod = go bod
+             }
+        WhileCursorEndT{loopBody,bod} ->
+          tl { loopBody = go loopBody
+             , bod = go bod
+             }
         IfT{tst,con,els} -> IfT (inline env tst) (go con) (go els)
         ErrT{} -> tl
         LetTimedT{timed,bod} -> tl { timed = go timed

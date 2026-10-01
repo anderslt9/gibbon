@@ -42,7 +42,7 @@ inferExp fenv expr =
     CharE{}   -> False
     FloatE{}  -> False
     LitSymE{} -> False
-    AppE v _locs _e -> funCanTriggerGC (fenv # v)
+    AppE v _ _locs _e -> funCanTriggerGC (fenv # v)
     PrimAppE _ ls   -> any go ls
     LetE (_,_,_,rhs) bod -> go rhs || go bod
     IfE tst consq alt    -> go tst || go consq || go alt
@@ -66,6 +66,7 @@ inferExp fenv expr =
     Ext (AddFixed{})       -> False
     Ext (GetCilkWorkerNum) -> False
     Ext (LetAvail _ e)     -> go e
+    Ext (SelectiveBufferShareE _ _ e) -> go e
     Ext (StartOfPkdCursor{})    -> False
     Ext (TagCursor{})           -> False
     Ext (AllocateTagHere{})     -> False

@@ -8,12 +8,10 @@ module Gibbon.HaskellFrontend
 
 import           Control.Monad
 import           Data.Foldable ( foldrM )
-#if !MIN_VERSION_base(4,21,0)
-import           Data.Foldable ( foldl' )
-#endif
 import           Data.Maybe (catMaybes, isJust)
 import qualified Data.Map as M
 import qualified Data.Set as S
+import qualified Data.List as L
 import qualified Safe as Sf
 
 import           Data.IORef
@@ -159,6 +157,7 @@ data TopLevel
   | HMain (Maybe (Exp0, Ty0))
   | HInline Var
   | MemLayoutTy TyCon MemoryLayout 
+  | HFunAnnot Var FunOpt
   deriving (Show, Eq)
 
 type TopTyEnv = TyEnv Var TyScheme
@@ -175,9 +174,10 @@ desugarModule cfg pstate_ref import_route dir (Module _ head_mb _pragmas imports
   imported_progs :: [PassM Prog0] <- mapM (processImport cfg pstate_ref (mod_name : import_route) dir) imports
   let prog = do
         toplevels <- catMaybes <$> mapM (collectTopLevel type_syns funtys) decls
-        let (defs,_vars,funs,inlines,main, memlayouts) = foldr classify init_acc toplevels
+        let (defs,_vars,funs,inlines,funannots,main, memlayouts) = foldr classify init_acc toplevels
             defs' = updateMemoryLayout defs memlayouts
             funs' = foldr (\v acc -> M.update (\fn@(FunDef{funMeta}) -> Just (fn { funMeta = funMeta { funInline = Inline }})) v acc) funs inlines
+            funs'' = M.foldrWithKey applyFunAnnots funs' funannots
         imported_progs' <- mapM id imported_progs
         let (defs0,funs0) =
               foldr
@@ -206,12 +206,12 @@ desugarModule cfg pstate_ref import_route dir (Module _ head_mb _pragmas imports
                             ([], []) -> (M.union ddefs defs1,  M.union fundefs funs1)
                             (_x:_xs,_) -> error $ "Conflicting definitions of " ++ show conflicts1 ++ " found in " ++ mod_name
                             (_,_x:_xs) -> error $ "Conflicting definitions of " ++ show (S.toList em2) ++ " found in " ++ mod_name)
-                (defs', funs')
+                (defs', funs'')
                 imported_progs'
         pure (Prog defs0 funs0 main)
   pure prog
   where
-    init_acc = (M.empty, M.empty, M.empty, S.empty, Nothing, M.empty)
+    init_acc = (M.empty, M.empty, M.empty, S.empty, M.empty, Nothing, M.empty)
     mod_name = moduleName head_mb
 
     moduleName :: Maybe (ModuleHead a) -> String
@@ -219,17 +219,24 @@ desugarModule cfg pstate_ref import_route dir (Module _ head_mb _pragmas imports
     moduleName (Just (ModuleHead _ mod_name1 _warnings _exports)) =
       mnameToStr mod_name1
 
-    classify thing (defs,vars,funs,inlines,main, memlayouts) =
+    classify thing (defs,vars,funs,inlines,funannots,main, memlayouts) =
       case thing of
-        HDDef d   -> (M.insert (tyName d) d defs, vars, funs, inlines, main, memlayouts)
-        HFunDef f -> (defs, vars, M.insert (funName f) f funs, inlines, main, memlayouts)
+        HDDef d   -> (M.insert (tyName d) d defs, vars, funs, inlines, funannots, main, memlayouts)
+        HFunDef f -> (defs, vars, M.insert (funName f) f funs, inlines, funannots, main, memlayouts)
         HMain m ->
           case main of
-            Nothing -> (defs, vars, funs, inlines, m, memlayouts)
+            Nothing -> (defs, vars, funs, inlines, funannots, m, memlayouts)
             Just _  -> error $ "A module cannot have two main expressions."
                                ++ show mod_name
-        HInline v   -> (defs,vars,funs,S.insert v inlines,main, memlayouts)
-        MemLayoutTy tycon l -> (defs,vars,funs,inlines,main, M.insert tycon l memlayouts)
+        HInline v -> (defs,vars,funs,S.insert v inlines,funannots,main, memlayouts)
+        HFunAnnot v opt -> (defs,vars,funs,inlines,M.insertWith (++) v [opt] funannots,main, memlayouts)
+        MemLayoutTy tycon l -> (defs,vars,funs,inlines,funannots,main, M.insert tycon l memlayouts)
+
+    applyFunAnnots fn opts =
+      M.update
+        (\f@FunDef{funMeta} ->
+           Just (f { funMeta = funMeta { funOpt = opts ++ funOpt funMeta } }))
+        fn
     
     updateMemoryLayout indefs memlayouts = 
       let defs'' = M.mapWithKey (\k v -> let tyName = fromVar k
@@ -548,7 +555,7 @@ desugarExp type_syns toplevel e =
                    pure $ VarE v
                  -- Otherwise, 'v' is a top-level value binding, which we
                  -- encode as a function which takes no arguments.
-                 _ -> pure $ AppE v [] []
+                 _ -> pure $ AppE v UnknownTailType [] []
              Nothing -> pure $ VarE v
     Lit _ lit  -> desugarLiteral lit
 
@@ -783,14 +790,14 @@ desugarExp type_syns toplevel e =
                     pure $ Ext (LinearExt (LseqE e2' undefined))
                   else if S.member f keywords
                   then error $ "desugarExp: Keyword not handled: " ++ sdoc f
-                  else AppE f [] <$> (: []) <$> desugarExp type_syns toplevel e2
+                  else AppE f UnknownTailType [] <$> (: []) <$> desugarExp type_syns toplevel e2
           (DataConE tyapp c as) -> (\e2' -> DataConE tyapp c (as ++ [e2'])) <$> desugarExp type_syns toplevel e2
           (Ext (ParE0 ls)) -> do
             e2' <- desugarExp type_syns toplevel e2
             pure $ Ext $ ParE0 (ls ++ [e2'])
-          (AppE f [] ls) -> do
+          (AppE f cty [] ls) -> do
             e2' <- desugarExp type_syns toplevel e2
-            pure $ AppE f [] (ls ++ [e2'])
+            pure $ AppE f cty [] (ls ++ [e2'])
 
           (Ext (BenchE fn [] ls b)) -> do
             e2' <- desugarExp type_syns toplevel e2
@@ -828,9 +835,9 @@ desugarExp type_syns toplevel e =
             e2' <- desugarExp type_syns toplevel e2
             pure (Ext (LinearExt (LseqE a e2')))
 
-          (Ext (LinearExt (ToLinearE (AppE f [] ls)))) -> do
+          (Ext (LinearExt (ToLinearE (AppE f cty [] ls)))) -> do
             e2' <- desugarExp type_syns toplevel e2
-            pure (Ext (LinearExt (ToLinearE (AppE f [] (ls ++ [e2'])))))
+            pure (Ext (LinearExt (ToLinearE (AppE f cty [] (ls ++ [e2'])))))
 
           (Ext (LinearExt (ToLinearE (DataConE tyapp dcon ls)))) -> do
             e2' <- desugarExp type_syns toplevel e2
@@ -842,7 +849,7 @@ desugarExp type_syns toplevel e =
 
           (Ext (LinearExt (ToLinearE (VarE fn)))) -> do
             e2' <- desugarExp type_syns toplevel e2
-            pure (Ext (LinearExt (ToLinearE (AppE fn [] [e2']))))
+            pure (Ext (LinearExt (ToLinearE (AppE fn UnknownTailType [] [e2']))))
 
           f -> error ("desugarExp: Couldn't parse function application: (" ++ show f ++ ")")
 
@@ -963,6 +970,9 @@ collectTopLevel type_syns env decl =
       case annotation of 
             TypeAnn _ (Ident _ tycon) (Lit _ (String _ "Factored" _)) -> pure $ Just (MemLayoutTy tycon FullyFactored)
             TypeAnn _ (Ident _ tycon) (Lit _ (String _ "Linear" _)) -> pure $ Just (MemLayoutTy tycon Linear)
+            Ann _ (Ident _ fn) (Lit _ (String _ "OPT:CanVectorize" _)) -> pure $ Just (HFunAnnot (toVar fn) CanVectorize)
+            Ann _ (Ident _ fn) (Lit _ (String _ "OPT:StoreScalarCounts" _)) -> pure $ Just (HFunAnnot (toVar fn) StoreScalarCounts)
+            Ann _ (Ident _ fn) (Lit _ (String _ "OPT:SelectiveBufferSharing" _)) -> pure $ Just (HFunAnnot (toVar fn) SelectiveBufferSharing)
             _ -> error "Memory Layout not yet supported!"
 
 
@@ -1005,6 +1015,7 @@ collectTopLevel type_syns env decl =
                                                    , funMeta = FunMeta { funRec = NotRec
                                                                        , funInline = NoInline
                                                                        , funCanTriggerGC = False
+                                                                       , funOpt = []
                                                                        }
                                                    })
 
@@ -1020,6 +1031,7 @@ collectTopLevel type_syns env decl =
                                                , funMeta = FunMeta { funRec = NotRec
                                                                    , funInline = NoInline
                                                                    , funCanTriggerGC = False
+                                                                   , funOpt = []
                                                                    }
                                                })
 
@@ -1032,6 +1044,7 @@ collectTopLevel type_syns env decl =
                                                   , funMeta = FunMeta { funRec = NotRec
                                                                       , funInline = NoInline
                                                                       , funCanTriggerGC = False
+                                                                      , funOpt = []
                                                                       }
                                                   })
 
@@ -1244,7 +1257,7 @@ fixupSpawn ex =
     CharE{}    -> ex
     FloatE{}   -> ex
     LitSymE{}  -> ex
-    AppE fn tyapps args -> AppE fn tyapps (map go args)
+    AppE fn cty tyapps args -> AppE fn cty tyapps (map go args)
     PrimAppE pr args -> PrimAppE pr (map go args)
     DataConE dcon tyapps args -> DataConE dcon tyapps (map go args)
     ProjE i e  -> ProjE i $ go e
@@ -1257,7 +1270,7 @@ fixupSpawn ex =
     WithArenaE v e -> WithArenaE v (go e)
     SpawnE _ _ args ->
       case args of
-          [(AppE fn tyapps ls)] -> SpawnE fn tyapps ls
+          [(AppE fn _cty tyapps ls)] -> SpawnE fn tyapps ls
           _ -> error $ "fixupSpawn: incorrect use of spawn: " ++ sdoc ex
     SyncE   -> SyncE
     MapE{}  -> error $ "fixupSpawn: TODO MapE"
@@ -1289,7 +1302,7 @@ verifyBenchEAssumptions bench_allowed ex =
     CharE{}    -> ex
     FloatE{}   -> ex
     LitSymE{}  -> ex
-    AppE fn tyapps args -> AppE fn tyapps (map not_allowed args)
+    AppE fn cty tyapps args -> AppE fn cty tyapps (map not_allowed args)
     PrimAppE pr args -> PrimAppE pr (map not_allowed args)
     DataConE dcon tyapps args -> DataConE dcon tyapps (map not_allowed args)
     ProjE i e  -> ProjE i $ not_allowed e
@@ -1347,8 +1360,8 @@ desugarLinearExts (Prog ddefs fundefs main) = do
         CharE{}   -> pure ex
         FloatE{}  -> pure ex
         LitSymE{} -> pure ex
-        AppE f tyapps args -> do args' <- mapM go args
-                                 pure (AppE f tyapps args')
+        AppE f cty tyapps args -> do args' <- mapM go args
+                                     pure (AppE f cty tyapps args')
         PrimAppE pr args   -> do args' <- mapM go args
                                  pure (PrimAppE pr args')
         LetE (v,locs,ty,rhs) bod -> do
@@ -1411,7 +1424,7 @@ desugarLinearExts (Prog ddefs fundefs main) = do
                   case fn' of
                     Ext (LambdaE [(v,ProdTy tys)] bod) -> do
                       let ty = Sf.headErr tys
-                          bod'' = foldl' (\acc i -> gSubstE (ProjE i (VarE v)) (VarE v) acc) bod [0..(length tys)]
+                          bod'' = L.foldl' (\acc i -> gSubstE (ProjE i (VarE v)) (VarE v) acc) bod [0..(length tys)]
                       pure (LetE (v,[],ty,e) bod'')
                     _ -> error $ "desugarLinearExts: couldn't desugar " ++ sdoc ex
                 ReverseAppE fn arg -> do

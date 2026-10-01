@@ -296,11 +296,13 @@ instance (Pretty l) => Pretty (UrTy l) where
               case sty of
                 PPHaskell  -> text tc
                 PPInternal -> parens $ text "Packed" <+> text tc <+> pprintWithStyle sty loc
+          SimdTy el_ty1 lanes -> text "Simd" <> int lanes <+> pprintWithStyle sty el_ty1
           VectorTy el_ty1 -> text "Vector" <+> pprintWithStyle sty el_ty1
           ListTy el_ty1 -> text "List" <+> pprintWithStyle sty el_ty1
           PtrTy     -> text "Ptr"
           CursorTy  -> text "Cursor"
           CursorArrayTy size -> text "CursorArray[" <> int size <> text "]"
+          MutCursorTy -> text "MutCursor"
           ArenaTy   -> case sty of
                          PPHaskell  -> text "()"
                          PPInternal -> text "Arena"
@@ -343,8 +345,9 @@ instance HasPrettyToo e l d => Pretty (PreExp e l d) where
           CharE i -> quotes (char i)
           FloatE i  -> double i
           LitSymE v -> text "\"" <> pprintWithStyle sty v <> text "\""
-          AppE v locs ls -> parens $
+          AppE v cty locs ls -> parens $
                              pprintWithStyle sty v <+>
+                             pprintWithStyle sty cty <+>
                              (brackets $ hcat (punctuate "," (map pprint locs))) <+>
                              (pprintWithStyle sty ls)
           PrimAppE pr es ->
@@ -455,22 +458,29 @@ instance Pretty l => Pretty (L2.PreRegExp l) where
         case re of
           L2.GetDataConRegSoA loc -> lparen <> text "getDataConRegSoA" <+> pprint loc <> rparen
           L2.GetFieldRegSoA (dcon, idx) loc -> lparen <> text "getFieldRegSoA" <+> lparen <> text dcon <+> "," <+> int idx <> rparen <+> pprint loc <> rparen
+          L2.GenSoAReg loc flocs -> lparen <> text "genSoALoc" <+> pprint loc <+> (brackets $ hcat (punctuate "," (map (\((dc, x), l) -> lparen <> lparen <> text dc <+> "," <+> int x <> rparen <+> "," <+> pprint l <> rparen) flocs))) <> rparen
 
 instance Pretty RegionSize where
     pprintWithStyle _ (BoundedSize x) = parens $ text "Bounded" <+> int x
     pprintWithStyle _ Undefined       = text "Unbounded"
+
+instance Pretty EndRegionModality where
+  pprintWithStyle _ (RegionImmutable) = text "RegionImmutable"
+  pprintWithStyle _ (RegionMutable) = text "RegionMutable"  
 
 instance HasPrettyToo E2Ext l d => Pretty (L2.E2Ext l d) where
     pprintWithStyle _ ex0 =
         case ex0 of
           L2.AddFixed v i -> text "addfixed" <+>
                                doc v <+> doc i
-          LetRegionE r sz _ e -> text "letregion" <+> pprint sz <+>
-                                 doc r <+> text "in" $+$ pprint e
+          LetRegionE r sz endmut _ e -> text "letregion" <+> pprint sz <+> pprint endmut <+>
+                                          doc r <+> text "in" $+$ pprint e
           LetParRegionE r _ _ e -> text "letparregion" <+>
                                  doc r <+> text "in" $+$ pprint e
           LetLocE loc le e -> text "letloc" <+>
                                 pprint loc <+> equals <+> pprint le <+> text "in" $+$ pprint e
+          L2.SelectiveBufferShareE src tgts e ->
+            text "selectivebuffershare" <+> doc src <+> text (show tgts) <+> text "in" $+$ pprint e
           --LetSoALocE loc e -> text "letSoAloc" <+>
           --                      pprint loc <+> text "in" $+$ pprint e
           L2.RetE ls v -> text "return" <+>
@@ -505,6 +515,8 @@ instance Pretty L2.LocVar where
 instance Pretty L2.RegVar where
   pprintWithStyle _ loc = parens $ text $ sdoc loc
 
+instance Pretty TailRecType where 
+ pprintWithStyle _ ty = parens $ text $ sdoc ty  
 
 instance Pretty L2.Region where
   pprintWithStyle _ reg = parens $ text $ sdoc reg
@@ -692,7 +704,7 @@ pprintHsWithEnv p@Prog{ddefs,fundefs,mainExp} =
           CharE i -> char i
           FloatE i -> double i
           LitSymE v -> text "\"" <> pprintWithStyle sty v <> text "\""
-          AppE v _locs ls -> pprintWithStyle sty v <+>
+          AppE v _cty _locs ls -> pprintWithStyle sty v <+>
                             (hsep $ map (ppExp monadic env2) ls)
           PrimAppE pr es ->
               case pr of

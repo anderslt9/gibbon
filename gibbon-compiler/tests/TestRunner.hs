@@ -87,6 +87,16 @@ TODO: check more things here, #allocs, size of the buffers etc.
 --------------------------------------------------------------------------------
 -- A single test
 
+data SourceReplacement = SourceReplacement
+    { replaceFrom :: String
+    , replaceTo   :: String
+    }
+  deriving (Show, Eq, Read, Ord)
+
+instance FromJSON SourceReplacement where
+    parseJSON (Y.Object o) = SourceReplacement <$> o .: "from" <*> o .: "to"
+    parseJSON oth = error $ "Cannot parse SourceReplacement: " ++ show oth
+
 data Test = Test
     { name :: String
     , dir  :: FilePath
@@ -101,6 +111,27 @@ data Test = Test
 
     , test_flags :: [String]   -- ^ We don't parse the flags here but instead pass them onto
                                -- Gibbon as is.
+
+    , sourceReplacements :: [SourceReplacement]
+      -- ^ Exact string replacements applied to a temporary source copy before
+      -- compiling/running this test.  This is intentionally test-runner-only:
+      -- benchmark sources stay unchanged, while the examples suite can use
+      -- reduced unit-test inputs with real runtime output checks.
+
+    , compileOnly :: Bool
+      -- ^ Compile the test to generated C but do not run it.  This is used for
+      -- benchmark-sized optimization regression tests where Phase 1 needs to
+      -- validate compiler flags/codegen without executing huge hard-coded
+      -- workloads in the unit-test suite.
+
+    , compareWithBaseline :: Bool
+      -- ^ If true, run a baseline Gibbon command and compare every mode against
+      -- its output instead of comparing against a static .ans file.  This is
+      -- useful for layout/optimization equivalence tests where AoS is the
+      -- ground truth and timing lines are intentionally ignored.
+    , baselineMode :: Mode
+    , baselineDir  :: Maybe FilePath
+    , baselineName :: Maybe String
 
     -- Temporary hack until we can generate output in both Racket and Haskell
     -- syntax. #t => True etc.
@@ -125,6 +156,12 @@ defaultTest = Test
     , sizeParam = 25
     , moreIters = []
     , test_flags = []
+    , sourceReplacements = []
+    , compileOnly = False
+    , compareWithBaseline = False
+    , baselineMode = Gibbon2
+    , baselineDir = Nothing
+    , baselineName = Nothing
     , mb_anspath = Nothing
     , isMegaBench = False
     , benchFun   = "bench"
@@ -146,6 +183,12 @@ instance FromJSON Test where
         sizeparam   <- o .:? "size-param" .!= (sizeParam defaultTest)
         moreiters   <- o .:? "more-iters" .!= (moreIters defaultTest)
         test_flags  <- o .:? "test-flags" .!= (test_flags defaultTest)
+        source_replacements <- o .:? "source-replacements" .!= (sourceReplacements defaultTest)
+        compile_only <- o .:? "compile-only" .!= (compileOnly defaultTest)
+        compare_baseline <- o .:? "compare-with-baseline" .!= (compareWithBaseline defaultTest)
+        baseline_mode <- o .:? "baseline-mode" .!= (baselineMode defaultTest)
+        baseline_dir  <- o .:? "baseline-dir" .!= (baselineDir defaultTest)
+        baseline_name <- o .:? "baseline-name" .!= (baselineName defaultTest)
         mbanspath   <- o .:? "answer-file" .!= (mb_anspath defaultTest)
         megabench   <- o .:? "mega-bench" .!= (isMegaBench defaultTest)
         benchfun    <- o .:? "bench-fun" .!= (benchFun defaultTest)
@@ -153,7 +196,7 @@ instance FromJSON Test where
         let expectedFailures = M.fromList [(mode, Fail) | mode <- failing]
             -- Overlay the expected failures on top of the defaults.
             expected = M.union expectedFailures (expectedResults defaultTest)
-        return $ Test name dir expected skip runmodes isbenchmark trials sizeparam moreiters test_flags mbanspath megabench benchfun benchinput
+        return $ Test name dir expected skip runmodes isbenchmark trials sizeparam moreiters test_flags source_replacements compile_only compare_baseline baseline_mode baseline_dir baseline_name mbanspath megabench benchfun benchinput
     parseJSON oth = error $ "Cannot parse Test: " ++ show oth
 
 data Result = Pass | Fail
@@ -161,7 +204,19 @@ data Result = Pass | Fail
 
 -- Not used atm.
 -- | Gibbon mode to run programs in
-data Mode = Gibbon3 | Gibbon2 | Pointer | Interp1 | Gibbon1 | MPL | Colobus
+data Mode = Gibbon3
+          | Gibbon2
+          | Pointer
+          | Interp1
+          | Gibbon1
+          | GibbonNoCopies
+          | GibbonNoRan
+          | GibbonInt32
+          | GibbonLoopify
+          | GibbonSelective
+          | GibbonVectorize
+          | GibbonInt32Vectorize
+          | MPL
   deriving (Show, Eq, Read, Ord, Bounded, Enum)
 
 instance FromJSON Mode where
@@ -179,37 +234,78 @@ readMode s =
         "pointer" -> Pointer
         "interp1" -> Interp1
         "gibbon1" -> Gibbon1
-        "colobus" -> Colobus
+        "nocopies" -> GibbonNoCopies
+        "noran" -> GibbonNoRan
+        "int32" -> GibbonInt32
+        "gibbon-int32" -> GibbonInt32
+        "loopify" -> GibbonLoopify
+        "gibbon-loopify" -> GibbonLoopify
+        "selective" -> GibbonSelective
+        "gibbon-selective" -> GibbonSelective
+        "vectorize" -> GibbonVectorize
+        "gibbon-vectorize" -> GibbonVectorize
+        "int32-vectorize" -> GibbonInt32Vectorize
+        "gibbon-int32-vectorize" -> GibbonInt32Vectorize
         "mpl" -> MPL
         _ -> error $ "readMode: " ++ show s
 
 -- Must match the flag expected by Gibbon.
 modeRunFlags :: Mode -> [String]
-modeRunFlags Colobus  = ["--run", "--packed", "--gibbon1", "--SoA"]
+modeRunFlags GibbonNoCopies  = ["--run", "--packed", "--no-rcopies"]
+modeRunFlags GibbonNoRan  = ["--run", "--packed", "--no-ran"]
 modeRunFlags Gibbon3  = ["--run", "--packed", "--gen-gc"]
 modeRunFlags Gibbon2  = ["--run", "--packed"]
 modeRunFlags Pointer = ["--run", "--pointer"]
 modeRunFlags Interp1 = ["--interp1"]
 modeRunFlags Gibbon1 = ["--run", "--packed", "--gibbon1"]
+modeRunFlags GibbonInt32 = ["--run", "--packed", "--int32"]
+modeRunFlags GibbonLoopify = ["--run", "--packed", "--use-mutable-cursors", "--store-scalar-field-counts", "--enable-loopification", "--auto-loopification"]
+modeRunFlags GibbonSelective = ["--run", "--packed", "--use-mutable-cursors", "--store-scalar-field-counts", "--enable-loopification", "--auto-loopification", "--enable-selective-buffer-sharing"]
+modeRunFlags GibbonVectorize = ["--run", "--packed", "--use-mutable-cursors", "--store-scalar-field-counts", "--enable-loopification", "--auto-loopification", "--enable-selective-buffer-sharing", "--enable-vectorization"]
+modeRunFlags GibbonInt32Vectorize = ["--run", "--packed", "--use-mutable-cursors", "--store-scalar-field-counts", "--enable-loopification", "--auto-loopification", "--enable-selective-buffer-sharing", "--enable-vectorization", "--int32"]
 modeRunFlags MPL = ["--mpl-run"]
 
 -- Must match the flag expected by Gibbon.
+modeCFlags :: Mode -> [String]
+modeCFlags mode = case mode of
+  Interp1 -> error "Cannot compile C in Interp1 mode."
+  MPL     -> ["--mpl"]
+  _       -> map toCFlag (modeExeFlags mode)
+  where
+    toCFlag "--to-exe" = "--toC"
+    toCFlag opt        = opt
+
 modeExeFlags :: Mode -> [String]
-modeExeFlags Colobus  = ["--to-exe", "--packed", "--gibbon1", "--SoA"]
+modeExeFlags GibbonNoCopies  = ["--to-exe", "--packed", "--no-rcopies"]
+modeExeFlags GibbonNoRan  = ["--to-exe", "--packed", "--no-ran"]
 modeExeFlags Gibbon3 = ["--to-exe", "--packed", "--gen-gc"]
 modeExeFlags Gibbon2 = ["--to-exe", "--packed"]
 modeExeFlags Pointer = ["--to-exe", "--pointer"]
 modeExeFlags Interp1 = error "Cannot compile in Interp1 mode."
 modeExeFlags Gibbon1 = ["--to-exe", "--packed", "--gibbon1"]
+modeExeFlags GibbonInt32 = ["--to-exe", "--packed", "--int32"]
+modeExeFlags GibbonLoopify = ["--to-exe", "--packed", "--use-mutable-cursors", "--store-scalar-field-counts", "--enable-loopification", "--auto-loopification"]
+modeExeFlags GibbonSelective = ["--to-exe", "--packed", "--use-mutable-cursors", "--store-scalar-field-counts", "--enable-loopification", "--auto-loopification", "--enable-selective-buffer-sharing"]
+modeExeFlags GibbonVectorize = ["--to-exe", "--packed", "--use-mutable-cursors", "--store-scalar-field-counts", "--enable-loopification", "--auto-loopification", "--enable-selective-buffer-sharing", "--enable-vectorization"]
+modeExeFlags GibbonInt32Vectorize = ["--to-exe", "--packed", "--use-mutable-cursors", "--store-scalar-field-counts", "--enable-loopification", "--auto-loopification", "--enable-selective-buffer-sharing", "--enable-vectorization", "--int32"]
 modeExeFlags MPL = ["--mpl-exe"]
 
+ccFlags :: TestConfig -> [String]
+ccFlags tc = maybe [] (\cc -> ["--cc=" ++ cc]) (ccOverride tc)
+
 modeFileSuffix :: Mode -> String
-modeFileSuffix Colobus =  "_colobus"
+modeFileSuffix GibbonNoCopies =  "_gibbonNoCopies"
+modeFileSuffix GibbonNoRan =  "_gibbonNoRan"
 modeFileSuffix Gibbon3  = "_gibbon3"
 modeFileSuffix Gibbon2  = "_gibbon2"
 modeFileSuffix Pointer = "_ptr"
 modeFileSuffix Interp1 = "_interp1"
 modeFileSuffix Gibbon1 = "_gibbon1"
+modeFileSuffix GibbonInt32 = "_gibbonInt32"
+modeFileSuffix GibbonLoopify = "_gibbonLoopify"
+modeFileSuffix GibbonSelective = "_gibbonSelective"
+modeFileSuffix GibbonVectorize = "_gibbonVectorize"
+modeFileSuffix GibbonInt32Vectorize = "_gibbonInt32Vectorize"
 modeFileSuffix MPL = "_mpl"
 
 -- Couldn't figure out how to write a parser which accepts multiple arguments.
@@ -335,6 +431,7 @@ data TestConfig = TestConfig
                               --   It's a global parameter i.e it affects ALL tests.
                               --   However, if a corresponding parameter is specified
                               --   for a particular test, that has higher precedence.
+    , ccOverride  :: Maybe String -- ^ If set, pass --cc=<value> to all gibbon invocations.
     , checkPerf   :: Bool     -- ^ Should we also run the performance tests ?
     , onlyPerf    :: Bool     -- ^ If true, only run the benchmarks.
     , recordBenchmarks :: Bool -- ^ If true, record the results of running fresh benchmarks. Used via BenchRunner.
@@ -349,6 +446,7 @@ defaultTestConfig = TestConfig
     , testSummaryFile = "gibbon-test-summary.txt"
     , tempdir     = "examples/build_tmp"
     , gRunModes   = []
+    , ccOverride  = Nothing
     , checkPerf   = False
     , onlyPerf    = False
     , recordBenchmarks = False
@@ -362,6 +460,7 @@ instance FromJSON TestConfig where
                                  o .:? "test-summary-file" .!= (testSummaryFile defaultTestConfig) <*>
                                  o .:? "tempdir"      .!= (tempdir defaultTestConfig)     <*>
                                  o .:? "run-modes"    .!= (gRunModes defaultTestConfig)   <*>
+                                 o .:? "cc"           .!= (ccOverride defaultTestConfig)  <*>
                                  o .:? "check-perf"   .!= (checkPerf defaultTestConfig)   <*>
                                  o .:? "only-perf"    .!= (onlyPerf defaultTestConfig)    <*>
                                  o .:? "run-benchmarks"   .!= (recordBenchmarks defaultTestConfig) <*>
@@ -390,6 +489,9 @@ configParser dtc = TestConfig
                    <*> option readM_modes (long "run-modes" <>
                                            help "Only run the tests in these modes" <>
                                            value (gRunModes dtc))
+                   <*> fmap (\mb -> maybe (ccOverride dtc) Just mb)
+                             (OA.optional (strOption (long "cc" <>
+                                                   help "C compiler to use for all tests")))
                    <*> switch (long "check-perf" <>
                                help "Run performance tests." <>
                                showDefault)
@@ -465,87 +567,265 @@ runTests tc tr = do
         then return (acc { skipped = (name test):(skipped acc) })
         else do
             -- Check if the global gRunModes or the test specific runModes was modified
-            let test' = case (runModes test, gRunModes tc) of
-                            -- Nothing was globally modified
-                            (_,[])  -> test { runModes = allModes }
-                            -- The tests doesn't specify an override, but there's a global override
-                            ([],ms) -> test { runModes = ms }
-                            -- There's a global override, but the one specified for a test
-                            -- has higher precedence
-                            _ -> test { runModes = allModes }
-            results <- if isBenchmark test' && (checkPerf tc || onlyPerf tc)
+            let testModes = if null (runModes test) then allModes else runModes test
+                chosenModes0 = if null (gRunModes tc)
+                               then testModes
+                               else testModes `intersect` gRunModes tc
+                chosenModes = if skipFailing tc
+                              then filter (\mode -> M.findWithDefault Pass mode (expectedResults test) == Pass) chosenModes0
+                              else chosenModes0
+                test' = test { runModes = chosenModes }
+            if null chosenModes
+            then return (acc { skipped = (name test):(skipped acc) })
+            else do
+              results <- if isBenchmark test' && (checkPerf tc || onlyPerf tc)
                        then runBenchmark tc test'
                        else runTest tc test'
-            let extend = M.insertWith (++) (name test')
-            foldrM
-                (\(mode,res) acc2 ->
-                     return $ case res of
-                        EP -> acc2 { expectedPasses = extend [mode] (expectedPasses acc2) }
-                        UP -> acc2 { unexpectedPasses = extend [mode] (unexpectedPasses acc2) }
-                        EF err -> acc2 { expectedFailures = extend [(mode,err)] (expectedFailures acc2) }
-                        UF err -> acc2 { unexpectedFailures = extend [(mode,err)] (unexpectedFailures acc2) })
-                acc results
+              let extend = M.insertWith (++) (name test')
+              foldrM
+                  (\(mode,res) acc2 ->
+                       return $ case res of
+                          EP -> acc2 { expectedPasses = extend [mode] (expectedPasses acc2) }
+                          UP -> acc2 { unexpectedPasses = extend [mode] (unexpectedPasses acc2) }
+                          EF err -> acc2 { expectedFailures = extend [(mode,err)] (expectedFailures acc2) }
+                          UF err -> acc2 { unexpectedFailures = extend [(mode,err)] (unexpectedFailures acc2) })
+                  acc results
 
 runTest :: TestConfig -> Test -> IO [(Mode,TestVerdict)]
-runTest tc Test{name,dir,expectedResults,runModes,mb_anspath,test_flags} = do
+runTest tc test@Test{name,expectedResults,runModes,compileOnly,compareWithBaseline} = do
     dbgFlushIt' tc 2 (name ++ "...") (".")
-    ls <- mapM (\(m,e) -> go m e) (M.toList $ M.restrictKeys expectedResults (S.fromList runModes))
+    ls <- if compileOnly
+          then runTestCompileOnly tc test
+          else if compareWithBaseline
+               then runTestAgainstBaseline tc test
+               else runTestAgainstAnswer tc test
     let msgs = catMaybes $ map error_msg ls
     if (msgs == [])
     then dbgFlushItDoc tc 2 (ok_doc <> "\n")
     else dbgFlushItDoc tc 2 (vcat [fail_doc <> "\n" , hang 2 (docErrors msgs)])
     pure ls
   where
-
     error_msg :: (Mode, TestVerdict) -> Maybe (Mode, String)
     error_msg (m, v) =
       case v of
         UF msg -> Just (m,msg)
         _      -> Nothing
 
+    _keepFieldsLive = (expectedResults, runModes)
 
+runTestCompileOnly :: TestConfig -> Test -> IO [(Mode,TestVerdict)]
+runTestCompileOnly tc test@Test{dir,name,expectedResults,runModes} =
+    mapM (uncurry go) (M.toList $ M.restrictKeys expectedResults (S.fromList runModes))
+  where
     go :: Mode -> Result -> IO (Mode, TestVerdict)
     go mode expected = do
-        compiler_dir <- getCompilerDir
-        let tmppath  = compiler_dir </> tempdir tc </> name
-            basename = compiler_dir </> replaceBaseName tmppath (takeBaseName tmppath ++ modeFileSuffix mode)
-            outpath  = replaceExtension basename ".out"
-            anspath  = case mb_anspath of
-                         Nothing -> tmppath ++ ".ans"
-                         Just p  -> compiler_dir </> p
-            cpath    = replaceExtension basename ".c"
-            exepath  = replaceExtension basename ".exe"
-            cmd = "gibbon"
-            -- The order of (++) is important. The PATH to the test file must always be at the end.
-            cmd_flags = modeRunFlags mode ++ test_flags ++
-                        [ "--cfile=" ++ cpath ,
-                          "--exefile=" ++ exepath ,
-                          compiler_dir </> dir </> name ]
-        (_, Just hout, Just herr, phandle) <-
-            createProcess (proc cmd cmd_flags) { std_out = CreatePipe
-                                               , std_err = CreatePipe }
-        dbgFlushIt tc 3 ("CMD: " ++ cmd ++ " " ++ (intercalate " " cmd_flags) ++ "\n")
-        exitCode <- waitForProcess phandle
-        case exitCode of
-            ExitSuccess -> do
-                -- Write the output to a file
-                out <- hGetContents hout
-                writeFile outpath out
-                -- Diff the output and the answer
+        result <- runGibbonCompileCommand tc test mode dir name ""
+        case result of
+          Left err -> verdict expected mode (Just err)
+          Right{}  -> verdict expected mode Nothing
+
+runTestAgainstAnswer :: TestConfig -> Test -> IO [(Mode,TestVerdict)]
+runTestAgainstAnswer tc test@Test{name,dir,expectedResults,runModes} =
+    mapM (uncurry go) (M.toList $ M.restrictKeys expectedResults (S.fromList runModes))
+  where
+    go :: Mode -> Result -> IO (Mode, TestVerdict)
+    go mode expected = do
+        anspath <- answerPathForTest tc test
+        result <- runGibbonTestCommand tc test mode dir name ""
+        case result of
+            Left err -> verdict expected mode (Just err)
+            Right (outpath, _out) -> do
                 answer_exists <- doesFileExist anspath
                 diff_res <- if answer_exists
                             then diff outpath anspath
                             else return $ Just ("File does not exist: " ++ anspath)
-                case (diff_res, expected) of
-                    -- Nothing == No difference between the expected and actual answers
-                    (Nothing, Pass) -> return (mode, EP)
-                    (Nothing, Fail) -> return (mode, UP)
-                    (Just err , Fail) -> return (mode, EF err)
-                    (Just err , Pass) -> return (mode, UF err)
-            ExitFailure _ -> do
-                case expected of
-                    Fail -> (mode,) <$> EF <$> hGetContents herr
-                    Pass -> (mode,) <$> UF <$> hGetContents herr
+                verdict expected mode diff_res
+
+
+answerPathForTest :: TestConfig -> Test -> IO FilePath
+answerPathForTest tc Test{name,dir,mb_anspath} = do
+    compiler_dir <- getCompilerDir
+    case mb_anspath of
+      Just p -> pure (compiler_dir </> p)
+      Nothing -> do
+        let sourceLocal      = compiler_dir </> dir </> name ++ ".ans"
+            generatedInTemp  = compiler_dir </> tempdir tc </> takeFileName name ++ ".ans"
+            generatedDefault = compiler_dir </> "examples" </> "build_tmp" </> takeFileName name ++ ".ans"
+        sourceExists <- doesFileExist sourceLocal
+        tempExists   <- doesFileExist generatedInTemp
+        pure $ if sourceExists
+               then sourceLocal
+               else if tempExists
+                    then generatedInTemp
+                    else generatedDefault
+
+runTestAgainstBaseline :: TestConfig -> Test -> IO [(Mode,TestVerdict)]
+runTestAgainstBaseline tc test@Test{name,dir,expectedResults,runModes,baselineMode,baselineDir,baselineName} = do
+    let bdir  = maybe dir id baselineDir
+        bname = maybe name id baselineName
+    baseline <- runGibbonTestCommand tc test baselineMode bdir bname "_baseline"
+    case baseline of
+      Left err ->
+          mapM (\(mode, expected) -> verdict expected mode (Just ("baseline failed: " ++ err)))
+               (M.toList $ M.restrictKeys expectedResults (S.fromList runModes))
+      Right (baselinePath, baselineOut) -> do
+          answerCheck <- baselineAnswerCheck baselinePath
+          case answerCheck of
+            Just err ->
+              mapM (\(mode, expected) -> verdict expected mode (Just ("baseline answer mismatch: " ++ err)))
+                   (M.toList $ M.restrictKeys expectedResults (S.fromList runModes))
+            Nothing ->
+              mapM (\(mode, expected) -> go baselineOut mode expected)
+                   (M.toList $ M.restrictKeys expectedResults (S.fromList runModes))
+  where
+    baselineAnswerCheck :: FilePath -> IO (Maybe String)
+    baselineAnswerCheck baselinePath =
+      case mb_anspath test of
+        Nothing -> pure Nothing
+        Just{} -> do
+          anspath <- answerPathForTest tc test
+          exists <- doesFileExist anspath
+          if exists
+          then do
+            baselineOut <- readFile baselinePath
+            answerOut <- readFile anspath
+            pure (compareNormalizedOutput answerOut baselineOut)
+          else pure (Just ("File does not exist: " ++ anspath))
+
+    go :: String -> Mode -> Result -> IO (Mode, TestVerdict)
+    go baselineOut mode expected = do
+        result <- runGibbonTestCommand tc test mode dir name ""
+        case result of
+          Left err -> verdict expected mode (Just err)
+          Right (_outpath, out) ->
+              verdict expected mode (compareNormalizedOutput baselineOut out)
+
+prepareTestSource :: TestConfig -> Test -> FilePath -> String -> String -> IO FilePath
+prepareTestSource tc Test{name,sourceReplacements} srcDir srcName suffix = do
+    compiler_dir <- getCompilerDir
+    let srcRoot = compiler_dir </> srcDir
+        srcPath = srcRoot </> srcName
+    if null sourceReplacements
+    then pure srcPath
+    else do
+      let reducedRoot = compiler_dir </> tempdir tc </> "reduced_sources" </>
+                        sanitizePath srcDir </> takeBaseName name ++ suffix
+          reducedPath = reducedRoot </> srcName
+      createDirectoryIfMissing True reducedRoot
+      files <- listDirectory srcRoot
+      forM_ files $ \file -> do
+        let fromPath = srcRoot </> file
+            toPath = reducedRoot </> file
+        isFile <- doesFileExist fromPath
+        when (isFile && takeExtension file == ".hs") $ copyFile fromPath toPath
+      src <- readFile srcPath
+      writeFile reducedPath (applySourceReplacements sourceReplacements src)
+      pure reducedPath
+
+applySourceReplacements :: [SourceReplacement] -> String -> String
+applySourceReplacements reps src = foldl' applyOne src reps
+  where
+    applyOne acc SourceReplacement{replaceFrom,replaceTo} = replaceAll replaceFrom replaceTo acc
+
+replaceAll :: String -> String -> String -> String
+replaceAll needle replacement haystack
+  | null needle = haystack
+  | otherwise = go haystack
+  where
+    go [] = []
+    go str@(c:cs)
+      | needle `isPrefixOf` str = replacement ++ go (drop (length needle) str)
+      | otherwise = c : go cs
+
+sanitizePath :: FilePath -> String
+sanitizePath = map sanitizeChar
+  where
+    sanitizeChar '/' = '_'
+    sanitizeChar '\\' = '_'
+    sanitizeChar ':' = '_'
+    sanitizeChar c = c
+
+runGibbonCompileCommand :: TestConfig -> Test -> Mode -> FilePath -> String -> String -> IO (Either String FilePath)
+runGibbonCompileCommand tc test@Test{name,test_flags} mode srcDir srcName suffix = do
+    compiler_dir <- getCompilerDir
+    sourcePath <- prepareTestSource tc test srcDir srcName suffix
+    let tmppath  = compiler_dir </> tempdir tc </> name
+        basename = compiler_dir </> replaceBaseName tmppath (takeBaseName tmppath ++ modeFileSuffix mode ++ suffix)
+        cpath    = replaceExtension basename ".c"
+        exepath  = replaceExtension basename ".exe"
+        cmd      = "gibbon"
+        cmd_flags = modeCFlags mode ++ ccFlags tc ++ test_flags ++
+                    [ "--cfile=" ++ cpath
+                    , "--exefile=" ++ exepath
+                    , sourcePath
+                    ]
+    (_, Just _hout, Just herr, phandle) <-
+        createProcess (proc cmd cmd_flags) { std_out = CreatePipe
+                                           , std_err = CreatePipe }
+    dbgFlushIt tc 3 ("CMD: " ++ cmd ++ " " ++ (intercalate " " cmd_flags) ++ "\n")
+    exitCode <- waitForProcess phandle
+    case exitCode of
+      ExitSuccess -> return $ Right exepath
+      ExitFailure _ -> Left <$> hGetContents herr
+
+runGibbonTestCommand :: TestConfig -> Test -> Mode -> FilePath -> String -> String -> IO (Either String (FilePath, String))
+runGibbonTestCommand tc test@Test{name,test_flags} mode srcDir srcName suffix = do
+    compiler_dir <- getCompilerDir
+    sourcePath <- prepareTestSource tc test srcDir srcName suffix
+    let tmppath  = compiler_dir </> tempdir tc </> name
+        basename = compiler_dir </> replaceBaseName tmppath (takeBaseName tmppath ++ modeFileSuffix mode ++ suffix)
+        outpath  = replaceExtension basename ".out"
+        cpath    = replaceExtension basename ".c"
+        exepath  = replaceExtension basename ".exe"
+        cmd      = "gibbon"
+        -- The order of (++) is important. The PATH to the test file must always be at the end.
+        cmd_flags = modeRunFlags mode ++ ccFlags tc ++ test_flags ++
+                    [ "--cfile=" ++ cpath
+                    , "--exefile=" ++ exepath
+                    , sourcePath
+                    ]
+    (_, Just hout, Just herr, phandle) <-
+        createProcess (proc cmd cmd_flags) { std_out = CreatePipe
+                                           , std_err = CreatePipe }
+    dbgFlushIt tc 3 ("CMD: " ++ cmd ++ " " ++ (intercalate " " cmd_flags) ++ "\n")
+    exitCode <- waitForProcess phandle
+    case exitCode of
+      ExitSuccess -> do
+          out <- hGetContents hout
+          writeFile outpath out
+          return $ Right (outpath, out)
+      ExitFailure _ -> Left <$> hGetContents herr
+
+verdict :: Result -> Mode -> Maybe String -> IO (Mode, TestVerdict)
+verdict expected mode diff_res =
+    return $ case (diff_res, expected) of
+      (Nothing, Pass) -> (mode, EP)
+      (Nothing, Fail) -> (mode, UP)
+      (Just err , Fail) -> (mode, EF err)
+      (Just err , Pass) -> (mode, UF err)
+
+compareNormalizedOutput :: String -> String -> Maybe String
+compareNormalizedOutput expected actual =
+    if normalizedWords expected == normalizedWords actual
+    then Nothing
+    else Just $ unlines
+         [ "Output differed from baseline after removing timing lines."
+         , "Expected normalized output:"
+         , normalizeOutput expected
+         , "Actual normalized output:"
+         , normalizeOutput actual
+         ]
+
+normalizedWords :: String -> [String]
+normalizedWords = words . normalizeOutput
+
+normalizeOutput :: String -> String
+normalizeOutput = unlines . filter (not . isTimingLine) . lines
+
+isTimingLine :: String -> Bool
+isTimingLine s = "BATCHTIME" `isInfixOf` s
+              || "SELFTIMED" `isInfixOf` s
+              || "ITER TIMES" `isInfixOf` s
 
 runBenchmark :: TestConfig -> Test -> IO [(Mode,TestVerdict)]
 runBenchmark tc t@Test{name,dir,expectedResults,runModes,numTrials} = do
@@ -590,7 +870,7 @@ doNTrials tc mode t@Test{name,dir,numTrials,sizeParam,moreIters,isMegaBench,benc
 
 
         -- The order of (++) is important. The PATH to the test file must always be at the end.
-        cmd_flags = modeExeFlags mode ++ test_flags ++
+        cmd_flags = modeExeFlags mode ++ ccFlags tc ++ test_flags ++
                       [ "--cfile=" ++ cpath ,
                         "--exefile=" ++ exepath ,
                         compiler_dir </> dir </> name ]
@@ -663,7 +943,7 @@ diff a b = do
             else return (Just d)
 
 isBenchOutput :: String -> Bool
-isBenchOutput s = isInfixOf "BATCHTIME" s || isInfixOf "SELFTIMED" s
+isBenchOutput s = isInfixOf "BATCHTIME" s || isInfixOf "SELFTIMED" s || isInfixOf "ITER TIMES" s
 
 doMegaBenchmark :: TestConfig -> FilePath -> FilePath -> Test -> IO (Either String BenchResult)
 doMegaBenchmark _tc _cpath exepath Test{benchInput} = do

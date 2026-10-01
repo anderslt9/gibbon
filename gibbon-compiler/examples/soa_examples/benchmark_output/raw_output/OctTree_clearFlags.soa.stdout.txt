@@ -1,0 +1,9 @@
+Running program OctTree Physics Simulation: 
+Running pass clearFlags (map, uses=15): 
+ITER TIMES: [0.134275]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.342754e-01
+SELFTIMED: 1.342754e-01
+End
+18680

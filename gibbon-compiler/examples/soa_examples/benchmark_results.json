@@ -1,0 +1,42 @@
+[
+  {
+    "program": "ScalarCountSmoke.hs",
+    "aos": {
+      "compile_success": false,
+      "run_success": false,
+      "error": "source not found",
+      "adt_fields": 3,
+      "adt_type": null,
+      "aos_buffers": 1,
+      "soa_total_buffers": null,
+      "nonrec_field_slots": null,
+      "papi_file": null,
+      "papi_counters": [],
+      "papi_regions_total": 0,
+      "papi_regions_used": 0,
+      "passes": {}
+    },
+    "soa": {
+      "compile_success": true,
+      "run_success": true,
+      "error": null,
+      "adt_fields": 3,
+      "adt_type": "List",
+      "aos_buffers": 1,
+      "soa_total_buffers": 3,
+      "nonrec_field_slots": 2,
+      "papi_file": null,
+      "papi_counters": [],
+      "papi_regions_total": 0,
+      "papi_regions_used": 0,
+      "passes": {}
+    },
+    "output_match": false,
+    "output_match_mutable": false,
+    "aos_imm": null,
+    "soa_imm": null,
+    "ghc": null,
+    "mlton": null,
+    "output_match_all_variants": false
+  }
+]

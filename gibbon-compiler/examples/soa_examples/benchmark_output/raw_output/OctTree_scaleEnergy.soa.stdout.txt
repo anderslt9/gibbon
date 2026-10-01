@@ -1,0 +1,9 @@
+Running program OctTree Physics Simulation: 
+Running pass scaleEnergy (map, uses=16): 
+ITER TIMES: [0.133683]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.336834e-01
+SELFTIMED: 1.336834e-01
+End
+300158116707

@@ -1,0 +1,9 @@
+Running program OctTree Physics Simulation: 
+Running pass fmmPotential (fold_like, uses=12): 
+ITER TIMES: [0.096955]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 9.695464e-02
+SELFTIMED: 9.695464e-02
+End
+229379432

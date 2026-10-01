@@ -1,0 +1,23 @@
+Running program MonoTree: 
+Running pass add1Tree (map, uses=3): 
+ITER TIMES: [0.028689]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 2.868853e-02
+SELFTIMED: 2.868853e-02
+End
+Running pass sumTree (fold, uses=3): 
+ITER TIMES: [0.009187]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 9.186888e-03
+SELFTIMED: 9.186888e-03
+End
+Running pass sumTree TailRec (fold, uses=3): 
+ITER TIMES: [0.008687]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 8.686944e-03
+SELFTIMED: 8.686944e-03
+End
+'#(2323644416 2323644416)

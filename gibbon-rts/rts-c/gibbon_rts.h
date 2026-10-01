@@ -9,12 +9,32 @@
 #include <assert.h>
 #include <limits.h>
 #include <time.h>
+#include <string.h>
 
 #ifdef _GIBBON_PARALLEL
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
 #endif
 
+#define GIB_PRAGMA(x) _Pragma(#x)
+
+#if defined(__clang__)
+#define GIB_PRAGMA_MESSAGE(msg)        \
+    GIB_PRAGMA(clang diagnostic push)  \
+    GIB_PRAGMA(clang diagnostic ignored "-W#pragma-messages") \
+    GIB_PRAGMA(message msg)            \
+    GIB_PRAGMA(clang diagnostic pop)
+#else
+#define GIB_PRAGMA_MESSAGE(msg) GIB_PRAGMA(message msg)
+#endif
+
+#if defined(__clang__)
+#define GIB_PRAGMA_UNROLL(n) GIB_PRAGMA(unroll n)
+#elif defined(__GNUC__) && (__GNUC__ >= 8)
+#define GIB_PRAGMA_UNROLL(n) GIB_PRAGMA(GCC unroll n)
+#else
+#define GIB_PRAGMA_UNROLL(n)
+#endif
 /*
  * CPP macros used in the RTS:
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -30,6 +50,7 @@
  * _GIBBON_PARALLEL          parallel mode
  * _GIBBON_EAGER_PROMOTION   disable eager promotion if set to 0
  * _GIBBON_SIMPLE_WRITE_BARRIER disable eliminate-indirection-chains optimization
+ * _GIBBON_ENABLE_PAPI           enable instrumentation via papi
  *
  */
 
@@ -62,7 +83,15 @@
 
 typedef uint8_t GibPackedTag;
 typedef uint8_t GibBoxedTag;
+#ifdef GIBBON_INT32
+typedef int32_t GibInt;
+#define GIBBON_PRIdInt PRId32
+#define GIBBON_SCNdInt SCNd32
+#else
 typedef int64_t GibInt;
+#define GIBBON_PRIdInt PRId64
+#define GIBBON_SCNdInt SCNd64
+#endif
 typedef char GibChar;
 typedef float GibFloat;
 typedef uint64_t GibSym;
@@ -128,6 +157,8 @@ char *gib_read_bench_prog_param(void);
 char *gib_read_benchfile_param(void);
 char *gib_read_arrayfile_param(void);
 uint64_t gib_read_arrayfile_length_param(void);
+uint64_t get_papi_region_id(void);
+void increment_papi_region_id(void);
 
 // Number of regions allocated.
 int64_t gib_read_region_count(void);
@@ -139,12 +170,14 @@ GibSym gib_read_gensym_counter(void);
 // Must be same as "Gibbon.Language.Constants".
 #define GIB_REDIRECTION_TAG 255
 #define GIB_INDIRECTION_TAG 254
+#define GIB_SELECTIVE_INDIRECTION_TAG 249
 
 // Tags reserved for the garbage collector.
 #define GIB_CAUTERIZED_TAG 253
 #define GIB_COPIED_TO_TAG 252
 #define GIB_COPIED_TAG 251
 #define GIB_SCALAR_TAG 250
+#define GIB_PTR_ALIGN 8
 
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -164,6 +197,77 @@ static const GibTaggedPtr GIB_POINTER_MASK = (UINTPTR_MAX >> GIB_TAG_BITS);
 
 #define GIB_GET_TAG(tagged)                               \
     (uint16_t) (((GibTaggedPtr) tagged) >> GIB_POINTER_BITS) \
+
+
+
+INLINE_HEADER void gib_store_taggedptr_unaligned(GibCursor p, GibTaggedPtr x) {
+    memcpy(p, &x, sizeof(GibTaggedPtr));
+}
+
+INLINE_HEADER GibTaggedPtr gib_load_taggedptr_unaligned(GibCursor p) {
+    GibTaggedPtr x;
+    memcpy(&x, p, sizeof(GibTaggedPtr));
+    return x;
+}
+
+INLINE_HEADER uintptr_t gib_load_uintptr_unaligned(GibCursor p) {
+    uintptr_t x;
+    memcpy(&x, p, sizeof(uintptr_t));
+    return x;
+}
+
+INLINE_HEADER size_t gib_align_up_sz(size_t n, size_t a) {
+    return (n + (a - 1)) & ~(a - 1);
+}
+
+#define GIB_LOAD_UINTPTR(p) gib_load_uintptr_unaligned((GibCursor)(p))
+#define GIB_LOAD_TAGGEDPTR(p) gib_load_taggedptr_unaligned((GibCursor)(p))
+#define GIB_STORE_TAGGEDPTR(p, x) gib_store_taggedptr_unaligned((GibCursor)(p), (GibTaggedPtr)(x))
+
+INLINE_HEADER void gib_unwrap_selective_indirections(GibCursor *ends,
+                                                     GibCursor *curs,
+                                                     int len) {
+    if (len <= 0 || curs[0] == NULL ||
+        *(GibPackedTag *) curs[0] != GIB_SELECTIVE_INDIRECTION_TAG) {
+        return;
+    }
+
+    GibCursor dcon_cur = curs[0];
+    GibCursor dcon_src =
+        (GibCursor) gib_load_uintptr_unaligned(dcon_cur + sizeof(GibPackedTag));
+    GibCursor dcon_end =
+        (GibCursor) gib_load_uintptr_unaligned(dcon_cur + sizeof(GibPackedTag) +
+                                               sizeof(uintptr_t));
+    uint64_t mask =
+        *(uint64_t *)(dcon_cur + sizeof(GibPackedTag) + (2 * sizeof(uintptr_t)));
+
+    curs[0] = dcon_src;
+    ends[0] = dcon_end;
+
+    for (int i = 1; i < len && i < 64; i++) {
+        if ((mask & (((uint64_t) 1) << i)) == 0) {
+            continue;
+        }
+
+        GibCursor cur = curs[i];
+        if (cur == NULL ||
+            *(GibPackedTag *) cur != GIB_SELECTIVE_INDIRECTION_TAG) {
+            fprintf(stderr,
+                    "Expected selective indirection wrapper in SoA buffer %d\n",
+                    i);
+            exit(1);
+        }
+
+        GibCursor src =
+            (GibCursor) gib_load_uintptr_unaligned(cur + sizeof(GibPackedTag));
+        GibCursor end =
+            (GibCursor) gib_load_uintptr_unaligned(cur + sizeof(GibPackedTag) +
+                                                   sizeof(uintptr_t));
+
+        curs[i] = src;
+        ends[i] = end;
+    }
+}
 
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -358,7 +462,7 @@ extern bool gib_global_thread_requested_gc;
 
 extern uint64_t gib_global_num_threads;
 
-INLINE_HEADER GibThreadId gib_get_thread_id()
+INLINE_HEADER GibThreadId gib_get_thread_id(void)
 {
 #ifdef _GIBBON_PARALLEL
     return __cilkrts_get_worker_number();
@@ -378,6 +482,15 @@ typedef struct gib_chunk {
     GibCursor start;
     GibCursor end;
 } GibChunk;
+
+// Prototype scalar-buffer count metadata for SoA chunks. Each footer stores a
+// single cyclic count for this region/buffer: non-final footers store the count
+// for the next chunk, and the final footer stores the count for the first chunk.
+typedef struct gib_scalar_count_footer {
+    uint64_t count;
+    uint8_t is_touched;
+    uint8_t _padding[7];
+} GibScalarCountFooter;
 
 typedef struct gib_shadowstack {
     char *start;
@@ -441,9 +554,13 @@ typedef struct gib_oldgen_footer {
     GibRegionInfo *reg_info;
     size_t size;
     struct gib_oldgen_footer *next;
+    GibScalarCountFooter scalar_counts;
 } GibOldgenChunkFooter;
 
-typedef uint16_t GibNurseryChunkFooter;
+typedef struct gib_nursery_footer {
+    uint16_t size;
+    GibScalarCountFooter scalar_counts;
+} GibNurseryChunkFooter;
 
 typedef struct gib_gc_stats {
     // Number of copying minor collections (maintained by Rust RTS).
@@ -574,14 +691,14 @@ extern GibGcStats *gib_global_gc_stats;
 
 #if defined GIB_INIT_CHUNK_SIZE
 
-#if GIB_INIT_CHUNK_SIZE < 128
-// The nursery size provided is too small, set it to 64 bytes.
-#define GIB_INIT_CHUNK_SIZE 128
+#if GIB_INIT_CHUNK_SIZE < 1024
+// Keep a conservative lower bound for metadata, redirections, and small values.
+#define GIB_INIT_CHUNK_SIZE 1024
 #endif
 
 // GIB_INIT_CHUNK_SIZE not defined, initialize it to a default value.
 #else
-#define GIB_INIT_CHUNK_SIZE 512
+#define GIB_INIT_CHUNK_SIZE 1024
 #endif
 
 
@@ -698,6 +815,19 @@ GibChunk gib_alloc_region_on_heap(size_t size);
 INLINE_HEADER void gib_grow_region(char **writeloc_addr, char **footer_addr);
 void gib_grow_region_noinline(char **writeloc_addr, char **footer_addr);
 void gib_free_region(char *footer_ptr);
+void gib_scalar_count_footer_begin(void);
+void gib_scalar_count_footer_bump(char *footer_ptr);
+void gib_scalar_count_footer_set(char *footer_ptr, uint64_t count);
+void gib_scalar_count_footer_end(const char *build_fun_name);
+void gib_scalar_count_footer_print(char *footer_ptr);
+uint64_t gib_scalar_count_footer_get(char *footer_ptr);
+char *gib_scalar_count_first_footer(char *footer_ptr);
+char *gib_scalar_count_footer_next(char *footer_ptr);
+void gib_scalar_count_copy_chain(char *dst_final_footer_ptr, char *src_final_footer_ptr);
+void gib_scalar_count_copy_all(char **dst_final_footers, char **src_final_footers, int len);
+void gib_scalar_count_on_grow(char *old_footer_ptr, char *new_footer_ptr);
+void gib_scalar_count_register_chunk(char *chunk_start, char *footer_ptr);
+INLINE_HEADER void gib_scalar_count_footer_init(GibScalarCountFooter *footer);
 
 // Trigger GC.
 void gib_perform_GC(bool force_major);
@@ -740,6 +870,13 @@ INLINE_HEADER void gib_grow_region_on_heap(
 );
 INLINE_HEADER bool gib_addr_in_nursery(char *ptr);
 
+INLINE_HEADER void gib_scalar_count_footer_init(GibScalarCountFooter *footer)
+{
+    footer->count = 0;
+    footer->is_touched = 0;
+    memset(footer->_padding, 0, sizeof(footer->_padding));
+}
+
 
 INLINE_HEADER void gib_grow_region(char **writeloc_addr, char **footer_addr)
 {
@@ -750,7 +887,7 @@ INLINE_HEADER void gib_grow_region(char **writeloc_addr, char **footer_addr)
 
     if (gib_addr_in_nursery(footer_ptr)) {
         old_chunk_in_nursery = true;
-        GibNurseryChunkFooter oldsize = *(GibNurseryChunkFooter *) footer_ptr;
+        uint16_t oldsize = ((GibNurseryChunkFooter *) footer_ptr)->size;
         newsize = oldsize * 2;
     } else {
         old_chunk_in_nursery = false;
@@ -818,9 +955,12 @@ INLINE_HEADER void gib_grow_region_in_nursery_fast(
 
         nursery->alloc = bump;
         char *footer = old - sizeof(GibNurseryChunkFooter);
-        *(GibNurseryChunkFooter *) footer = size;
+        GibNurseryChunkFooter *nursery_footer = (GibNurseryChunkFooter *) footer;
+        nursery_footer->size = size;
+        gib_scalar_count_footer_init(&nursery_footer->scalar_counts);
         char *heap_start = bump;
         char *heap_end = footer;
+        gib_scalar_count_register_chunk(heap_start, heap_end);
 
         // Write a redirection tag at writeloc and make it point to the start of
         // this fresh chunk, but store a tagged pointer here.
@@ -829,7 +969,8 @@ INLINE_HEADER void gib_grow_region_in_nursery_fast(
         GibCursor writeloc = *writeloc_addr;
         *(GibPackedTag *) writeloc = GIB_REDIRECTION_TAG;
         writeloc += 1;
-        *(GibTaggedPtr *) writeloc = tagged;
+        //*(GibTaggedPtr *) writeloc = tagged;
+        gib_store_taggedptr_unaligned(writeloc, tagged);
 
 #if defined _GIBBON_VERBOSITY && _GIBBON_VERBOSITY >= 3
         fprintf(stderr, "Growing a region without eager promotion old=(%p,%p) in nursery=%d, new=(%p,%p) in nursery=%d\n",
@@ -858,6 +999,7 @@ INLINE_HEADER void gib_grow_region_in_nursery_fast(
     }
 }
 
+
 INLINE_HEADER void gib_grow_region_on_heap(
     bool old_chunk_in_nursery,
     size_t size,
@@ -865,12 +1007,14 @@ INLINE_HEADER void gib_grow_region_on_heap(
     char **writeloc_addr,
     char **footer_addr
 ) {
-    char *heap_start = (char *) gib_alloc(size);
+    //char *heap_start = (char *) gib_alloc(size);
+    size_t size_aligned = gib_align_up_sz(size, GIB_PTR_ALIGN);
+    char *heap_start =  (char *) gib_alloc(size_aligned);
     if (heap_start == NULL) {
         fprintf(stderr, "gib_grow_region: gib_alloc failed: %zu", size);
         exit(1);
     }
-    char *heap_end = heap_start + size;
+    char *heap_end = heap_start + size_aligned;
 
 #ifdef _GIBBON_GCSTATS
     GC_STATS->oldgen_chunks++;
@@ -881,7 +1025,8 @@ INLINE_HEADER void gib_grow_region_on_heap(
     char *new_footer_start = NULL;
     GibOldgenChunkFooter *new_footer = NULL;
     if (old_chunk_in_nursery) {
-        new_footer_start = gib_init_footer_at(heap_end, size, 0);
+        //new_footer_start = gib_init_footer_at(heap_end, size, 0);
+        new_footer_start = gib_init_footer_at(heap_end, size_aligned, 0);
         new_footer = (GibOldgenChunkFooter *) new_footer_start;
         gib_insert_into_new_zct(DEFAULT_GENERATION, new_footer->reg_info);
     } else {
@@ -890,8 +1035,10 @@ INLINE_HEADER void gib_grow_region_on_heap(
         new_footer->reg_info = old_footer->reg_info;
         new_footer->size = (size_t) (new_footer_start - heap_start);
         new_footer->next = (GibOldgenChunkFooter *) NULL;
+        gib_scalar_count_footer_init(&new_footer->scalar_counts);
         // Link with the old chunk's footer.
         old_footer->next = (GibOldgenChunkFooter *) new_footer;
+        gib_scalar_count_on_grow((char *) old_footer, new_footer_start);
     }
 
     // Write a redirection tag at writeloc and make it point to the start of
@@ -901,7 +1048,8 @@ INLINE_HEADER void gib_grow_region_on_heap(
     GibCursor writeloc = *writeloc_addr;
     *(GibPackedTag *) writeloc = GIB_REDIRECTION_TAG;
     writeloc += 1;
-    *(GibTaggedPtr *) writeloc = tagged;
+    gib_store_taggedptr_unaligned(writeloc, tagged);
+    //*(GibTaggedPtr *) writeloc = tagged;
 
 #if defined _GIBBON_VERBOSITY && _GIBBON_VERBOSITY >= 3
     fprintf(stderr, "Growing a region old=(%p,%p) in nursery=%d, new=(%p,%p) in nursery=%d \n",
@@ -917,6 +1065,7 @@ INLINE_HEADER void gib_grow_region_on_heap(
     // Update start and end cursors.
     *(char **) writeloc_addr = heap_start;
     *(char **) footer_addr = new_footer_start;
+    gib_scalar_count_register_chunk(heap_start, new_footer_start);
 
     return;
 }
@@ -1006,7 +1155,7 @@ INLINE_HEADER void gib_shadowstack_print_all(GibShadowstack *stack)
     while (run_ptr < end_ptr) {
         frame = (GibShadowstackFrame *) run_ptr;
         printf("ptr=%p, endptr=%p, datatype=%d\n",
-               frame->ptr, frame->endptr, frame->datatype);
+               (void *)frame->ptr, (void *)frame->endptr, frame->datatype);
         run_ptr += sizeof(GibShadowstackFrame);
     }
     return;
@@ -1083,9 +1232,9 @@ INLINE_HEADER void gib_indirection_barrier(
 {
 
 #if defined _GIBBON_SIMPLE_WRITE_BARRIER && _GIBBON_SIMPLE_WRITE_BARRIER == 1
-    #pragma message "Simple write barrier is enabled."
+    GIB_PRAGMA_MESSAGE("Simple write barrier is enabled.")
 #else
-    #pragma message "Simple write barrier is disabled."
+    GIB_PRAGMA_MESSAGE("Simple write barrier is disabled.")
     {
         // Optimization: don't create long chains of indirection pointers.
         GibPackedTag pointed_to_tag = *(GibPackedTag *) to;
@@ -1094,7 +1243,8 @@ INLINE_HEADER void gib_indirection_barrier(
         char *pointee, *pointee_end;
         uint16_t pointee_offset;
         while (pointed_to_tag == GIB_INDIRECTION_TAG) {
-            tagged_ptr = *(uintptr_t *) after_pointed_to_tag;
+            //tagged_ptr = *(uintptr_t *) after_pointed_to_tag;
+            tagged_ptr = gib_load_uintptr_unaligned(after_pointed_to_tag);
             pointee = GIB_UNTAG(tagged_ptr);
             pointee_offset = GIB_GET_TAG(tagged_ptr);
             pointee_end = pointee + pointee_offset;
@@ -1113,7 +1263,8 @@ INLINE_HEADER void gib_indirection_barrier(
     GibCursor writeloc = from;
     *(GibPackedTag *) writeloc = GIB_INDIRECTION_TAG;
     writeloc += sizeof(GibPackedTag);
-    *(GibTaggedPtr *) writeloc = tagged;
+    gib_store_taggedptr_unaligned(writeloc, tagged);
+    //*(GibTaggedPtr *) writeloc = tagged;
 
     // If we're using the non-generational GC, all indirections will be
     // old-to-old indirections.
@@ -1219,12 +1370,12 @@ INLINE_HEADER uint8_t gib_log2(size_t x)
 
 // From Chandler Carruth's CppCon 2015 talk.
 INLINE_HEADER void escape(void *p) {
-    asm volatile("" : : "g"(p) : "memory");
+    __asm__ __volatile__("" : : "g"(p) : "memory");
 }
 
 // From Chandler Carruth's CppCon 2015 talk.
-INLINE_HEADER void clobber() {
-    asm volatile("" : : : "memory");
+INLINE_HEADER void clobber(void) {
+    __asm__ __volatile__("" : : : "memory");
 }
 
 

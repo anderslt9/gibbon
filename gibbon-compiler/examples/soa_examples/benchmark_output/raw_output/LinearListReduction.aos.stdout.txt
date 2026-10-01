@@ -1,0 +1,9 @@
+Running program recution on List with 10 Integer elements: 
+Running pass reduction (fold, uses=2): 
+ITER TIMES: [0.032659]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 3.265949e-02
+SELFTIMED: 3.265949e-02
+End
+50000005000000

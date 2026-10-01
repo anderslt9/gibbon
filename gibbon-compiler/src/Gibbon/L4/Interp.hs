@@ -82,6 +82,9 @@ eval _   (SymTriv _) = error "eval: SymTriv not handled"
 eval _   (ProdTriv{}) = error "eval: ProdTriv not handled"
 eval _   (ProjTriv{}) = error "eval: ProjTriv not handled"
 eval _   (BoolTriv{}) = error "eval: BoolTriv not handled"
+eval _   (IndexCursorArrayTriv{}) = error "eval: IndexCusorArrayTriv not handled" 
+eval _   (UninitTriv{}) = error "eval: NullTriv not handled"
+eval _   (SizeOf{}) = error "eval: SizeOf not handled"
 
 
 exec :: Env -> Tail -> IO [Val]
@@ -185,7 +188,7 @@ extendEnv = foldr (uncurry M.insert)
 
 apply :: Env -> Val -> [Val] -> IO [Val]
 
-apply env (FunVal (FunDecl _ as _ body _)) args =
+apply env (FunVal FunDecl{funArgs = as, funBody = body}) args =
     exec (extendEnv env (zip (map fst as) args)) body
 
 apply _ notFun _ =
@@ -219,6 +222,10 @@ applyPrim ReadTag [BufVal is] = case Seq.viewl is of
 
 applyPrim PrintInt [IntVal i] = do print i; return []
 applyPrim (PrintString st) [] = do putStrLn st; return []
+applyPrim ScalarCountFooterBegin [] = pure []
+applyPrim ScalarCountBump _footers = pure []
+applyPrim ScalarCountSet _args = pure []
+applyPrim ScalarCountFooterEnd{} [] = pure []
 
 applyPrim SizeParam [] = error "TargetInterp/applyPrim: finish SizeParam"
 applyPrim ScopedBuffer{} [] = error "TargetInterp/applyPrim: finish ScopedBuf"

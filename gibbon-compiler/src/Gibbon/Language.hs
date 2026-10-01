@@ -14,7 +14,7 @@ module Gibbon.Language
 
       -- * Helpers operating on types
     , mkProdTy, projTy , voidTy, isProdTy, isNestedProdTy, isPackedTy, isScalarTy
-    , hasPacked, sizeOfTy, primArgsTy, primRetTy, tyToDataCon
+    , hasPacked, sizeOfTy, sizeOfTyD, primArgsTy, primRetTy, tyToDataCon
     , stripTyLocs, isValidListElemTy, getPackedTys
 
       -- * Misc
@@ -32,6 +32,7 @@ import           Text.PrettyPrint.GenericPretty
 import           Gibbon.Language.Constants
 import           Gibbon.Language.Syntax
 import           Gibbon.Common
+import           Gibbon.DynFlags (DynFlags, GeneralFlag(..), gopt)
 import GHC.Stack
 
 --------------------------------------------------------------------------------
@@ -84,7 +85,7 @@ instance FreeVars (e l d) => FreeVars (PreExp e l d) where
       LitSymE _ -> S.empty
       ProjE _ e -> gFreeVars e
       IfE a b c -> gFreeVars a `S.union` gFreeVars b `S.union` gFreeVars c
-      AppE v _ ls         -> S.unions $ (S.singleton v) : (L.map gFreeVars ls)
+      AppE v _ _ ls         -> S.unions $ (S.singleton v) : (L.map gFreeVars ls)
       PrimAppE _ ls        -> S.unions (L.map gFreeVars ls)
       LetE (v,_,_,rhs) bod -> gFreeVars rhs `S.union`
                               S.delete v (gFreeVars bod)
@@ -122,7 +123,7 @@ instance (Show (), Out (),
       CharE _      -> CharTy
       FloatE{}     -> FloatTy
       LitSymE _    -> SymTy
-      AppE v _ _   -> outTy $ fEnv env2 # v
+      AppE v _ _ _   -> outTy $ fEnv env2 # v
       PrimAppE (DictInsertP ty) ((VarE v):_) -> SymDictTy (Just v) $ stripTyLocs ty
       PrimAppE (DictEmptyP  ty) ((VarE v):_) -> SymDictTy (Just v) $ stripTyLocs ty
       PrimAppE p _ -> primRetTy p
@@ -158,7 +159,7 @@ instance (Show (), Out (),
       CharE _      -> CharTy
       FloatE{}     -> FloatTy
       LitSymE _    -> SymTy
-      AppE v _ _   -> outTy $ fEnv env2 # (fromVarToFreeVarsTy v)
+      AppE v _ _ _   -> outTy $ fEnv env2 # (fromVarToFreeVarsTy v)
       PrimAppE (DictInsertP ty) ((VarE v):_) -> SymDictTy (Just v) $ stripTyLocs ty
       PrimAppE (DictEmptyP  ty) ((VarE v):_) -> SymDictTy (Just v) $ stripTyLocs ty
       PrimAppE p _ -> primRetTy p
@@ -203,7 +204,7 @@ instance HasRenamable e l d => Renamable (PreExp e l d) where
       CharE{}   -> ex
       FloatE{}  -> ex
       LitSymE{} -> ex
-      AppE f locs args -> AppE (go f) (gol locs) (gol args)
+      AppE f cty locs args -> AppE (go f) cty (gol locs) (gol args)
       PrimAppE pr args -> PrimAppE pr (gol args)
       LetE (v,locs,ty,rhs) bod -> LetE (go v, gol locs, go ty, go rhs) (go bod)
       IfE a b c  -> IfE (go a) (go b) (go c)
@@ -290,7 +291,7 @@ subst old new ex =
     CharE{}            -> ex
     FloatE{}           -> ex
     LitSymE _          -> ex
-    AppE v loc ls      -> AppE v loc (map go ls)
+    AppE v cty loc ls      -> AppE v cty loc (map go ls)
     PrimAppE p ls      -> PrimAppE p $ L.map go ls
     LetE (v,loc,t,rhs) bod | v == old  -> LetE (v,loc,t,go rhs) bod
                            | otherwise -> LetE (v,loc,t,go rhs) (go bod)
@@ -335,7 +336,7 @@ substE old new ex =
     CharE _         -> ex
     FloatE{}        -> ex
     LitSymE _       -> ex
-    AppE v loc ls   -> AppE v loc (map go ls)
+    AppE v cty loc ls   -> AppE v cty loc (map go ls)
     PrimAppE p ls   -> PrimAppE p $ L.map go ls
     LetE (v,loc,t,rhs) bod | (VarE v) == old  -> LetE (v,loc,t,go rhs) bod
                            | otherwise -> LetE (v,loc,t,go rhs) (go bod)
@@ -372,7 +373,7 @@ hasTimeIt rhs =
       CharE _      -> False
       FloatE{}     -> False
       LitSymE _    -> False
-      AppE _ _ _   -> False
+      AppE _ _ _ _   -> False
       PrimAppE _ _ -> False
       ProjE _ e    -> hasTimeIt e
       MkProdE ls   -> any hasTimeIt ls
@@ -426,7 +427,9 @@ projNonFirst i e = ProjE i e
 
 -- | Smart constructor that immediately destroys products if it can:
 -- Does NOT avoid single-element tuples.
-mkProj :: Int -> (PreExp e l d) -> (PreExp e l d)
+mkProj :: HasCallStack => Int -> (PreExp e l d) -> (PreExp e l d)
+-- Vidush : TODO this needs to be removed
+mkProj _ix (MkProdE []) = MkProdE [] --error "Did not expect empty list!!"
 mkProj ix (MkProdE ls) = ls !! ix
 mkProj ix e = (ProjE ix e)
 
@@ -465,7 +468,7 @@ mkProdTy :: [UrTy a]-> UrTy a
 mkProdTy [t] = t
 mkProdTy ls  = ProdTy ls
 
-projTy :: (Out a) => Int -> UrTy a -> UrTy a
+projTy :: HasCallStack => (Out a) => Int -> UrTy a -> UrTy a
 projTy 0 (ProdTy (ty:_))  = ty
 projTy n (ProdTy (_:tys)) = projTy (n-1) (ProdTy tys)
 projTy _ ty = error $ "projTy: " ++ sdoc ty ++ " is not a projection!"
@@ -507,6 +510,7 @@ isValidListElemTy ty
   | isScalarTy ty = True
   | otherwise = case ty of
                   VectorTy elty -> isValidListElemTy elty
+                  SimdTy{}      -> False
                   ListTy elty   -> isValidListElemTy elty
                   ProdTy tys    -> all isScalarTy tys
                   _ -> False
@@ -525,6 +529,7 @@ hasPacked t =
     SymDictTy _ _  -> False -- hasPacked ty
     PDictTy k v    -> hasPacked k || hasPacked v
     VectorTy ty    -> hasPacked ty
+    SimdTy ty _    -> hasPacked ty
     ListTy ty      -> hasPacked ty
     PtrTy          -> False
     CursorTy       -> False
@@ -533,6 +538,7 @@ hasPacked t =
     SymHashTy      -> False
     IntHashTy      -> False
     CursorArrayTy{} -> False
+    MutCursorTy -> False
 
 
 -- | Get all packed types in a type.
@@ -549,6 +555,7 @@ getPackedTys t =
     SymDictTy _ _  -> [] -- getPackedTys ty
     PDictTy k v    -> getPackedTys k ++ getPackedTys v
     VectorTy ty    -> getPackedTys ty
+    SimdTy ty _    -> getPackedTys ty
     ListTy ty      -> getPackedTys ty
     PtrTy          -> []
     CursorTy       -> []
@@ -557,21 +564,32 @@ getPackedTys t =
     SymHashTy      -> []
     IntHashTy      -> []
     CursorArrayTy{} -> []
+    MutCursorTy -> []
 
 -- | Provide a size in bytes, if it is statically known.
 sizeOfTy :: UrTy a -> Maybe Int
-sizeOfTy t =
+sizeOfTy = sizeOfTyWithIntBytes 8
+
+-- | Like 'sizeOfTy', but respects backend representation flags that affect
+-- serialized scalar layout.  Today only --int32 changes IntTy from 8 bytes to
+-- 4 bytes; all pointer-sized values remain 64-bit.
+sizeOfTyD :: DynFlags -> UrTy a -> Maybe Int
+sizeOfTyD dflags = sizeOfTyWithIntBytes (if gopt Opt_Int32 dflags then 4 else 8)
+
+sizeOfTyWithIntBytes :: Int -> UrTy a -> Maybe Int
+sizeOfTyWithIntBytes intBytes t =
   case t of
     PackedTy{}    -> Nothing
-    ProdTy ls     -> sum <$> mapM sizeOfTy ls
+    ProdTy ls     -> sum <$> mapM (sizeOfTyWithIntBytes intBytes) ls
     SymDictTy _ _ -> Just 8 -- Always a pointer.
     PDictTy _ _   -> Just 8 -- Always a pointer.
-    IntTy         -> Just 8
+    IntTy         -> Just intBytes
     CharTy        -> Just 1
     FloatTy       -> Just 4
     SymTy         -> Just 8
     BoolTy        -> Just 1
     VectorTy{}    -> Just 8 -- Always a pointer.
+    SimdTy ty lanes -> (* lanes) <$> sizeOfTyWithIntBytes intBytes ty
     ListTy{}      -> Just 8 -- Always a pointer.
     PtrTy{}       -> Just 8 -- Assuming 64 bit
     CursorTy{}    -> Just 8
@@ -579,7 +597,8 @@ sizeOfTy t =
     SymSetTy      -> error "sizeOfTy: SymSetTy not handled."
     SymHashTy     -> error "sizeOfTy: SymHashTy not handled."
     IntHashTy     -> error "sizeOfTy: IntHashTy not handled."
-    CursorArrayTy{} -> error "sizeOfTy: CursorArrayTy not handled."
+    CursorArrayTy sz -> Just (8 * sz)
+    MutCursorTy -> error "sizeOfTy: MutCursorTy not handled."
 
 -- | Type of the arguments for a primitive operation.
 primArgsTy :: Prim (UrTy a) -> [UrTy a]
@@ -786,6 +805,7 @@ stripTyLocs ty =
     PDictTy k v -> PDictTy (stripTyLocs k) (stripTyLocs v)
     PackedTy tycon _ -> PackedTy tycon ()
     VectorTy ty' -> VectorTy $ stripTyLocs ty'
+    SimdTy ty' lanes -> SimdTy (stripTyLocs ty') lanes
     ListTy ty' -> ListTy $ stripTyLocs ty'
     PtrTy    -> PtrTy
     CursorTy -> CursorTy
@@ -794,6 +814,7 @@ stripTyLocs ty =
     SymHashTy -> SymHashTy
     IntHashTy -> IntHashTy
     ArenaTy   -> ArenaTy
+    MutCursorTy -> MutCursorTy
 
 -- | Get the data constructor type from a type, failing if it's not packed
 tyToDataCon :: Show a => UrTy a -> DataCon

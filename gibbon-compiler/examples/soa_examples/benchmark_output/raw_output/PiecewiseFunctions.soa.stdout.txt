@@ -1,0 +1,58 @@
+Running Program Piecewise Functions (MADNESS style): 
+Running pass norm2Estimate (fold, uses=5): 
+ITER TIMES: [0.018330]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.832977e-02
+SELFTIMED: 1.832977e-02
+End
+Running pass truncateTolViolations (fold, uses=3): 
+ITER TIMES: [0.011269]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.126948e-02
+SELFTIMED: 1.126948e-02
+End
+Running pass compressMass (fold, uses=3): 
+ITER TIMES: [0.011269]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.126929e-02
+SELFTIMED: 1.126929e-02
+End
+Running pass autorefineMaxLevel (fold, uses=4): 
+ITER TIMES: [0.019135]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.913529e-02
+SELFTIMED: 1.913529e-02
+End
+Running pass pmapCutHistogram (fold, uses=4): 
+ITER TIMES: [0.012580]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.258036e-02
+SELFTIMED: 1.258036e-02
+End
+Running pass lbDeuxLoadProxy (fold, uses=5): 
+ITER TIMES: [0.018078]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 1.807824e-02
+SELFTIMED: 1.807824e-02
+End
+Running pass addConstPW (map, uses=8): 
+ITER TIMES: [0.097526]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 9.752639e-02
+SELFTIMED: 9.752639e-02
+End
+Running pass diffPW (map, uses=8): 
+ITER TIMES: [0.095034]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 9.503416e-02
+SELFTIMED: 9.503416e-02
+End
+'#(4404055778 4359067 159392106 23 8368882 214009839 243278186 1582247397)

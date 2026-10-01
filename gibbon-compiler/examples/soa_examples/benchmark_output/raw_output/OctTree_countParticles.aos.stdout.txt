@@ -1,0 +1,9 @@
+Running program OctTree Physics Simulation: 
+Running pass countParticles (fold, uses=8): 
+ITER TIMES: [0.035379]
+ITERS: 1
+SIZE: 0
+BATCHTIME: 3.537928e-02
+SELFTIMED: 3.537928e-02
+End
+16777216

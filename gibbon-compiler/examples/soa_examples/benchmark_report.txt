@@ -1,0 +1,12 @@
+========================================================================
+GIBBON BENCHMARK REPORT v3.1
+========================================================================
+Generated: 2026-05-30 14:38:02
+
+
+Program: ScalarCountSmoke.hs  [ADT fields: 3]
+----------------------------------------
+  AOS: FAILED – source not found
+  SOA: 0.0000s total
+  Output match (successful variants): N/A (fewer than 2 successful variants with output)
+  Runtime failures excluded from output matching: aos (source not found)
