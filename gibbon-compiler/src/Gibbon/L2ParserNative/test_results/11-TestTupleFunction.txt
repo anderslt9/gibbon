@@ -1,0 +1,122 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenIdentLower (Pos {line = 1, column = 1}) "add123"
+TokenColon (Pos {line = 1, column = 8})
+TokenIntType (Pos {line = 1, column = 10})
+TokenArrow (Pos {line = 1, column = 14})
+TokenLParen (Pos {line = 1, column = 17})
+TokenIntType (Pos {line = 1, column = 18})
+TokenComma (Pos {line = 1, column = 21})
+TokenIntType (Pos {line = 1, column = 23})
+TokenComma (Pos {line = 1, column = 26})
+TokenIntType (Pos {line = 1, column = 28})
+TokenRParen (Pos {line = 1, column = 31})
+TokenNewLine (Pos {line = 1, column = 32})
+TokenIdentLower (Pos {line = 2, column = 1}) "add123"
+TokenLBracket (Pos {line = 2, column = 8})
+TokenRBracket (Pos {line = 2, column = 9})
+TokenIdentLower (Pos {line = 2, column = 11}) "x"
+TokenAssign (Pos {line = 2, column = 13})
+TokenLParen (Pos {line = 2, column = 15})
+TokenIdentLower (Pos {line = 2, column = 16}) "x"
+TokenAdd (Pos {line = 2, column = 18})
+TokenIntLit (Pos {line = 2, column = 20}) 1
+TokenComma (Pos {line = 2, column = 21})
+TokenIdentLower (Pos {line = 2, column = 23}) "x"
+TokenAdd (Pos {line = 2, column = 25})
+TokenIntLit (Pos {line = 2, column = 27}) 2
+TokenComma (Pos {line = 2, column = 28})
+TokenIdentLower (Pos {line = 2, column = 30}) "x"
+TokenAdd (Pos {line = 2, column = 32})
+TokenIntLit (Pos {line = 2, column = 34}) 3
+TokenRParen (Pos {line = 2, column = 35})
+TokenNewLine (Pos {line = 3, column = 1})
+TokenMain (Pos {line = 4, column = 1})
+TokenAssign (Pos {line = 4, column = 6})
+TokenIdentLower (Pos {line = 4, column = 8}) "add123"
+TokenLBracket (Pos {line = 4, column = 15})
+TokenRBracket (Pos {line = 4, column = 16})
+TokenIntLit (Pos {line = 4, column = 18}) 1
+TokenNewLine (Pos {line = 4, column = 19})
+TokenEOF (Pos {line = 4, column = 19})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations []
+
+    Function Declarations [
+        Function Declaration (
+            Function Variable ("add123")
+            TypeScheme (MyTypes [IntTy EmptyLocRegion,ProdTy (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion,IntTy EmptyLocRegion])])
+            Function Variable ("add123")
+            Location Regions []
+
+            Vars [
+                Variable ("x")
+            ]
+            ValTuple (Exprs [ExprPrimApp Add (Exprs [ExprVal (ValVar (Var "x")),ExprVal (ValLit (IntLit 1))]),ExprPrimApp Add (Exprs [ExprVal (ValVar (Var "x")),ExprVal (ValLit (IntLit 2))]),ExprPrimApp Add (Exprs [ExprVal (ValVar (Var "x")),ExprVal (ValLit (IntLit 3))])])
+        )
+    ]
+    Annotations []
+
+    Function Application (
+        Function Variable ("add123")
+        Location Regions []
+
+        Expressions [
+            ValLit (IntLit 1)
+        ]
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: ProdTy (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion,IntTy EmptyLocRegion])
+Program (
+    Data Type Declarations []
+
+    Function Declarations [
+        Function Declaration (
+            Function Variable ("add123")
+            TypeScheme (MyTypes [IntTy EmptyLocRegion,ProdTy (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion,IntTy EmptyLocRegion])])
+            Function Variable ("add123")
+            Location Regions []
+
+            Vars [
+                Variable ("x")
+            ]
+            ValTuple (Exprs [ExprPrimApp Add (Exprs [ExprVal (ValVar (Var "x")),ExprVal (ValLit (IntLit 1))]),ExprPrimApp Add (Exprs [ExprVal (ValVar (Var "x")),ExprVal (ValLit (IntLit 2))]),ExprPrimApp Add (Exprs [ExprVal (ValVar (Var "x")),ExprVal (ValLit (IntLit 3))])])
+        )
+    ]
+    Annotations []
+
+    Function Application (
+        Function Variable ("add123")
+        Location Regions []
+
+        Expressions [
+            ValLit (IntLit 1)
+        ]
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+{meta: FunMeta {funRec = Rec, funInline = NoInline, funCanTriggerGC = False}}
+add123 :: Int -> (Int,Int,Int)
+          {locvars [],
+           effs:  [],
+           locrets:  [],
+           parallel:  False}
+add123 x =
+    (x + 1, x + 2, x + 3)
+
+gibbon_main :: (Int,Int,Int)
+gibbon_main = (add123 (NotTailRec) [] 1)
+

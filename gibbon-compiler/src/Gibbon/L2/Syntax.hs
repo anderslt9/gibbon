@@ -50,6 +50,8 @@ module Gibbon.L2.Syntax
 -- * Operations on types
   , allLocVars
   , inLocVars
+  , hasSoALocs
+  , locRetLocVars
   , inLocVarsMutable
   , outLocVars
   , outLocVarsMutable
@@ -343,7 +345,7 @@ instance (Out l, Show l, Typeable (E2 l (UrTy l))) => Typeable (E2Ext l (UrTy l)
       BoundsCheck{}       -> error "Shouldn't enconter BoundsCheck in tail position"
       IndirectionE tycon _ _ (to,_) _ -> PackedTy tycon to
       AddFixed{}          -> error "Shouldn't enconter AddFixed in tail position"
-      GetCilkWorkerNum    -> IntTy
+      GetCilkWorkerNum    -> (IntTy W64)
       LetAvail _ bod -> gRecoverType ddfs env2 bod
       AllocateTagHere{} -> ProdTy []
       AllocateScalarsHere{} -> ProdTy []
@@ -367,7 +369,7 @@ instance (Out l, Show l, Typeable (E2 l (UrTy l))) => Typeable (E2Ext l (UrTy l)
       BoundsCheck{}       -> error "Shouldn't enconter BoundsCheck in tail position"
       IndirectionE tycon _ _ (to,_) _ -> PackedTy tycon to
       AddFixed{}          -> error "Shouldn't enconter AddFixed in tail position"
-      GetCilkWorkerNum    -> IntTy
+      GetCilkWorkerNum    -> (IntTy W64)
       LetAvail _ bod -> gRecoverTypeLoc ddfs env2 bod
       AllocateTagHere{} -> ProdTy []
       AllocateScalarsHere{} -> ProdTy []
@@ -683,7 +685,7 @@ instance Typeable (PreExp E2Ext LocVar (UrTy LocVar)) where
   gRecoverType ddfs env2 ex =
     case ex of
       VarE v       -> M.findWithDefault (error $ "Cannot find type of variable " ++ show v ++ " in " ++ show (vEnv env2)) v (vEnv env2)
-      LitE _       -> IntTy
+      LitE ann _   -> IntTy (litWidth ann)
       CharE{}      -> CharTy
       FloatE{}     -> FloatTy
       LitSymE _    -> SymTy
@@ -726,7 +728,7 @@ instance Typeable (PreExp E2Ext LocVar (UrTy LocVar)) where
   gRecoverTypeLoc ddfs env2 ex =
     case ex of
       VarE v       -> M.findWithDefault (error $ "Cannot find type of variable " ++ show v ++ " in " ++ show (vEnv env2)) (fromVarToFreeVarsTy v) (vEnv env2)
-      LitE _       -> IntTy
+      LitE ann _   -> IntTy (litWidth ann)
       CharE{}      -> CharTy
       FloatE{}     -> FloatTy
       LitSymE _    -> SymTy
@@ -791,6 +793,18 @@ allLocVars ty = L.map (\(LRM l _ _) -> l) (locVars ty)
 inLocVars :: ArrowTy2 ty2 -> [LocVar]
 inLocVars ty = L.map (\(LRM l _ _) -> l) $
                L.filter (\(LRM _ _ m) -> m == Input || m == InputMutable) (locVars ty)
+
+-- | Whether any cursor this function takes or returns is a struct-of-arrays
+-- location, and so becomes a @CursorArrayTy@ rather than a single word.
+--
+-- A returned SoA cursor is an array, which is passed through memory rather
+-- than in a register.
+hasSoALocs :: ArrowTy2 ty2 -> Bool
+hasSoALocs ty = any isSoALoc (allLocVars ty ++ locRetLocVars ty)
+
+-- | The locations named by a function type's end-of-input witnesses.
+locRetLocVars :: ArrowTy2 ty2 -> [LocVar]
+locRetLocVars ty = L.map (\lret -> case lret of EndOf (LRM l _ _) -> l) (locRets ty)
 
 inLocVarsMutable :: ArrowTy2 ty2 -> [LocVar]
 inLocVarsMutable ty = L.map (\(LRM l _ _) -> l) $ 
@@ -960,7 +974,7 @@ revertExp :: Exp2 -> Exp1
 revertExp ex =
   case ex of
     VarE v    -> VarE v
-    LitE n    -> LitE n
+    LitE ann n -> LitE ann n
     CharE c   -> CharE c
     FloatE n  -> FloatE n
     LitSymE v -> LitSymE v
@@ -992,7 +1006,7 @@ revertExp ex =
         FromEndE{} -> error "revertExp: TODO FromEndLE"
         BoundsCheck{}   -> error "revertExp: TODO BoundsCheck"
         IndirectionE{}  -> error "revertExp: TODO IndirectionE"
-        GetCilkWorkerNum-> LitE 0
+        GetCilkWorkerNum-> mkLitE64 0
         LetAvail _ bod  -> revertExp bod
         SelectiveBufferShareE _ _ bod -> revertExp bod
         AllocateTagHere{} -> error "revertExp: TODO AddFixed."
@@ -1083,7 +1097,11 @@ occurs w ex =
 mapPacked :: (Var -> l -> UrTy l) -> UrTy l -> UrTy l
 mapPacked fn t =
   case t of
-    IntTy  -> IntTy
+    -- Keep the exact width.  This used to rewrite every integer to W64, which
+    -- silently erased Int8/16/32 from every cursorized arrow type
+    -- ('cursorizeArrowTy' maps this over the output type), so a narrow
+    -- function's declared return type disagreed with its own body.
+    IntTy w  -> IntTy w
     CharTy -> CharTy
     FloatTy-> FloatTy
     BoolTy -> BoolTy
@@ -1107,7 +1125,8 @@ mapPacked fn t =
 constPacked :: UrTy a1 -> UrTy a2 -> UrTy a1
 constPacked c t =
   case t of
-    IntTy  -> IntTy
+    -- Keep the exact width; only packed types are replaced by 'c'.
+    IntTy w  -> IntTy w
     CharTy -> CharTy
     FloatTy-> FloatTy
     BoolTy -> BoolTy

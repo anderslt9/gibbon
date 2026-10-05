@@ -1,0 +1,89 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenMain (Pos {line = 1, column = 1})
+TokenAssign (Pos {line = 1, column = 6})
+TokenLet (Pos {line = 1, column = 8})
+TokenLParen (Pos {line = 1, column = 12})
+TokenIdentLower (Pos {line = 1, column = 13}) "x"
+TokenComma (Pos {line = 1, column = 14})
+TokenIdentLower (Pos {line = 1, column = 15}) "y"
+TokenRParen (Pos {line = 1, column = 16})
+TokenColon (Pos {line = 1, column = 18})
+TokenLParen (Pos {line = 1, column = 20})
+TokenIntType (Pos {line = 1, column = 21})
+TokenComma (Pos {line = 1, column = 24})
+TokenIntType (Pos {line = 1, column = 26})
+TokenRParen (Pos {line = 1, column = 29})
+TokenAssign (Pos {line = 1, column = 31})
+TokenLParen (Pos {line = 1, column = 33})
+TokenIntLit (Pos {line = 1, column = 34}) 1
+TokenComma (Pos {line = 1, column = 35})
+TokenIntLit (Pos {line = 1, column = 36}) 2
+TokenRParen (Pos {line = 1, column = 37})
+TokenIn (Pos {line = 1, column = 39})
+TokenIdentLower (Pos {line = 1, column = 42}) "x"
+TokenAdd (Pos {line = 1, column = 44})
+TokenIdentLower (Pos {line = 1, column = 46}) "y"
+TokenNewLine (Pos {line = 1, column = 47})
+TokenEOF (Pos {line = 2, column = 1})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Let Expression (
+        PatTuple (PatDeconstructs [PatVar (Var "x"),PatVar (Var "y")])
+        ProdTy (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion])
+        ValTuple (Exprs [ExprVal (ValLit (IntLit 1)),ExprVal (ValLit (IntLit 2))])
+        Primitive Application (
+            Add
+            Expressions [
+                ValVar (Var "x")
+                ValVar (Var "y")
+            ]
+        )
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: IntTy EmptyLocRegion
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Let Expression (
+        PatTuple (PatDeconstructs [PatVar (Var "x"),PatVar (Var "y")])
+        ProdTy (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion])
+        ValTuple (Exprs [ExprVal (ValLit (IntLit 1)),ExprVal (ValLit (IntLit 2))])
+        Primitive Application (
+            Add
+            Expressions [
+                ValVar (Var "x")
+                ValVar (Var "y")
+            ]
+        )
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+gibbon_main :: Int
+gibbon_main = let tup_x_y_ :: (Int,Int) = (1, 2) in
+              let x :: Int = (#0 tup_x_y_) in
+              let y :: Int = (#1 tup_x_y_) in
+              x + y
+

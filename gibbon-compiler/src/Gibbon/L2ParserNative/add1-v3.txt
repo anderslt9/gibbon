@@ -1,0 +1,288 @@
+Configuration is affected by the following files:
+- cabal.project
+ ! We set DEBUG based on command-line verbose arg: 3
+ [compiler] pipeline starting, parsed program: 1778 characters.
+
+ [compiler] Running pass, freshen
+   => 1848 characters output.
+
+ [compiler] Running pass, typecheck
+   => 1858 characters output.
+
+ [compiler] Running pass, bindLambdas
+   => 1858 characters output.
+
+ [compiler] Running pass, monomorphize
+   => 1858 characters output.
+
+ [compiler] Running pass, specLambdas
+   => 1858 characters output.
+
+ [compiler] Running pass, desugarL0
+   => 12898 characters output.
+
+ [compiler] Running pass, floatOutCase
+   => 12898 characters output.
+
+ [compiler] Running pass, toL1
+   => 12334 characters output.
+
+ [compiler] Running pass, typecheck
+   => 12334 characters output.
+
+ [compiler] Running pass, benchMainExp
+   => 12334 characters output.
+
+ [compiler] Running pass, typecheck
+   => 12334 characters output.
+
+ [compiler] Running pass, simplify
+Removed unused functions: [Var "add1"]
+   => 11531 characters output.
+
+ [compiler] Running pass, typecheck
+   => 11531 characters output.
+
+ [compiler] Running pass, flatten
+   => 11531 characters output.
+
+ [compiler] Running pass, simplify
+Removed unused functions: []
+   => 12247 characters output.
+
+ [compiler] Running pass, inlineTriv
+   => 11537 characters output.
+
+ [compiler] Running pass, typecheck
+   => 11537 characters output.
+
+ [compiler] Running pass, typecheck
+   => 11537 characters output.
+
+ [compiler] Running pass, L1.typecheck
+   => 11537 characters output.
+
+ [compiler] Running pass, removeCopyAliases
+   => 11537 characters output.
+
+ [compiler] Running pass, inferLocations
+   => 20606 characters output.
+
+ [compiler] Running pass, regionsInwards
+   => 19534 characters output.
+
+ [compiler] Running pass, simplifyLocBinds_a
+   => 19534 characters output.
+
+ [compiler] Running pass, reorderLetExprs
+   => 19534 characters output.
+
+ [compiler] Running pass, simplifyLocBinds
+   => 19534 characters output.
+
+ [compiler] Running pass, fixRANs
+   => 19534 characters output.
+
+ [compiler] Running pass, reorderLetExprs2
+   => 19534 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19534 characters output.
+
+ [compiler] Running pass, L2.flatten
+   => 19534 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19534 characters output.
+
+ [compiler] Running pass, removeCopies
+   => 19610 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19610 characters output.
+
+ [compiler] Running pass, inferEffects
+   => 19718 characters output.
+
+ [compiler] Running pass, addRAN
+   => 11537 characters output.
+
+ [compiler] Running pass, L1.typecheck
+   => 11537 characters output.
+
+ [compiler] Running pass, inferLocations2
+   => 20606 characters output.
+
+ [compiler] Running pass, reorderLetExprs3
+   => 20606 characters output.
+
+ [compiler] Running pass, simplifyLocBinds
+   => 20606 characters output.
+
+ [compiler] Running pass, fixRANs
+   => 20606 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 20606 characters output.
+
+ [compiler] Running pass, regionsInwards
+   => 19534 characters output.
+
+ [compiler] Running pass, simplifyLocBinds
+   => 19534 characters output.
+
+ [compiler] Running pass, +
+   => 19534 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19534 characters output.
+
+ [compiler] Running pass, findWitnesses
+   => 19534 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19534 characters output.
+
+ [compiler] Running pass, L2.flatten
+   => 19534 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19534 characters output.
+
+ [compiler] Running pass, removeCopies
+   => 19610 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19610 characters output.
+
+ [compiler] Running pass, inferEffects2
+   => 19718 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19718 characters output.
+
+ [compiler] Running pass, addTraversals
+   => 19718 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19718 characters output.
+
+ [compiler] Running pass, repairProgram
+   => 19718 characters output.
+
+ [compiler] Running pass, parAlloc
+   => 19720 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19720 characters output.
+
+ [compiler] Running pass, inferRegScope
+   => 19720 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19720 characters output.
+
+ [compiler] Running pass, simplifyLocBinds
+   => 19720 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 19720 characters output.
+
+ [compiler] Running pass, writeOrderMarkers
+   => 22156 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 22156 characters output.
+
+ [compiler] Running pass, routeEnds
+   => 34634 characters output.
+
+ [compiler] Running pass, L2.flatten
+   => 34634 characters output.
+
+ [compiler] Running pass, simplifyLocBinds
+   => 34634 characters output.
+
+ [compiler] Running pass, reorderLetExprs4
+   => 34634 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 34634 characters output.
+
+ [compiler] Running pass, inferFunAllocs
+   => 34634 characters output.
+
+ [compiler] Running pass, L2.typecheck
+   => 34634 characters output.
+
+ [compiler] Running pass, simplifyLocBinds
+   => 34634 characters output.
+
+ [compiler] Running pass, addRedirectionCon
+   => 34710 characters output.
+
+ [compiler] Running pass, followPtrs
+   => 42358 characters output.
+
+ [compiler] Running pass, fromOldL2
+   => 100019 characters output.
+
+ [compiler] Running pass, threadRegions2
+   => 126515 characters output.
+
+ [compiler] Running pass, hoistBoundsCheck
+   => 126515 characters output.
+
+ [compiler] Running pass, cursorize
+   => 209655 characters output.
+
+ [compiler] Running pass, reorderScalarWrites
+   => 190513 characters output.
+
+ [compiler] Running pass, L3.flatten
+   => 217341 characters output.
+
+ [compiler] Running pass, addCasts
+   => 217341 characters output.
+
+ [compiler] Running pass, L3.typecheck
+   => 217341 characters output.
+
+ [compiler] Running pass, hoistNewBuf
+   => 217341 characters output.
+
+ [compiler] Running pass, L3.typecheck
+   => 217341 characters output.
+
+ [compiler] Running pass, unariser
+   => 224297 characters output.
+
+ [compiler] Running pass, L3.typecheck
+   => 224297 characters output.
+
+ [compiler] Running pass, L3.flatten
+   => 275561 characters output.
+
+ [compiler] Running pass, L3.typecheck
+   => 275561 characters output.
+
+ [compiler] Running pass, lower
+   => 512285 characters output.
+
+ [compiler] Running pass, lateInlineTriv
+   => 109656 characters output.
+
+ [compiler] Running pass, rearrangeFree
+   => 109656 characters output.
+
+ [compiler] Final C codegen: 23636 characters.
+Compiling RTS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+make -f /home/anderslt/gibbon-compiler/gibbon-compiler/gibbon-rts/Makefile  MODE=release  GC=nongen  USER_CFLAGS=" -O3  -flto " VERBOSITY=3
+
+codegen: C RTS could not be compiled: 
+make: /home/anderslt/gibbon-compiler/gibbon-compiler/gibbon-rts/Makefile: No such file or directory
+make: *** No rule to make target '/home/anderslt/gibbon-compiler/gibbon-compiler/gibbon-rts/Makefile'.  Stop.
+
+Code: 2

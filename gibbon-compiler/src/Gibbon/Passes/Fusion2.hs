@@ -299,7 +299,7 @@ buildDefTable ex = go ex Nothing M.empty
           where f tbl exp = go (exp) Nothing tbl
         TimeIt exp _ _ -> go (exp) definingSymbol table
         ProjE index exp -> go (exp) Nothing table
-        LitE _ -> table
+        LitE{} -> table
         x ->
           table `debug`
           ("please handle:" L.++ show x L.++ "in buildDefTable\n")
@@ -820,7 +820,7 @@ foldTupledFunctions bodyM newFun oldCalls  outputPositions syncedArgs  =
            L.foldl collectRec leafExp  [cond,  thenBody, elseBody ]
         DataConE _ _ expList -> L.foldl collectRec leafExp expList
         ProjE index exp -> collectRec leafExp exp
-        LitE _ -> leafExp
+        LitE{} -> leafExp
         -- LetE (Var s,loc,t,rhs) bod ->
         --    L.foldl collectRec leafExp  [rhs,  bod]
         x       -> error ( "please handle me explicitly" L.++ (show x))
@@ -983,7 +983,7 @@ tupleListOfFunctions  ddefs funcList newName syncedArgs = do
            in substE  oldExp newExp exp
         ) extendedCase syncedArgs
 
-  return (FunDef newName newArgs (newFuncInputType,newRetType) finalBody (FunMeta NotRec NoInline False []))
+  return (FunDef newName newArgs (newFuncInputType,newRetType) finalBody (FunMeta NotRec NoInline False [] Nothing))
  where
   createOutVar index subscript=
           toVar ("f" L.++ show index L.++"out" L.++ show subscript)
@@ -1113,7 +1113,7 @@ buildTupleCandidatesTable fDefs exp argsVars =
               collectDependentVarsExp elseBody ]
        DataConE _ _ expList -> S.unions (L.map collectDependentVarsExp expList)
        ProjE index exp -> collectDependentVarsExp exp
-       LitE _ -> S.empty
+       LitE{} -> S.empty
        LetE (Var s,loc,t,rhs) body ->
          S.unions [collectDependentVarsExp rhs,
            collectDependentVarsExp body]

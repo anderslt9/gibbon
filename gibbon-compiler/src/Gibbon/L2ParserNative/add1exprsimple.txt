@@ -1,0 +1,557 @@
+Configuration is affected by the following files:
+- cabal.project
+ ! We set DEBUG based on command-line verbose arg: 4
+ [compiler] pipeline starting, parsed program: 
+================================================================================
+Prog {ddefs = [], fundefs = [], mainExp = Nothing}
+
+ [compiler] Running pass, freshen
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, bindLambdas
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, monomorphize
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, specLambdas
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, desugarL0
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, floatOutCase
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, toL1
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, benchMainExp
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, simplify
+Removed unused functions: []
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, flatten
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, simplify
+Removed unused functions: []
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, inlineTriv
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L1.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, removeCopyAliases
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, inferLocations
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, regionsInwards
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, simplifyLocBinds_a
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, reorderLetExprs
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, simplifyLocBinds
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, fixRANs
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, reorderLetExprs2
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.flatten
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, removeCopies
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, inferEffects
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, addRAN
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L1.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, inferLocations2
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, reorderLetExprs3
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, simplifyLocBinds
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, fixRANs
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, regionsInwards
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, simplifyLocBinds
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, +
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, findWitnesses
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.flatten
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, removeCopies
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, inferEffects2
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, addTraversals
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, repairProgram
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, parAlloc
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, inferRegScope
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, simplifyLocBinds
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, writeOrderMarkers
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, routeEnds
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.flatten
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, simplifyLocBinds
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, reorderLetExprs4
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, inferFunAllocs
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L2.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, simplifyLocBinds
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, addRedirectionCon
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, followPtrs
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, fromOldL2
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, threadRegions2
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, hoistBoundsCheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, cursorize
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, reorderScalarWrites
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L3.flatten
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, addCasts
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L3.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, hoistNewBuf
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L3.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, unariser
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L3.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L3.flatten
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, L3.typecheck
+Pass output:
+================================================================================
+
+
+ [compiler] Running pass, lower
+Pass output:
+================================================================================
+Prog {infoTable = [],
+      symbolTable = [],
+      fundefs = [],
+      mainExp = Nothing}
+
+ [compiler] Running pass, lateInlineTriv
+Pass output:
+================================================================================
+Prog {infoTable = [],
+      symbolTable = [],
+      fundefs = [],
+      mainExp = Nothing}
+
+ [compiler] Running pass, rearrangeFree
+Pass output:
+================================================================================
+Prog {infoTable = [],
+      symbolTable = [],
+      fundefs = [],
+      mainExp = Nothing}
+
+ [compiler] Final C codegen: 1496 characters.
+================================================================================
+/* Gibbon program. */
+
+#include "gibbon_rts.h"
+
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <math.h>
+#include <stdbool.h>
+#include <string.h>
+#include <time.h>
+#include <alloca.h>
+#include <sys/mman.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdarg.h>
+#include <errno.h>
+#include <uthash.h>
+
+#ifdef _WIN64
+#include <windows.h>
+#endif
+
+#ifdef _GIBBON_POINTER
+#include <gc.h>
+#endif
+
+#ifdef _GIBBON_PARALLEL
+#include <cilk/cilk.h>
+#include <cilk/cilk_api.h>
+#endif
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * Program starts here
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ */
+
+typedef enum {
+            GibInt_T,
+            GibFloat_T,
+            GibSym_T,
+            GibBool_T,
+            GibVector_T,
+            GibList_T,
+            GibCursor_T,
+        } GibDatatype;
+void info_table_initialize(void)
+{
+    int error = gib_info_table_initialize(7);
+    
+    if (error < 0) {
+        fprintf(stderr, "Couldn't initialize info table, errorno=%d", error);
+        exit(1);
+    }
+    
+    GibDatatype field_tys[0];
+    
+    gib_info_table_finalize();
+}
+void symbol_table_initialize(void)
+{ }
+int main(int argc, char **argv)
+{
+    int init_0 = gib_init(argc, argv);
+    
+    info_table_initialize();
+    symbol_table_initialize();
+    
+    int exit_1 = gib_exit();
+    
+    return exit_1;
+}
+
+Compiling RTS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+make -f /home/anderslt/gibbon-compiler/gibbon-compiler/gibbon-rts/Makefile  MODE=release  GC=nongen  USER_CFLAGS=" -O3  -flto " VERBOSITY=4
+
+codegen: C RTS could not be compiled: 
+make: /home/anderslt/gibbon-compiler/gibbon-compiler/gibbon-rts/Makefile: No such file or directory
+make: *** No rule to make target '/home/anderslt/gibbon-compiler/gibbon-compiler/gibbon-rts/Makefile'.  Stop.
+
+Code: 2

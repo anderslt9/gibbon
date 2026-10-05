@@ -1,0 +1,72 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenMain (Pos {line = 1, column = 1})
+TokenAssign (Pos {line = 1, column = 6})
+TokenIf (Pos {line = 1, column = 8})
+TokenIntLit (Pos {line = 1, column = 11}) 1
+TokenEq (Pos {line = 1, column = 13})
+TokenIntLit (Pos {line = 1, column = 16}) 1
+TokenThen (Pos {line = 1, column = 18})
+TokenIntLit (Pos {line = 1, column = 23}) 42
+TokenElse (Pos {line = 1, column = 26})
+TokenIntLit (Pos {line = 1, column = 31}) 0
+TokenNewLine (Pos {line = 1, column = 32})
+TokenEOF (Pos {line = 1, column = 32})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    If Expression (
+        Primitive Application (
+            Eq
+            Expressions [
+                ValLit (IntLit 1)
+                ValLit (IntLit 1)
+            ]
+        )
+        ValLit (IntLit 42)
+        ValLit (IntLit 0)
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: IntTy EmptyLocRegion
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    If Expression (
+        Primitive Application (
+            Eq
+            Expressions [
+                ValLit (IntLit 1)
+                ValLit (IntLit 1)
+            ]
+        )
+        ValLit (IntLit 42)
+        ValLit (IntLit 0)
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+gibbon_main :: Int
+gibbon_main = if 1 == 1
+              then 42
+              else 0
+

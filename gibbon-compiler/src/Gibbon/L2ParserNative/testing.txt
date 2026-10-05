@@ -1,0 +1,81 @@
+
+add1tup : Int -> (Int, Int)
+add1tup [] a = (a, a + 1) 
+
+let (x,y) : (Int,Int) = add1tup [] 5 in
+...
+
+
+
+let tup_x_y : (Int,Int) = add1tup 5 in
+let x : Int = Proj 0 tup_x_y in
+let y : Int = Proj 1 tup_x_y in
+...
+
+--------------------------------------------------------------
+
+add1tup : Int -> (Int, Int, Int)
+add1tup [] a = (a, a + 1, a + 2) 
+
+let (x,y,z) : (Int,Int,Int) = add1tup [] 5 in
+...
+
+
+let tup_x_y_z : (Int,Int,Int) = add1tup 5 in
+let x : Int = Proj 0 tup_x_y_z in
+let y : Int = Proj 1 tup_x_y_z in
+let z : Int = Proj 2 tup_x_y_z in
+...
+
+
+---------------------------------------------------------------
+
+print : Int -> ()
+print [] a = printint a
+
+let () : () = print 5 in
+...
+
+
+let tup : () = print 5 in
+...
+
+
+----------------------------------------------------------------
+
+foo : Int -> ((Int, Int), Int)
+foo [] a = ((a,a+1), a+2)
+
+
+let ((x, y), z) : ((Int, Int), Int) = foo 4 in
+...
+
+
+let tup_x_y_z : ((Int, Int), Int) = foo 4 in
+let tup_x_y : (Int, Int) = Proj 0 tup_x_y_z in
+let x : Int = Proj 0 tup_x_y in
+let y : Int = Proj 1 tup_x_y in
+let z : Int = Proj 1 tup_x_y_z
+
+
+tup_tup_x_y__z__
+
+(a,b,(c,g,(d,e),f))
+
+tup_a_b_tup_c_g_tup_d_e__f__
+
+(a,b,(c,g),d_e)
+
+tup_a_b__c_g__d_e__f
+
+
+----------------------------------------------------------------
+----------------------------------------------------------------
+----------------------------------------------------------------
+
+data foo a = foo Int a
+
+
+func : Int -> foo Int
+func [] x = foo x (x+1)
+

@@ -1,0 +1,61 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenMain (Pos {line = 1, column = 1})
+TokenAssign (Pos {line = 1, column = 6})
+TokenLet (Pos {line = 1, column = 8})
+TokenIdentLower (Pos {line = 1, column = 12}) "x"
+TokenColon (Pos {line = 1, column = 14})
+TokenIntType (Pos {line = 1, column = 16})
+TokenAssign (Pos {line = 1, column = 20})
+TokenIntLit (Pos {line = 1, column = 22}) 5
+TokenIn (Pos {line = 1, column = 24})
+TokenIdentLower (Pos {line = 1, column = 27}) "x"
+TokenNewLine (Pos {line = 1, column = 28})
+TokenEOF (Pos {line = 2, column = 1})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Let Expression (
+        PatVar (Var "x")
+        IntTy EmptyLocRegion
+        ValLit (IntLit 5)
+        ValVar (Var "x")
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: IntTy EmptyLocRegion
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Let Expression (
+        PatVar (Var "x")
+        IntTy EmptyLocRegion
+        ValLit (IntLit 5)
+        ValVar (Var "x")
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+gibbon_main :: Int
+gibbon_main = let x :: Int = 5 in
+              x
+

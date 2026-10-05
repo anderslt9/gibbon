@@ -1,0 +1,237 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenMain (Pos {line = 1, column = 1})
+TokenAssign (Pos {line = 1, column = 6})
+TokenLet (Pos {line = 1, column = 9})
+TokenIdentLower (Pos {line = 1, column = 13}) "a"
+TokenColon (Pos {line = 1, column = 14})
+TokenLParen (Pos {line = 1, column = 15})
+TokenRParen (Pos {line = 1, column = 16})
+TokenAssign (Pos {line = 1, column = 18})
+TokenPrintInt (Pos {line = 1, column = 20})
+TokenIntLit (Pos {line = 1, column = 29}) 7
+TokenIn (Pos {line = 1, column = 31})
+TokenLet (Pos {line = 2, column = 9})
+TokenIdentLower (Pos {line = 2, column = 13}) "b"
+TokenColon (Pos {line = 2, column = 14})
+TokenLParen (Pos {line = 2, column = 15})
+TokenRParen (Pos {line = 2, column = 16})
+TokenAssign (Pos {line = 2, column = 18})
+TokenPrintChar (Pos {line = 2, column = 20})
+TokenCharLit (Pos {line = 2, column = 30}) '\n'
+TokenIn (Pos {line = 2, column = 35})
+TokenLet (Pos {line = 3, column = 9})
+TokenIdentLower (Pos {line = 3, column = 13}) "c"
+TokenColon (Pos {line = 3, column = 14})
+TokenLParen (Pos {line = 3, column = 15})
+TokenRParen (Pos {line = 3, column = 16})
+TokenAssign (Pos {line = 3, column = 18})
+TokenPrintChar (Pos {line = 3, column = 20})
+TokenCharLit (Pos {line = 3, column = 30}) 'a'
+TokenIn (Pos {line = 3, column = 34})
+TokenLet (Pos {line = 4, column = 9})
+TokenIdentLower (Pos {line = 4, column = 13}) "d"
+TokenColon (Pos {line = 4, column = 14})
+TokenLParen (Pos {line = 4, column = 15})
+TokenRParen (Pos {line = 4, column = 16})
+TokenAssign (Pos {line = 4, column = 18})
+TokenPrintChar (Pos {line = 4, column = 20})
+TokenCharLit (Pos {line = 4, column = 30}) '\n'
+TokenIn (Pos {line = 4, column = 35})
+TokenLet (Pos {line = 5, column = 9})
+TokenIdentLower (Pos {line = 5, column = 13}) "e"
+TokenColon (Pos {line = 5, column = 14})
+TokenLParen (Pos {line = 5, column = 15})
+TokenRParen (Pos {line = 5, column = 16})
+TokenAssign (Pos {line = 5, column = 18})
+TokenPrintFloat (Pos {line = 5, column = 20})
+TokenFloatLit (Pos {line = 5, column = 31}) 5.92
+TokenIn (Pos {line = 5, column = 36})
+TokenLet (Pos {line = 6, column = 9})
+TokenIdentLower (Pos {line = 6, column = 13}) "f"
+TokenColon (Pos {line = 6, column = 14})
+TokenLParen (Pos {line = 6, column = 15})
+TokenRParen (Pos {line = 6, column = 16})
+TokenAssign (Pos {line = 6, column = 18})
+TokenPrintChar (Pos {line = 6, column = 20})
+TokenCharLit (Pos {line = 6, column = 30}) '\n'
+TokenIn (Pos {line = 6, column = 35})
+TokenPrintBool (Pos {line = 7, column = 9})
+TokenBoolLit (Pos {line = 7, column = 19}) True
+TokenNewLine (Pos {line = 7, column = 23})
+TokenEOF (Pos {line = 8, column = 1})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Let Expression (
+        PatVar (Var "a")
+        ProdTy (MyTypes [])
+        Primitive Application (
+            PrintInt
+            Expressions [
+                ValLit (IntLit 7)
+            ]
+        )
+        Let Expression (
+            PatVar (Var "b")
+            ProdTy (MyTypes [])
+            Primitive Application (
+                PrintChar
+                Expressions [
+                    ValLit (CharLit '\n')
+                ]
+            )
+            Let Expression (
+                PatVar (Var "c")
+                ProdTy (MyTypes [])
+                Primitive Application (
+                    PrintChar
+                    Expressions [
+                        ValLit (CharLit 'a')
+                    ]
+                )
+                Let Expression (
+                    PatVar (Var "d")
+                    ProdTy (MyTypes [])
+                    Primitive Application (
+                        PrintChar
+                        Expressions [
+                            ValLit (CharLit '\n')
+                        ]
+                    )
+                    Let Expression (
+                        PatVar (Var "e")
+                        ProdTy (MyTypes [])
+                        Primitive Application (
+                            PrintFloat
+                            Expressions [
+                                ValLit (FloatLit 5.92)
+                            ]
+                        )
+                        Let Expression (
+                            PatVar (Var "f")
+                            ProdTy (MyTypes [])
+                            Primitive Application (
+                                PrintChar
+                                Expressions [
+                                    ValLit (CharLit '\n')
+                                ]
+                            )
+                            Primitive Application (
+                                PrintBool
+                                Expressions [
+                                    ValLit (BoolLit True)
+                                ]
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: ProdTy (MyTypes [])
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Let Expression (
+        PatVar (Var "a")
+        ProdTy (MyTypes [])
+        Primitive Application (
+            PrintInt
+            Expressions [
+                ValLit (IntLit 7)
+            ]
+        )
+        Let Expression (
+            PatVar (Var "b")
+            ProdTy (MyTypes [])
+            Primitive Application (
+                PrintChar
+                Expressions [
+                    ValLit (CharLit '\n')
+                ]
+            )
+            Let Expression (
+                PatVar (Var "c")
+                ProdTy (MyTypes [])
+                Primitive Application (
+                    PrintChar
+                    Expressions [
+                        ValLit (CharLit 'a')
+                    ]
+                )
+                Let Expression (
+                    PatVar (Var "d")
+                    ProdTy (MyTypes [])
+                    Primitive Application (
+                        PrintChar
+                        Expressions [
+                            ValLit (CharLit '\n')
+                        ]
+                    )
+                    Let Expression (
+                        PatVar (Var "e")
+                        ProdTy (MyTypes [])
+                        Primitive Application (
+                            PrintFloat
+                            Expressions [
+                                ValLit (FloatLit 5.92)
+                            ]
+                        )
+                        Let Expression (
+                            PatVar (Var "f")
+                            ProdTy (MyTypes [])
+                            Primitive Application (
+                                PrintChar
+                                Expressions [
+                                    ValLit (CharLit '\n')
+                                ]
+                            )
+                            Primitive Application (
+                                PrintBool
+                                Expressions [
+                                    ValLit (BoolLit True)
+                                ]
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+gibbon_main :: ()
+gibbon_main = let a :: () = printint(7) in
+              let b :: () = printchar('
+') in
+              let c :: () = printchar('a') in
+              let d :: () = printchar('
+') in
+              let e :: () = printfloat(5.920000076293945) in
+              let f :: () = printchar('
+') in
+              printbool(True)
+

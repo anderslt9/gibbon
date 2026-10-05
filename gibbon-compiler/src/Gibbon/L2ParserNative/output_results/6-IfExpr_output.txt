@@ -1,0 +1,8 @@
+Output from L2 Parser: 
+Running pass: Replace Location Region Names
+Running pass: Replace Location Region Names in After Expressions
+Running pass: Replace Not Equal with If-Then-Else
+42
+
+Output from Native Gibbon: 
+42

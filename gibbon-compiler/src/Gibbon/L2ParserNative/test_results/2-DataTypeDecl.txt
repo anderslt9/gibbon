@@ -1,0 +1,114 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenData (Pos {line = 1, column = 1})
+TokenIdentUpper (Pos {line = 1, column = 6}) "Tree"
+TokenAssign (Pos {line = 1, column = 11})
+TokenIdentUpper (Pos {line = 1, column = 13}) "Leaf"
+TokenIntType (Pos {line = 1, column = 18})
+TokenBar (Pos {line = 1, column = 22})
+TokenIdentUpper (Pos {line = 1, column = 24}) "Node"
+TokenIntType (Pos {line = 1, column = 29})
+TokenIdentUpper (Pos {line = 1, column = 33}) "Tree"
+TokenIdentUpper (Pos {line = 1, column = 38}) "Tree"
+TokenNewLine (Pos {line = 2, column = 1})
+TokenMain (Pos {line = 3, column = 1})
+TokenAssign (Pos {line = 3, column = 6})
+TokenIntLit (Pos {line = 3, column = 8}) 1
+TokenAdd (Pos {line = 3, column = 10})
+TokenIntLit (Pos {line = 3, column = 12}) 2
+TokenNewLine (Pos {line = 3, column = 13})
+TokenEOF (Pos {line = 3, column = 13})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations [
+        Data Type Declaration (
+            Type Constructor ("Tree")
+            Type Arguments []
+
+            Data Fields [
+                Data Field (
+                    Data Constructor ("Leaf")
+                    My Types [
+                        IntTy EmptyLocRegion
+                    ]
+                )
+                Data Field (
+                    Data Constructor ("Node")
+                    My Types [
+                        IntTy EmptyLocRegion
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                    ]
+                )
+            ]
+            TypeLinear
+        )
+    ]
+    Function Declarations []
+
+    Annotations []
+
+    Primitive Application (
+        Add
+        Expressions [
+            ValLit (IntLit 1)
+            ValLit (IntLit 2)
+        ]
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: IntTy EmptyLocRegion
+Program (
+    Data Type Declarations [
+        Data Type Declaration (
+            Type Constructor ("Tree")
+            Type Arguments []
+
+            Data Fields [
+                Data Field (
+                    Data Constructor ("Leaf")
+                    My Types [
+                        IntTy EmptyLocRegion
+                    ]
+                )
+                Data Field (
+                    Data Constructor ("Node")
+                    My Types [
+                        IntTy EmptyLocRegion
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                    ]
+                )
+            ]
+            TypeLinear
+        )
+    ]
+    Function Declarations []
+
+    Annotations []
+
+    Primitive Application (
+        Add
+        Expressions [
+            ValLit (IntLit 1)
+            ValLit (IntLit 2)
+        ]
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+data Tree = Leaf Int | 
+            Node Int (Packed Tree (Single "l")) (Packed Tree (Single "l"))
+gibbon_main :: Int
+gibbon_main = 1 + 2
+

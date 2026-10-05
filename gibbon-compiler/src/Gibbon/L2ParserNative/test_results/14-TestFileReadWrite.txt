@@ -1,0 +1,489 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenData (Pos {line = 1, column = 1})
+TokenIdentUpper (Pos {line = 1, column = 6}) "Tree"
+TokenAssign (Pos {line = 1, column = 11})
+TokenIdentUpper (Pos {line = 1, column = 13}) "Leaf"
+TokenIntType (Pos {line = 1, column = 18})
+TokenBar (Pos {line = 1, column = 22})
+TokenIdentUpper (Pos {line = 1, column = 24}) "Node"
+TokenIdentUpper (Pos {line = 1, column = 29}) "Tree"
+TokenIdentUpper (Pos {line = 1, column = 34}) "Tree"
+TokenNewLine (Pos {line = 2, column = 1})
+TokenMain (Pos {line = 3, column = 1})
+TokenAssign (Pos {line = 3, column = 6})
+TokenLetRegion (Pos {line = 4, column = 5})
+TokenIdentLower (Pos {line = 4, column = 15}) "r1"
+TokenIn (Pos {line = 4, column = 18})
+TokenLetLoc (Pos {line = 7, column = 5})
+TokenLParen (Pos {line = 7, column = 12})
+TokenIdentLower (Pos {line = 7, column = 13}) "l1"
+TokenComma (Pos {line = 7, column = 15})
+TokenIdentLower (Pos {line = 7, column = 16}) "r1"
+TokenRParen (Pos {line = 7, column = 18})
+TokenAssign (Pos {line = 7, column = 20})
+TokenLParen (Pos {line = 7, column = 22})
+TokenStart (Pos {line = 7, column = 23})
+TokenIdentLower (Pos {line = 7, column = 29}) "r1"
+TokenRParen (Pos {line = 7, column = 31})
+TokenIn (Pos {line = 7, column = 33})
+TokenLetLoc (Pos {line = 8, column = 5})
+TokenLParen (Pos {line = 8, column = 12})
+TokenIdentLower (Pos {line = 8, column = 13}) "l2"
+TokenComma (Pos {line = 8, column = 15})
+TokenIdentLower (Pos {line = 8, column = 16}) "r1"
+TokenRParen (Pos {line = 8, column = 18})
+TokenAssign (Pos {line = 8, column = 20})
+TokenLParen (Pos {line = 8, column = 22})
+TokenLParen (Pos {line = 8, column = 23})
+TokenIdentLower (Pos {line = 8, column = 24}) "l1"
+TokenComma (Pos {line = 8, column = 26})
+TokenIdentLower (Pos {line = 8, column = 27}) "r1"
+TokenRParen (Pos {line = 8, column = 29})
+TokenAdd (Pos {line = 8, column = 31})
+TokenIntLit (Pos {line = 8, column = 33}) 1
+TokenRParen (Pos {line = 8, column = 34})
+TokenIn (Pos {line = 8, column = 36})
+TokenLet (Pos {line = 9, column = 5})
+TokenIdentLower (Pos {line = 9, column = 9}) "left"
+TokenColon (Pos {line = 9, column = 14})
+TokenIdentUpper (Pos {line = 9, column = 16}) "Tree"
+TokenAt (Pos {line = 9, column = 20})
+TokenLParen (Pos {line = 9, column = 21})
+TokenIdentLower (Pos {line = 9, column = 22}) "l2"
+TokenComma (Pos {line = 9, column = 24})
+TokenIdentLower (Pos {line = 9, column = 25}) "r1"
+TokenRParen (Pos {line = 9, column = 27})
+TokenAssign (Pos {line = 9, column = 29})
+TokenIdentUpper (Pos {line = 9, column = 31}) "Leaf"
+TokenLParen (Pos {line = 9, column = 36})
+TokenIdentLower (Pos {line = 9, column = 37}) "l2"
+TokenComma (Pos {line = 9, column = 39})
+TokenIdentLower (Pos {line = 9, column = 40}) "r1"
+TokenRParen (Pos {line = 9, column = 42})
+TokenIntLit (Pos {line = 9, column = 44}) 1
+TokenIn (Pos {line = 9, column = 46})
+TokenLetLoc (Pos {line = 11, column = 5})
+TokenLParen (Pos {line = 11, column = 12})
+TokenIdentLower (Pos {line = 11, column = 13}) "l3"
+TokenComma (Pos {line = 11, column = 15})
+TokenIdentLower (Pos {line = 11, column = 16}) "r1"
+TokenRParen (Pos {line = 11, column = 18})
+TokenAssign (Pos {line = 11, column = 20})
+TokenLParen (Pos {line = 11, column = 22})
+TokenAfter (Pos {line = 11, column = 23})
+TokenIdentUpper (Pos {line = 11, column = 29}) "Tree"
+TokenAt (Pos {line = 11, column = 33})
+TokenLParen (Pos {line = 11, column = 34})
+TokenIdentLower (Pos {line = 11, column = 35}) "l2"
+TokenComma (Pos {line = 11, column = 37})
+TokenIdentLower (Pos {line = 11, column = 38}) "r1"
+TokenRParen (Pos {line = 11, column = 40})
+TokenRParen (Pos {line = 11, column = 41})
+TokenIn (Pos {line = 11, column = 43})
+TokenLetLoc (Pos {line = 12, column = 5})
+TokenLParen (Pos {line = 12, column = 12})
+TokenIdentLower (Pos {line = 12, column = 13}) "l4"
+TokenComma (Pos {line = 12, column = 15})
+TokenIdentLower (Pos {line = 12, column = 16}) "r1"
+TokenRParen (Pos {line = 12, column = 18})
+TokenAssign (Pos {line = 12, column = 20})
+TokenLParen (Pos {line = 12, column = 22})
+TokenLParen (Pos {line = 12, column = 23})
+TokenIdentLower (Pos {line = 12, column = 24}) "l3"
+TokenComma (Pos {line = 12, column = 26})
+TokenIdentLower (Pos {line = 12, column = 27}) "r1"
+TokenRParen (Pos {line = 12, column = 29})
+TokenAdd (Pos {line = 12, column = 31})
+TokenIntLit (Pos {line = 12, column = 33}) 1
+TokenRParen (Pos {line = 12, column = 34})
+TokenIn (Pos {line = 12, column = 36})
+TokenLet (Pos {line = 14, column = 5})
+TokenIdentLower (Pos {line = 14, column = 9}) "rightLeft"
+TokenColon (Pos {line = 14, column = 19})
+TokenIdentUpper (Pos {line = 14, column = 21}) "Tree"
+TokenAt (Pos {line = 14, column = 25})
+TokenLParen (Pos {line = 14, column = 26})
+TokenIdentLower (Pos {line = 14, column = 27}) "l4"
+TokenComma (Pos {line = 14, column = 29})
+TokenIdentLower (Pos {line = 14, column = 30}) "r1"
+TokenRParen (Pos {line = 14, column = 32})
+TokenAssign (Pos {line = 14, column = 34})
+TokenIdentUpper (Pos {line = 14, column = 36}) "Leaf"
+TokenLParen (Pos {line = 14, column = 41})
+TokenIdentLower (Pos {line = 14, column = 42}) "l4"
+TokenComma (Pos {line = 14, column = 44})
+TokenIdentLower (Pos {line = 14, column = 45}) "r1"
+TokenRParen (Pos {line = 14, column = 47})
+TokenIntLit (Pos {line = 14, column = 49}) 4
+TokenIn (Pos {line = 14, column = 51})
+TokenLetLoc (Pos {line = 15, column = 5})
+TokenLParen (Pos {line = 15, column = 12})
+TokenIdentLower (Pos {line = 15, column = 13}) "l5"
+TokenComma (Pos {line = 15, column = 15})
+TokenIdentLower (Pos {line = 15, column = 16}) "r1"
+TokenRParen (Pos {line = 15, column = 18})
+TokenAssign (Pos {line = 15, column = 20})
+TokenLParen (Pos {line = 15, column = 22})
+TokenAfter (Pos {line = 15, column = 23})
+TokenIdentUpper (Pos {line = 15, column = 29}) "Tree"
+TokenAt (Pos {line = 15, column = 33})
+TokenLParen (Pos {line = 15, column = 34})
+TokenIdentLower (Pos {line = 15, column = 35}) "l4"
+TokenComma (Pos {line = 15, column = 37})
+TokenIdentLower (Pos {line = 15, column = 38}) "r1"
+TokenRParen (Pos {line = 15, column = 40})
+TokenRParen (Pos {line = 15, column = 41})
+TokenIn (Pos {line = 15, column = 43})
+TokenLet (Pos {line = 17, column = 5})
+TokenIdentLower (Pos {line = 17, column = 9}) "rightRight"
+TokenColon (Pos {line = 17, column = 20})
+TokenIdentUpper (Pos {line = 17, column = 22}) "Tree"
+TokenAt (Pos {line = 17, column = 26})
+TokenLParen (Pos {line = 17, column = 27})
+TokenIdentLower (Pos {line = 17, column = 28}) "l5"
+TokenComma (Pos {line = 17, column = 30})
+TokenIdentLower (Pos {line = 17, column = 31}) "r1"
+TokenRParen (Pos {line = 17, column = 33})
+TokenAssign (Pos {line = 17, column = 35})
+TokenIdentUpper (Pos {line = 17, column = 37}) "Leaf"
+TokenLParen (Pos {line = 17, column = 42})
+TokenIdentLower (Pos {line = 17, column = 43}) "l5"
+TokenComma (Pos {line = 17, column = 45})
+TokenIdentLower (Pos {line = 17, column = 46}) "r1"
+TokenRParen (Pos {line = 17, column = 48})
+TokenIntLit (Pos {line = 17, column = 50}) 8
+TokenIn (Pos {line = 17, column = 52})
+TokenLet (Pos {line = 18, column = 5})
+TokenIdentLower (Pos {line = 18, column = 9}) "right"
+TokenColon (Pos {line = 18, column = 15})
+TokenIdentUpper (Pos {line = 18, column = 17}) "Tree"
+TokenAt (Pos {line = 18, column = 21})
+TokenLParen (Pos {line = 18, column = 22})
+TokenIdentLower (Pos {line = 18, column = 23}) "l3"
+TokenComma (Pos {line = 18, column = 25})
+TokenIdentLower (Pos {line = 18, column = 26}) "r1"
+TokenRParen (Pos {line = 18, column = 28})
+TokenAssign (Pos {line = 18, column = 30})
+TokenIdentUpper (Pos {line = 18, column = 32}) "Node"
+TokenLParen (Pos {line = 18, column = 37})
+TokenIdentLower (Pos {line = 18, column = 38}) "l3"
+TokenComma (Pos {line = 18, column = 40})
+TokenIdentLower (Pos {line = 18, column = 41}) "r1"
+TokenRParen (Pos {line = 18, column = 43})
+TokenIdentLower (Pos {line = 18, column = 45}) "rightLeft"
+TokenIdentLower (Pos {line = 18, column = 55}) "rightRight"
+TokenIn (Pos {line = 18, column = 66})
+TokenLet (Pos {line = 20, column = 5})
+TokenIdentLower (Pos {line = 20, column = 9}) "tree"
+TokenColon (Pos {line = 20, column = 14})
+TokenIdentUpper (Pos {line = 20, column = 16}) "Tree"
+TokenAt (Pos {line = 20, column = 20})
+TokenLParen (Pos {line = 20, column = 21})
+TokenIdentLower (Pos {line = 20, column = 22}) "l1"
+TokenComma (Pos {line = 20, column = 24})
+TokenIdentLower (Pos {line = 20, column = 25}) "r1"
+TokenRParen (Pos {line = 20, column = 27})
+TokenAssign (Pos {line = 20, column = 29})
+TokenIdentUpper (Pos {line = 20, column = 31}) "Node"
+TokenLParen (Pos {line = 20, column = 36})
+TokenIdentLower (Pos {line = 20, column = 37}) "l1"
+TokenComma (Pos {line = 20, column = 39})
+TokenIdentLower (Pos {line = 20, column = 40}) "r1"
+TokenRParen (Pos {line = 20, column = 42})
+TokenIdentLower (Pos {line = 20, column = 44}) "left"
+TokenIdentLower (Pos {line = 20, column = 49}) "right"
+TokenIn (Pos {line = 20, column = 55})
+TokenLet (Pos {line = 21, column = 5})
+TokenIdentLower (Pos {line = 21, column = 9}) "x"
+TokenColon (Pos {line = 21, column = 11})
+TokenLParen (Pos {line = 21, column = 13})
+TokenRParen (Pos {line = 21, column = 14})
+TokenAssign (Pos {line = 21, column = 16})
+TokenWritePackedFile (Pos {line = 21, column = 18})
+TokenStringLit (Pos {line = 21, column = 34}) "test.packed"
+TokenIdentUpper (Pos {line = 21, column = 48}) "Tree"
+TokenAt (Pos {line = 21, column = 52})
+TokenLParen (Pos {line = 21, column = 53})
+TokenIdentLower (Pos {line = 21, column = 54}) "l1"
+TokenComma (Pos {line = 21, column = 56})
+TokenIdentLower (Pos {line = 21, column = 57}) "r1"
+TokenRParen (Pos {line = 21, column = 59})
+TokenIdentLower (Pos {line = 21, column = 61}) "tree"
+TokenIn (Pos {line = 21, column = 66})
+TokenLParen (Pos {line = 22, column = 9})
+TokenRParen (Pos {line = 22, column = 10})
+TokenNewLine (Pos {line = 23, column = 1})
+TokenEOF (Pos {line = 24, column = 1})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations [
+        Data Type Declaration (
+            Type Constructor ("Tree")
+            Type Arguments []
+
+            Data Fields [
+                Data Field (
+                    Data Constructor ("Leaf")
+                    My Types [
+                        IntTy EmptyLocRegion
+                    ]
+                )
+                Data Field (
+                    Data Constructor ("Node")
+                    My Types [
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                    ]
+                )
+            ]
+            TypeLinear
+        )
+    ]
+    Function Declarations []
+
+    Annotations []
+
+    Let Region Expression (
+        Region Variable ("r1")
+        Let Location Expression (
+            LocRegion (LocVar "l1") (RegionVar "r1") (IndexVar "")
+            LocExpressStart (RegionVar "r1")
+            Let Location Expression (
+                LocRegion (LocVar "l2") (RegionVar "r1") (IndexVar "")
+                LocExpressNext (LocRegion (LocVar "l1") (RegionVar "r1") (IndexVar "")) 1
+                Let Expression (
+                    PatVar (Var "left")
+                    PackedTy (TypeCon "Tree") (LocRegion (LocVar "l2") (RegionVar "r1") (IndexVar ""))
+                    Data Constructor Application (
+                        Data Constructor ("Leaf")
+                        LocRegion (LocVar "l2") (RegionVar "r1") (IndexVar "")
+                        Expressions [
+                            ValLit (IntLit 1)
+                        ]
+                    )
+                    Let Location Expression (
+                        LocRegion (LocVar "l3") (RegionVar "r1") (IndexVar "")
+                        LocExpressAfter (PackedTy (TypeCon "Tree") (LocRegion (LocVar "l2") (RegionVar "r1") (IndexVar "")))
+                        Let Location Expression (
+                            LocRegion (LocVar "l4") (RegionVar "r1") (IndexVar "")
+                            LocExpressNext (LocRegion (LocVar "l3") (RegionVar "r1") (IndexVar "")) 1
+                            Let Expression (
+                                PatVar (Var "rightLeft")
+                                PackedTy (TypeCon "Tree") (LocRegion (LocVar "l4") (RegionVar "r1") (IndexVar ""))
+                                Data Constructor Application (
+                                    Data Constructor ("Leaf")
+                                    LocRegion (LocVar "l4") (RegionVar "r1") (IndexVar "")
+                                    Expressions [
+                                        ValLit (IntLit 4)
+                                    ]
+                                )
+                                Let Location Expression (
+                                    LocRegion (LocVar "l5") (RegionVar "r1") (IndexVar "")
+                                    LocExpressAfter (PackedTy (TypeCon "Tree") (LocRegion (LocVar "l4") (RegionVar "r1") (IndexVar "")))
+                                    Let Expression (
+                                        PatVar (Var "rightRight")
+                                        PackedTy (TypeCon "Tree") (LocRegion (LocVar "l5") (RegionVar "r1") (IndexVar ""))
+                                        Data Constructor Application (
+                                            Data Constructor ("Leaf")
+                                            LocRegion (LocVar "l5") (RegionVar "r1") (IndexVar "")
+                                            Expressions [
+                                                ValLit (IntLit 8)
+                                            ]
+                                        )
+                                        Let Expression (
+                                            PatVar (Var "right")
+                                            PackedTy (TypeCon "Tree") (LocRegion (LocVar "l3") (RegionVar "r1") (IndexVar ""))
+                                            Data Constructor Application (
+                                                Data Constructor ("Node")
+                                                LocRegion (LocVar "l3") (RegionVar "r1") (IndexVar "")
+                                                Expressions [
+                                                    ValVar (Var "rightLeft")
+                                                    ValVar (Var "rightRight")
+                                                ]
+                                            )
+                                            Let Expression (
+                                                PatVar (Var "tree")
+                                                PackedTy (TypeCon "Tree") (LocRegion (LocVar "l1") (RegionVar "r1") (IndexVar ""))
+                                                Data Constructor Application (
+                                                    Data Constructor ("Node")
+                                                    LocRegion (LocVar "l1") (RegionVar "r1") (IndexVar "")
+                                                    Expressions [
+                                                        ValVar (Var "left")
+                                                        ValVar (Var "right")
+                                                    ]
+                                                )
+                                                Let Expression (
+                                                    PatVar (Var "x")
+                                                    ProdTy (MyTypes [])
+                                                    Primitive Application (
+                                                        WritePackedFile "test.packed" (PackedTy (TypeCon "Tree") (LocRegion (LocVar "l1") (RegionVar "r1") (IndexVar "")))
+                                                        Expressions [
+                                                            ValVar (Var "tree")
+                                                        ]
+                                                    )
+                                                    ValTuple (Exprs [])
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: ProdTy (MyTypes [])
+Program (
+    Data Type Declarations [
+        Data Type Declaration (
+            Type Constructor ("Tree")
+            Type Arguments []
+
+            Data Fields [
+                Data Field (
+                    Data Constructor ("Leaf")
+                    My Types [
+                        IntTy EmptyLocRegion
+                    ]
+                )
+                Data Field (
+                    Data Constructor ("Node")
+                    My Types [
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                    ]
+                )
+            ]
+            TypeLinear
+        )
+    ]
+    Function Declarations []
+
+    Annotations []
+
+    Let Region Expression (
+        Region Variable ("r1")
+        Let Location Expression (
+            LocRegion (LocVar "l1") (RegionVar "r1") (IndexVar "")
+            LocExpressStart (RegionVar "r1")
+            Let Location Expression (
+                LocRegion (LocVar "l2") (RegionVar "r1") (IndexVar "")
+                LocExpressNext (LocRegion (LocVar "l1") (RegionVar "r1") (IndexVar "")) 1
+                Let Expression (
+                    PatVar (Var "left")
+                    PackedTy (TypeCon "Tree") (LocRegion (LocVar "l2") (RegionVar "r1") (IndexVar ""))
+                    Data Constructor Application (
+                        Data Constructor ("Leaf")
+                        LocRegion (LocVar "l2") (RegionVar "r1") (IndexVar "")
+                        Expressions [
+                            ValLit (IntLit 1)
+                        ]
+                    )
+                    Let Location Expression (
+                        LocRegion (LocVar "l3") (RegionVar "r1") (IndexVar "")
+                        LocExpressAfter (PackedTy (TypeCon "Tree") (LocRelativeVar "left" (LocVar "l2") (RegionVar "r1") (IndexVar "")))
+                        Let Location Expression (
+                            LocRegion (LocVar "l4") (RegionVar "r1") (IndexVar "")
+                            LocExpressNext (LocRegion (LocVar "l3") (RegionVar "r1") (IndexVar "")) 1
+                            Let Expression (
+                                PatVar (Var "rightLeft")
+                                PackedTy (TypeCon "Tree") (LocRegion (LocVar "l4") (RegionVar "r1") (IndexVar ""))
+                                Data Constructor Application (
+                                    Data Constructor ("Leaf")
+                                    LocRegion (LocVar "l4") (RegionVar "r1") (IndexVar "")
+                                    Expressions [
+                                        ValLit (IntLit 4)
+                                    ]
+                                )
+                                Let Location Expression (
+                                    LocRegion (LocVar "l5") (RegionVar "r1") (IndexVar "")
+                                    LocExpressAfter (PackedTy (TypeCon "Tree") (LocRelativeVar "rightLeft" (LocVar "l4") (RegionVar "r1") (IndexVar "")))
+                                    Let Expression (
+                                        PatVar (Var "rightRight")
+                                        PackedTy (TypeCon "Tree") (LocRegion (LocVar "l5") (RegionVar "r1") (IndexVar ""))
+                                        Data Constructor Application (
+                                            Data Constructor ("Leaf")
+                                            LocRegion (LocVar "l5") (RegionVar "r1") (IndexVar "")
+                                            Expressions [
+                                                ValLit (IntLit 8)
+                                            ]
+                                        )
+                                        Let Expression (
+                                            PatVar (Var "right")
+                                            PackedTy (TypeCon "Tree") (LocRegion (LocVar "l3") (RegionVar "r1") (IndexVar ""))
+                                            Data Constructor Application (
+                                                Data Constructor ("Node")
+                                                LocRegion (LocVar "l3") (RegionVar "r1") (IndexVar "")
+                                                Expressions [
+                                                    ValVar (Var "rightLeft")
+                                                    ValVar (Var "rightRight")
+                                                ]
+                                            )
+                                            Let Expression (
+                                                PatVar (Var "tree")
+                                                PackedTy (TypeCon "Tree") (LocRegion (LocVar "l1") (RegionVar "r1") (IndexVar ""))
+                                                Data Constructor Application (
+                                                    Data Constructor ("Node")
+                                                    LocRegion (LocVar "l1") (RegionVar "r1") (IndexVar "")
+                                                    Expressions [
+                                                        ValVar (Var "left")
+                                                        ValVar (Var "right")
+                                                    ]
+                                                )
+                                                Let Expression (
+                                                    PatVar (Var "x")
+                                                    ProdTy (MyTypes [])
+                                                    Primitive Application (
+                                                        WritePackedFile "test.packed" (PackedTy (TypeCon "Tree") (LocRegion (LocVar "l1") (RegionVar "r1") (IndexVar "")))
+                                                        Expressions [
+                                                            ValVar (Var "tree")
+                                                        ]
+                                                    )
+                                                    ValTuple (Exprs [])
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+data Tree = Leaf Int | 
+            Node (Packed Tree (Single "l")) (Packed Tree (Single "l"))
+gibbon_main :: ()
+gibbon_main = letregion Unbounded RegionImmutable VarR "r1" in
+              letloc (Single "l1") = (startOfRegion VarR "r1") in
+              letloc (Single "l2") = ((Single "l1") + 1) in
+              let left :: (Packed Tree (Single "l2")) = (Leaf (Single "l2") 1) in
+              letloc (Single "l3") = fresh((Single "l2") + left) in
+              letloc (Single "l4") = ((Single "l3") + 1) in
+              let rightLeft :: (Packed Tree (Single "l4")) = (Leaf (Single "l4") 4) in
+              letloc (Single "l5") = fresh((Single "l4") + rightLeft) in
+              let rightRight :: (Packed Tree (Single "l5")) = (Leaf (Single "l5") 8) in
+              let right :: (Packed Tree (Single "l3")) = (Node (Single "l3") rightLeft rightRight) in
+              let tree :: (Packed Tree (Single "l1")) = (Node (Single "l1") left right) in
+              let x :: () = (writePackedFile  test.packed) :: (Packed Tree (Single "l1")) tree in
+              ()
+
