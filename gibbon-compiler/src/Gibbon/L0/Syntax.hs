@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE CPP                   #-}
 
 -- | A higher-ordered surface language that supports Rank-1 parametric
 -- polymorphism.
@@ -37,39 +38,45 @@ type FunDef0  = FunDef Var Exp0
 type FunDefs0 = FunDefs Var Exp0
 type Prog0    = Prog Var Exp0
 
+#define EXP0 (PreExp E0Ext loc dec)
+
 --------------------------------------------------------------------------------
 
 -- | The extension point for L0.
 data E0Ext loc dec =
    LambdaE [(Var,dec)] -- Variable tagged with type
-           (PreExp E0Ext loc dec)
+           EXP0
    -- unused for much of L0, may be due to a bug
- | PolyAppE (PreExp E0Ext loc dec) -- Operator
-            (PreExp E0Ext loc dec) -- Operand
+ | PolyAppE EXP0 -- Operator
+            EXP0 -- Operand
  | FunRefE [loc] Var -- Reference to a function (toplevel or lambda),
                      -- along with its tyapps.
- | BenchE Var [loc] [(PreExp E0Ext loc dec)] Bool
- | ParE0 [(PreExp E0Ext loc dec)]
- | PrintPacked dec (PreExp E0Ext loc dec) -- ^ Print a packed value to standard out.
- | CopyPacked dec (PreExp E0Ext loc dec) -- ^ Copy a packed value.
- | TravPacked dec (PreExp E0Ext loc dec) -- ^ Traverse a packed value.
- | L Loc.Loc (PreExp E0Ext loc dec)
+ | BenchE Var [loc] [EXP0] Bool
+ | ParE0 [EXP0]
+ | PrintPacked dec EXP0 -- ^ Print a packed value to standard out.
+ | CopyPacked dec EXP0 -- ^ Copy a packed value.
+ | TravPacked dec EXP0 -- ^ Traverse a packed value.
+ | L Loc.Loc EXP0
+
+--  TODO verify this later
+ | TransformList [((Var, dec), (Var, dec), EXP0)] -- ((in cons, in type), (out cons, out type), transFunc)
+--  | GMap dec EXP0 EXP0
  | LinearExt (LinearExt loc dec)
  deriving (Show, Ord, Eq, Read, Generic, NFData)
 
 -- | Linear types primitives.
 data LinearExt loc dec =
     -- (&) :: a %1 -> (a %1 -> b) %1 -> b
-  ReverseAppE (PreExp E0Ext loc dec) (PreExp E0Ext loc dec)
+  ReverseAppE EXP0 EXP0
 
 -- lseq :: a %1-> b %1-> b
-  | LseqE (PreExp E0Ext loc dec) (PreExp E0Ext loc dec)
+  | LseqE EXP0 EXP0
 
 -- unsafeAlias :: a %1-> (a,a)
-  | AliasE (PreExp E0Ext loc dec)
+  | AliasE EXP0
 
 -- unsafeToLinear :: (a %p-> b) %1-> (a %1-> b)
-  | ToLinearE (PreExp E0Ext loc dec)
+  | ToLinearE EXP0
   deriving (Show, Ord, Eq, Read, Generic, NFData)
 
 --------------------------------------------------------------------------------
@@ -111,6 +118,7 @@ instance FreeVars (E0Ext l d) where
       CopyPacked _ e1  -> gFreeVars e1
       TravPacked _ e1  -> gFreeVars e1
       L _ e1           -> gFreeVars e1
+      TransformList ls -> S.unions (map (gFreeVars . (\(_, _, c) -> c)) ls)
       LinearExt ext      -> gFreeVars ext
 
 instance (Out l, Out d, Show l, Show d) => Expression (E0Ext l d) where
@@ -134,6 +142,7 @@ instance HasSubstitutableExt E0Ext l d => SubstitutableExt (PreExp E0Ext l d) (E
       CopyPacked ty e1 -> CopyPacked ty (gSubst old new e1)
       TravPacked ty e1 -> TravPacked ty (gSubst old new e1)
       L p e1   -> L p (gSubst old new e1)
+      TransformList ls -> TransformList $ map (\(a,b,c) -> (a,b,gSubst old new c)) ls
       LinearExt e -> LinearExt (gSubstExt old new e)
 
   gSubstEExt old new ext =
@@ -143,6 +152,7 @@ instance HasSubstitutableExt E0Ext l d => SubstitutableExt (PreExp E0Ext l d) (E
       FunRefE{}        -> ext
       BenchE fn tyapps args b -> BenchE fn tyapps (map (gSubstE old new) args) b
       ParE0 ls -> ParE0 $ map (gSubstE old new) ls
+      TransformList ls -> TransformList $ map (\(a,b,c) -> (a,b,gSubstE old new c)) ls
       PrintPacked ty e -> PrintPacked ty $ (gSubstE old new e)
       CopyPacked ty e -> CopyPacked ty $ (gSubstE old new e)
       TravPacked ty e -> TravPacked ty $ (gSubstE old new e)
@@ -161,6 +171,7 @@ instance HasRenamable E0Ext l d => Renamable (E0Ext l d) where
       CopyPacked ty e -> CopyPacked ty (gRename env e)
       TravPacked ty e -> TravPacked ty (gRename env e)
       L p e    -> L p (gRename env e)
+      TransformList ls -> TransformList $ map (\((a,b),(c,d),e) -> ((go a, go b), (go c, go d), go e)) ls
       LinearExt e -> LinearExt (gRename env e)
     where
       go :: forall a. Renamable a => a -> a
@@ -550,6 +561,10 @@ recoverType ddfs env2 ex =
         CopyPacked _ arg -> recoverType ddfs env2 arg
         TravPacked _ _ -> voidTy0
         ParE0 ls -> ProdTy $ map (recoverType ddfs env2) ls
+        -- uncertain, but currently representing TransformList type as function type
+        TransformList ls -> case ls of
+                              [] -> voidTy0
+                              (((_, inType), (_, outType), _):_) -> ArrowTy [inType] outType
         LinearExt lin ->
           case lin of
             ReverseAppE fn _args -> case recoverType ddfs env2 fn of

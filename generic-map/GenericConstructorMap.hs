@@ -667,6 +667,16 @@ examplePass1 =
             transform (constructor @TreeITT @"NodeA") (constructor @TreeFTT @"NodeB") fITTtoFTT
         |+| transform (constructor @TreeITT @"EmptyA") (constructor @TreeFTT @"EmptyB") (\() -> ())
         |+| tNil )
+
+-- how I might actually have it written on frontend:
+-- ***note it can imply the type from the constructor, and I don't need to include empty mappings
+-- transformList [
+--    transform NodeA NodeB fITTtoFTT
+-- ]
+-- -->
+-- TransformList [((VarE "NodeA", PackedTy "TreeITT" []), (VarE "NodeB", PackedTy "TreeFTT" []), VarE "fITTtoFTT"), 
+--               ((EmptyA, TreeITT), (EmptyB, TreeFTT), \() -> ())]
+
 pass1 :: PassInfo
 pass1 = PassInfo {
     testName = "Basic Example",
