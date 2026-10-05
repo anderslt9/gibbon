@@ -19,13 +19,12 @@ for arg in "$@"; do
         exclude_args+=("$arg")
     elif [ "$seen_c" == "i" ]; then
         search_args+=("$arg")
-    elif [ "$seen_c" == "f" ]; then
+    elif [ "$seen_c" == "f" ]; then  
         file="$arg.log"
     elif [ "$seen_c" == "h" ]; then
         echo "Usage: $0 <search_term1> <search_term2> ... -v <exclude_term1> <exclude_term2> ..."
         exit 0
     else
-        echo "Error: Unknown option -$seen_c"
         exit 1
     fi
 done
@@ -43,9 +42,7 @@ fi
 # build command
 cmd="grep -rn -I --exclude='*.sh' ${search_args[0]}"
 
-
-# NEEED TO ONLY GET ARGS AFTER FIRST ONE
-for s_arg in "${search_args[@]}"; do
+for s_arg in "${search_args[@]:1}"; do
     cmd+=" $(printf '%q' "$s_arg")"
 done
 
