@@ -67,3 +67,10 @@ experiments/.plot_venv/
 gibbon-compiler/examples/soa_examples/benchmark_output/
 gibbon-compiler/examples/soa_examples/figures/
 microbench/parallel/measurements/
+
+
+
+*.txt
+L2Grammar*
+*.info
+grammar.hs
