@@ -60,7 +60,7 @@ data E0Ext loc dec =
 
 --  TODO verify this later
  | TransformList [((Var, dec), (Var, dec), EXP0)] -- ((in cons, in type), (out cons, out type), transFunc)
---  | GMap dec EXP0 EXP0
+ | GMap dec EXP0 EXP0 -- map transformlist to packed type
  | LinearExt (LinearExt loc dec)
  deriving (Show, Ord, Eq, Read, Generic, NFData)
 
@@ -119,6 +119,7 @@ instance FreeVars (E0Ext l d) where
       TravPacked _ e1  -> gFreeVars e1
       L _ e1           -> gFreeVars e1
       TransformList ls -> S.unions (map (gFreeVars . (\(_, _, c) -> c)) ls)
+      GMap _ e1 e2 -> gFreeVars e1 `S.union` gFreeVars e2
       LinearExt ext      -> gFreeVars ext
 
 instance (Out l, Out d, Show l, Show d) => Expression (E0Ext l d) where
@@ -143,6 +144,7 @@ instance HasSubstitutableExt E0Ext l d => SubstitutableExt (PreExp E0Ext l d) (E
       TravPacked ty e1 -> TravPacked ty (gSubst old new e1)
       L p e1   -> L p (gSubst old new e1)
       TransformList ls -> TransformList $ map (\(a,b,c) -> (a,b,gSubst old new c)) ls
+      GMap ty e1 e2 -> GMap ty (gSubst old new e1) (gSubst old new e2)
       LinearExt e -> LinearExt (gSubstExt old new e)
 
   gSubstEExt old new ext =
@@ -153,6 +155,7 @@ instance HasSubstitutableExt E0Ext l d => SubstitutableExt (PreExp E0Ext l d) (E
       BenchE fn tyapps args b -> BenchE fn tyapps (map (gSubstE old new) args) b
       ParE0 ls -> ParE0 $ map (gSubstE old new) ls
       TransformList ls -> TransformList $ map (\(a,b,c) -> (a,b,gSubstE old new c)) ls
+      GMap ty e1 e2 -> GMap ty (gSubstE old new e1) (gSubstE old new e2)
       PrintPacked ty e -> PrintPacked ty $ (gSubstE old new e)
       CopyPacked ty e -> CopyPacked ty $ (gSubstE old new e)
       TravPacked ty e -> TravPacked ty $ (gSubstE old new e)
@@ -172,6 +175,7 @@ instance HasRenamable E0Ext l d => Renamable (E0Ext l d) where
       TravPacked ty e -> TravPacked ty (gRename env e)
       L p e    -> L p (gRename env e)
       TransformList ls -> TransformList $ map (\((a,b),(c,d),e) -> ((go a, go b), (go c, go d), go e)) ls
+      GMap ty e1 e2 -> GMap ty (gRename env e1) (gRename env e2)
       LinearExt e -> LinearExt (gRename env e)
     where
       go :: forall a. Renamable a => a -> a
@@ -266,6 +270,7 @@ data Ty0
  | VectorTy Ty0
  | ListTy Ty0
  | ArenaTy
+ | TransformListTy Ty0 Ty0
   deriving (Show, Read, Eq, Ord, Generic, NFData)
 
 instance FunctionTy Ty0 where
@@ -290,6 +295,7 @@ instance Renamable Ty0 where
       BoolTy -> BoolTy
       TyVar tv  -> TyVar (go tv)
       MetaTv{}  -> ty
+      TransformListTy a b -> TransformListTy (go a) (go b)
       ProdTy ls -> ProdTy (map go ls)
       SymDictTy a t     -> SymDictTy a (go t)
       PDictTy k v       -> PDictTy (go k) (go v)
@@ -373,6 +379,7 @@ tyVarsInTys tys = foldr (go []) [] tys
                     then acc
                     else tv : acc
         MetaTv _ -> acc
+        TransformListTy a b -> go bound a (go bound b acc)
         ProdTy tys1     -> foldr (go bound) acc tys1
         SymDictTy _ ty1   -> go bound ty1 acc
         PDictTy k v -> foldr (go bound) acc [k,v]
@@ -405,6 +412,7 @@ metaTvsInTys tys = foldr go [] tys
         SymTy0  -> acc
         BoolTy  -> acc
         TyVar{} -> acc
+        TransformListTy a b -> go b (go a acc)
         ProdTy tys1     -> foldr go acc tys1
         SymDictTy _ ty1   -> go ty1 acc
         PDictTy k v -> go v (go k acc)
@@ -442,6 +450,7 @@ arrowTysInTy = go []
         ArenaTy  -> acc
         TyVar{}  -> acc
         MetaTv{} -> acc
+        TransformListTy a b -> go (go acc a) b
         ProdTy tys -> foldl go acc tys
         SymDictTy _ a -> go acc a
         PDictTy k v   -> go (go acc k) v
@@ -465,6 +474,7 @@ substTyVar mp ty =
     BoolTy   -> ty
     TyVar v  -> M.findWithDefault ty v mp
     MetaTv{} -> ty
+    TransformListTy a b -> TransformListTy (go a) (go b)
     ProdTy tys  -> ProdTy (map go tys)
     SymDictTy v t -> SymDictTy v (go t)
     PDictTy k v -> PDictTy (go k) (go v)
@@ -563,8 +573,13 @@ recoverType ddfs env2 ex =
         ParE0 ls -> ProdTy $ map (recoverType ddfs env2) ls
         -- uncertain, but currently representing TransformList type as function type
         TransformList ls -> case ls of
-                              [] -> voidTy0
-                              (((_, inType), (_, outType), _):_) -> ArrowTy [inType] outType
+                              [] -> TransformListTy voidTy0 voidTy0
+                              (((_, inType), (_, outType), _):_) -> TransformListTy inType outType
+        GMap _ arg1 _ -> case recoverType ddfs env2 arg1 of
+                              -- TODO maybe add support for just regular function also
+                              -- ArrowTy _ outType -> outType
+                              TransformListTy _ outType -> outType
+                              _ -> error $ "recoverType: GMap expected TransformListTy, got: " ++ sdoc arg1
         LinearExt lin ->
           case lin of
             ReverseAppE fn _args -> case recoverType ddfs env2 fn of

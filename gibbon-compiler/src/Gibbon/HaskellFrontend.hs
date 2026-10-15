@@ -696,6 +696,27 @@ desugarExp type_syns toplevel e =
                   then do
                     e2' <- desugarExp type_syns toplevel e2
                     pure $ SpawnE "HOLE" [] [e2']
+                  else if f == "tlist"
+                  then do
+                    let go e0 = case e0 of
+                                  Tuple _ Boxed ((Con _ q1) : (Con _ q2) : [H.Var _ v]) -> do
+                                    ty1 <- newMetaTy
+                                    ty2 <- newMetaTy
+                                    pure  (((toVar . qnameToStr) q1, ty1), ((toVar . qnameToStr) q2, ty2), VarE (toVar $ qnameToStr v))                                  
+                                  -- TODO handle when variable not used
+                                  _ -> error $ "desugarExp: couldn't parse tlist; " ++ show e0
+                    
+                    e2' <- case e2 of
+                      List _ ls -> mapM go ls
+                      -- TODO include variables as well
+                      _ -> error $ "desugarExp: tlist expects a list of Just (name, len) or Nothing; got " ++ show e2
+                    
+                    pure $ Ext $ TransformList e2'
+                  else if f == "gmap" 
+                  then do
+                    e2' <- desugarExp type_syns toplevel e2
+                    ty  <- newMetaTy
+                    pure $ Ext $ GMap ty e2' (MkProdE [])
                   else if f == "valloc"
                   then do
                     e2' <- desugarExp type_syns toplevel e2
@@ -895,6 +916,10 @@ desugarExp type_syns toplevel e =
 
           TimeIt{} ->
             error "desugarExp: TimeIt can only accept 1 expression."
+
+          (Ext (GMap ty e1' _)) -> do
+            e2' <- desugarExp type_syns toplevel e2
+            pure (Ext (GMap ty e1' e2'))
 
           (Ext (LinearExt (LseqE a _))) -> do
             e2' <- desugarExp type_syns toplevel e2
@@ -1355,6 +1380,8 @@ fixupSpawn ex =
     Ext (CopyPacked ty arg) -> Ext (CopyPacked ty (go arg))
     Ext (TravPacked ty arg) -> Ext (TravPacked ty (go arg))
     Ext (L0.L p e)    -> Ext (L0.L p (go e))
+    Ext (TransformList ls) -> Ext (TransformList (map (\case (ininfo, outinfo, f) ->  (ininfo, outinfo, go f)) ls))
+    Ext (GMap ty transforms object) -> Ext (GMap ty (go transforms) (go object))
     Ext (LinearExt ext) ->
       case ext of
         ReverseAppE fn arg -> Ext (LinearExt (ReverseAppE (go fn) (go arg)))
@@ -1405,6 +1432,8 @@ verifyBenchEAssumptions bench_allowed ex =
     Ext (CopyPacked ty arg) -> Ext (CopyPacked ty (not_allowed arg))
     Ext (TravPacked ty arg) -> Ext (TravPacked ty (not_allowed arg))
     Ext (L0.L p e)    -> Ext (L0.L p (go e))
+    Ext (TransformList ls) -> Ext $ TransformList (map (\case (ininfo, outinfo, f) ->  (ininfo, outinfo, go f)) ls)
+    Ext (GMap ty transforms object) -> Ext $ GMap ty (go transforms) (go object)
     Ext (LinearExt{}) -> error "verifyBenchEAssumptions: LinearExt not handled."
     -- Straightforward recursion ...
     VarE{}     -> ex
@@ -1460,6 +1489,7 @@ desugarLinearExts (Prog ddefs fundefs main) = do
         PackedTy t tys -> PackedTy t (map goty tys)
         VectorTy t -> VectorTy (goty t)
         ListTy t -> ListTy (goty t)
+        TransformListTy t1 t2 -> TransformListTy (goty t1) (goty t2)
         _ -> ty
 
     go :: PreExp E0Ext Ty0 Ty0 -> PassM Exp0
@@ -1527,6 +1557,12 @@ desugarLinearExts (Prog ddefs fundefs main) = do
                                     pure (Ext (TravPacked ty arg'))
             L0.L p e -> do e' <- go e
                            pure (Ext (L0.L p e'))
+            TransformList ls -> do ls' <- mapM (\(ininfo, outinfo, f) -> do f' <- go f; pure (ininfo, outinfo, f')) ls
+                                   pure (Ext (TransformList ls'))                         
+            GMap ty transforms object -> do
+              transforms' <- go transforms
+              object' <- go object
+              pure (Ext (GMap ty transforms' object'))
             LinearExt lin ->
               case lin of
                 ReverseAppE fn (Ext (LinearExt (AliasE e))) -> do

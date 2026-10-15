@@ -671,7 +671,7 @@ examplePass1 =
 -- how I might actually have it written on frontend:
 -- ***note it can imply the type from the constructor, and I don't need to include empty mappings
 -- transformList [
---    transform NodeA NodeB fITTtoFTT
+--    (NodeA, NodeB, fITTtoFTT)
 -- ]
 -- -->
 -- TransformList [((VarE "NodeA", PackedTy "TreeITT" []), (VarE "NodeB", PackedTy "TreeFTT" []), VarE "fITTtoFTT"), 
