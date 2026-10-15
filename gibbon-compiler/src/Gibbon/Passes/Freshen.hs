@@ -98,6 +98,9 @@ freshTy env ty =
      ListTy el_t -> do (env', el_t') <- freshTy env el_t
                        pure (env', ListTy el_t')
      IntHashTy -> pure (env, ty)
+     TransformListTy t1 t2 -> do (env', t1') <- freshTy env t1
+                                 (env'', t2') <- freshTy env' t2
+                                 pure (env'', TransformListTy t1' t2')
 
 freshTys :: TyVarEnv (TyOf Exp0) -> [Ty0] -> PassM (TyVarEnv (TyOf Exp0), [Ty0])
 freshTys env tys =
@@ -150,7 +153,9 @@ freshDictTy m ty =
      SymSetTy  -> pure ty
      SymHashTy -> pure ty
      IntHashTy -> pure ty
-
+     TransformListTy t1 t2 -> do t1' <- freshDictTy m t1
+                                 t2' <- freshDictTy m t2
+                                 pure $ TransformListTy t1' t2'
 freshDictTyScheme :: Monad m =>
                      M.Map Var Var -> TyScheme -> m TyScheme
 freshDictTyScheme m (ForAll tvs ty) =
@@ -295,6 +300,18 @@ freshExp venv tvenv exp =
           (tvenv', ty') <- freshTy tvenv ty
           arg' <- freshExp venv tvenv' arg
           pure $ Ext $ TravPacked ty' arg'
+        TransformList ls -> do
+          ls' <- mapM (\((v1, ty1), (v2, ty2), f) -> do
+                         (tvenv', ty1') <- freshTy tvenv ty1
+                         (tvenv'', ty2') <- freshTy tvenv' ty2
+                         f' <- freshExp venv tvenv'' f
+                         pure ((v1, ty1'), (v2, ty2'), f')) ls
+          pure $ Ext $ TransformList ls'
+        GMap ty arg1 arg2 -> do
+          (tvenv', ty') <- freshTy tvenv ty
+          arg1' <- freshExp venv tvenv' arg1
+          arg2' <- freshExp venv tvenv' arg2
+          pure $ Ext $ GMap ty' arg1' arg2'
         LinearExt{} -> error $ "freshenExp: a linear types extension wasn't desugared: " ++ sdoc exp
 
   where go = freshExp venv tvenv
