@@ -132,6 +132,10 @@ defaultLitWidthsExp ex =
     Ext (PrintPacked ty arg)  -> Ext . PrintPacked ty <$> go arg
     Ext (CopyPacked ty arg)   -> Ext . CopyPacked ty <$> go arg
     Ext (TravPacked ty arg)   -> Ext . TravPacked ty <$> go arg
+    Ext (TransformList ls)    -> Ext . TransformList <$> mapM (\(con1, con2, e) ->  
+                                                                  do e' <- go e
+                                                                     pure (con1, con2, e')) ls   
+    Ext (GMap ty e1 e2) -> (\a b -> Ext (GMap ty a b)) <$> go e1 <*> go e2                           
     Ext (LinearExt lx) -> Ext . LinearExt <$>
       case lx of
         ReverseAppE a b -> ReverseAppE <$> go a <*> go b
