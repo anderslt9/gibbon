@@ -1,0 +1,99 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenMain (Pos {line = 1, column = 1})
+TokenAssign (Pos {line = 1, column = 6})
+TokenFloatLit (Pos {line = 1, column = 8}) 3.14
+TokenFAdd (Pos {line = 1, column = 13})
+TokenFloatLit (Pos {line = 1, column = 17}) 2.71
+TokenFDiv (Pos {line = 1, column = 22})
+TokenFloatLit (Pos {line = 1, column = 26}) 1.5
+TokenFSub (Pos {line = 1, column = 30})
+TokenFloatLit (Pos {line = 1, column = 34}) 0.5
+TokenFMul (Pos {line = 1, column = 38})
+TokenFloatLit (Pos {line = 1, column = 42}) 2.0
+TokenNewLine (Pos {line = 1, column = 48})
+TokenEOF (Pos {line = 2, column = 1})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Primitive Application (
+        FMul
+        Expressions [
+            Primitive Application (
+                FSub
+                Expressions [
+                    Primitive Application (
+                        FDiv
+                        Expressions [
+                            Primitive Application (
+                                FAdd
+                                Expressions [
+                                    ValLit (FloatLit 3.14)
+                                    ValLit (FloatLit 2.71)
+                                ]
+                            )
+                            ValLit (FloatLit 1.5)
+                        ]
+                    )
+                    ValLit (FloatLit 0.5)
+                ]
+            )
+            ValLit (FloatLit 2.0)
+        ]
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: FloatTy EmptyLocRegion
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Primitive Application (
+        FMul
+        Expressions [
+            Primitive Application (
+                FSub
+                Expressions [
+                    Primitive Application (
+                        FDiv
+                        Expressions [
+                            Primitive Application (
+                                FAdd
+                                Expressions [
+                                    ValLit (FloatLit 3.14)
+                                    ValLit (FloatLit 2.71)
+                                ]
+                            )
+                            ValLit (FloatLit 1.5)
+                        ]
+                    )
+                    ValLit (FloatLit 0.5)
+                ]
+            )
+            ValLit (FloatLit 2.0)
+        ]
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+gibbon_main :: Float
+gibbon_main = .*.(.-.(./.(.+.(3.140000104904175, 2.7100000381469727), 1.5), 0.5), 2.0)
+

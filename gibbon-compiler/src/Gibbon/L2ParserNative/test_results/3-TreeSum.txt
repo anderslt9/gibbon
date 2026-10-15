@@ -1,0 +1,408 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenData (Pos {line = 1, column = 1})
+TokenIdentUpper (Pos {line = 1, column = 6}) "Tree"
+TokenAssign (Pos {line = 1, column = 11})
+TokenIdentUpper (Pos {line = 1, column = 13}) "Leaf"
+TokenIntType (Pos {line = 1, column = 18})
+TokenBar (Pos {line = 1, column = 22})
+TokenIdentUpper (Pos {line = 1, column = 24}) "Node"
+TokenIdentUpper (Pos {line = 1, column = 29}) "Tree"
+TokenIdentUpper (Pos {line = 1, column = 34}) "Tree"
+TokenNewLine (Pos {line = 2, column = 1})
+TokenIdentLower (Pos {line = 3, column = 1}) "sum"
+TokenColon (Pos {line = 3, column = 5})
+TokenIdentUpper (Pos {line = 3, column = 7}) "Tree"
+TokenAt (Pos {line = 3, column = 11})
+TokenLParen (Pos {line = 3, column = 12})
+TokenIdentLower (Pos {line = 3, column = 13}) "l"
+TokenComma (Pos {line = 3, column = 14})
+TokenIdentLower (Pos {line = 3, column = 15}) "r"
+TokenRParen (Pos {line = 3, column = 16})
+TokenArrow (Pos {line = 3, column = 18})
+TokenIntType (Pos {line = 3, column = 21})
+TokenNewLine (Pos {line = 3, column = 24})
+TokenIdentLower (Pos {line = 4, column = 1}) "sum"
+TokenLBracket (Pos {line = 4, column = 5})
+TokenLParen (Pos {line = 4, column = 6})
+TokenIdentLower (Pos {line = 4, column = 7}) "l"
+TokenComma (Pos {line = 4, column = 8})
+TokenIdentLower (Pos {line = 4, column = 9}) "r"
+TokenRParen (Pos {line = 4, column = 10})
+TokenRBracket (Pos {line = 4, column = 11})
+TokenIdentLower (Pos {line = 4, column = 13}) "t"
+TokenAssign (Pos {line = 4, column = 15})
+TokenCase (Pos {line = 4, column = 17})
+TokenIdentLower (Pos {line = 4, column = 22}) "t"
+TokenOf (Pos {line = 4, column = 24})
+TokenIdentUpper (Pos {line = 5, column = 21}) "Leaf"
+TokenLParen (Pos {line = 5, column = 26})
+TokenIdentLower (Pos {line = 5, column = 27}) "n"
+TokenColon (Pos {line = 5, column = 29})
+TokenIntType (Pos {line = 5, column = 31})
+TokenAt (Pos {line = 5, column = 34})
+TokenLParen (Pos {line = 5, column = 35})
+TokenIdentLower (Pos {line = 5, column = 36}) "l"
+TokenComma (Pos {line = 5, column = 37})
+TokenIdentLower (Pos {line = 5, column = 38}) "r"
+TokenComma (Pos {line = 5, column = 39})
+TokenIdentLower (Pos {line = 5, column = 40}) "n"
+TokenRParen (Pos {line = 5, column = 41})
+TokenRParen (Pos {line = 5, column = 42})
+TokenArrow (Pos {line = 5, column = 44})
+TokenIdentLower (Pos {line = 5, column = 47}) "n"
+TokenIdentUpper (Pos {line = 6, column = 21}) "Node"
+TokenLParen (Pos {line = 6, column = 26})
+TokenIdentLower (Pos {line = 6, column = 27}) "a"
+TokenColon (Pos {line = 6, column = 29})
+TokenIdentUpper (Pos {line = 6, column = 31}) "Tree"
+TokenAt (Pos {line = 6, column = 35})
+TokenLParen (Pos {line = 6, column = 36})
+TokenIdentLower (Pos {line = 6, column = 37}) "l"
+TokenComma (Pos {line = 6, column = 38})
+TokenIdentLower (Pos {line = 6, column = 39}) "r"
+TokenComma (Pos {line = 6, column = 40})
+TokenIdentLower (Pos {line = 6, column = 41}) "a"
+TokenRParen (Pos {line = 6, column = 42})
+TokenRParen (Pos {line = 6, column = 43})
+TokenLParen (Pos {line = 6, column = 45})
+TokenIdentLower (Pos {line = 6, column = 46}) "b"
+TokenColon (Pos {line = 6, column = 48})
+TokenIdentUpper (Pos {line = 6, column = 50}) "Tree"
+TokenAt (Pos {line = 6, column = 54})
+TokenLParen (Pos {line = 6, column = 55})
+TokenIdentLower (Pos {line = 6, column = 56}) "l"
+TokenComma (Pos {line = 6, column = 57})
+TokenIdentLower (Pos {line = 6, column = 58}) "r"
+TokenComma (Pos {line = 6, column = 59})
+TokenIdentLower (Pos {line = 6, column = 60}) "b"
+TokenRParen (Pos {line = 6, column = 61})
+TokenRParen (Pos {line = 6, column = 62})
+TokenArrow (Pos {line = 6, column = 64})
+TokenLParen (Pos {line = 7, column = 25})
+TokenIdentLower (Pos {line = 7, column = 26}) "sum"
+TokenLBracket (Pos {line = 7, column = 30})
+TokenLParen (Pos {line = 7, column = 31})
+TokenIdentLower (Pos {line = 7, column = 32}) "l"
+TokenComma (Pos {line = 7, column = 33})
+TokenIdentLower (Pos {line = 7, column = 34}) "r"
+TokenComma (Pos {line = 7, column = 35})
+TokenIdentLower (Pos {line = 7, column = 36}) "a"
+TokenRParen (Pos {line = 7, column = 37})
+TokenRBracket (Pos {line = 7, column = 38})
+TokenIdentLower (Pos {line = 7, column = 40}) "a"
+TokenRParen (Pos {line = 7, column = 41})
+TokenAdd (Pos {line = 7, column = 43})
+TokenLParen (Pos {line = 7, column = 45})
+TokenIdentLower (Pos {line = 7, column = 46}) "sum"
+TokenLBracket (Pos {line = 7, column = 50})
+TokenLParen (Pos {line = 7, column = 51})
+TokenIdentLower (Pos {line = 7, column = 52}) "l"
+TokenComma (Pos {line = 7, column = 53})
+TokenIdentLower (Pos {line = 7, column = 54}) "r"
+TokenComma (Pos {line = 7, column = 55})
+TokenIdentLower (Pos {line = 7, column = 56}) "b"
+TokenRParen (Pos {line = 7, column = 57})
+TokenRBracket (Pos {line = 7, column = 58})
+TokenIdentLower (Pos {line = 7, column = 60}) "b"
+TokenRParen (Pos {line = 7, column = 61})
+TokenNewLine (Pos {line = 8, column = 1})
+TokenMain (Pos {line = 9, column = 1})
+TokenAssign (Pos {line = 9, column = 6})
+TokenLetRegion (Pos {line = 10, column = 5})
+TokenIdentLower (Pos {line = 10, column = 15}) "r"
+TokenIn (Pos {line = 10, column = 17})
+TokenLetLoc (Pos {line = 11, column = 5})
+TokenLParen (Pos {line = 11, column = 12})
+TokenIdentLower (Pos {line = 11, column = 13}) "l"
+TokenComma (Pos {line = 11, column = 14})
+TokenIdentLower (Pos {line = 11, column = 15}) "r"
+TokenRParen (Pos {line = 11, column = 16})
+TokenAssign (Pos {line = 11, column = 18})
+TokenLParen (Pos {line = 11, column = 20})
+TokenStart (Pos {line = 11, column = 21})
+TokenIdentLower (Pos {line = 11, column = 27}) "r"
+TokenRParen (Pos {line = 11, column = 28})
+TokenIn (Pos {line = 11, column = 30})
+TokenIdentLower (Pos {line = 14, column = 5}) "sum"
+TokenLBracket (Pos {line = 14, column = 9})
+TokenLParen (Pos {line = 14, column = 10})
+TokenIdentLower (Pos {line = 14, column = 11}) "l"
+TokenComma (Pos {line = 14, column = 12})
+TokenIdentLower (Pos {line = 14, column = 13}) "r"
+TokenRParen (Pos {line = 14, column = 14})
+TokenRBracket (Pos {line = 14, column = 15})
+TokenLParen (Pos {line = 14, column = 17})
+TokenIdentUpper (Pos {line = 14, column = 18}) "Leaf"
+TokenLParen (Pos {line = 14, column = 23})
+TokenIdentLower (Pos {line = 14, column = 24}) "l"
+TokenComma (Pos {line = 14, column = 25})
+TokenIdentLower (Pos {line = 14, column = 26}) "r"
+TokenRParen (Pos {line = 14, column = 27})
+TokenIntLit (Pos {line = 14, column = 29}) 3
+TokenRParen (Pos {line = 14, column = 30})
+TokenNewLine (Pos {line = 14, column = 31})
+TokenEOF (Pos {line = 15, column = 1})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations [
+        Data Type Declaration (
+            Type Constructor ("Tree")
+            Type Arguments []
+
+            Data Fields [
+                Data Field (
+                    Data Constructor ("Leaf")
+                    My Types [
+                        IntTy EmptyLocRegion
+                    ]
+                )
+                Data Field (
+                    Data Constructor ("Node")
+                    My Types [
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                    ]
+                )
+            ]
+            TypeLinear
+        )
+    ]
+    Function Declarations [
+        Function Declaration (
+            Function Variable ("sum")
+            TypeScheme (MyTypes [PackedTy (TypeCon "Tree") (LocRegion (LocVar "l") (RegionVar "r") (IndexVar "")),IntTy EmptyLocRegion])
+            Function Variable ("sum")
+            Location Regions [
+                LocRegion (LocVar "l") (RegionVar "r") (IndexVar "")
+            ]
+            Vars [
+                Variable ("t")
+            ]
+            Case Statement (
+                ValVar (Var "t")
+                Patterns [
+                    Pattern (
+                        Data Constructor ("Leaf")
+                        Pattern Matches [
+                            Pattern Match (
+                                PatVar (Var "n")
+                                IntTy (LocRegion (LocVar "l") (RegionVar "r") (IndexVar "n"))
+                            )
+                        ]
+                        ValVar (Var "n")
+                    )
+                    Pattern (
+                        Data Constructor ("Node")
+                        Pattern Matches [
+                            Pattern Match (
+                                PatVar (Var "a")
+                                PackedTy (TypeCon "Tree") (LocRegion (LocVar "l") (RegionVar "r") (IndexVar "a"))
+                            )
+                            Pattern Match (
+                                PatVar (Var "b")
+                                PackedTy (TypeCon "Tree") (LocRegion (LocVar "l") (RegionVar "r") (IndexVar "b"))
+                            )
+                        ]
+                        Primitive Application (
+                            Add
+                            Expressions [
+                                Function Application (
+                                    Function Variable ("sum")
+                                    Location Regions [
+                                        LocRegion (LocVar "l") (RegionVar "r") (IndexVar "a")
+                                    ]
+                                    Expressions [
+                                        ValVar (Var "a")
+                                    ]
+                                )
+                                Function Application (
+                                    Function Variable ("sum")
+                                    Location Regions [
+                                        LocRegion (LocVar "l") (RegionVar "r") (IndexVar "b")
+                                    ]
+                                    Expressions [
+                                        ValVar (Var "b")
+                                    ]
+                                )
+                            ]
+                        )
+                    )
+                ]
+            )
+        )
+    ]
+    Annotations []
+
+    Let Region Expression (
+        Region Variable ("r")
+        Let Location Expression (
+            LocRegion (LocVar "l") (RegionVar "r") (IndexVar "")
+            LocExpressStart (RegionVar "r")
+            Function Application (
+                Function Variable ("sum")
+                Location Regions [
+                    LocRegion (LocVar "l") (RegionVar "r") (IndexVar "")
+                ]
+                Expressions [
+                    Data Constructor Application (
+                        Data Constructor ("Leaf")
+                        LocRegion (LocVar "l") (RegionVar "r") (IndexVar "")
+                        Expressions [
+                            ValLit (IntLit 3)
+                        ]
+                    )
+                ]
+            )
+        )
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: IntTy EmptyLocRegion
+Program (
+    Data Type Declarations [
+        Data Type Declaration (
+            Type Constructor ("Tree")
+            Type Arguments []
+
+            Data Fields [
+                Data Field (
+                    Data Constructor ("Leaf")
+                    My Types [
+                        IntTy EmptyLocRegion
+                    ]
+                )
+                Data Field (
+                    Data Constructor ("Node")
+                    My Types [
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                        PackedTy (TypeCon "Tree") EmptyLocRegion
+                    ]
+                )
+            ]
+            TypeLinear
+        )
+    ]
+    Function Declarations [
+        Function Declaration (
+            Function Variable ("sum")
+            TypeScheme (MyTypes [PackedTy (TypeCon "Tree") (LocRegion (LocVar "l") (RegionVar "r") (IndexVar "")),IntTy EmptyLocRegion])
+            Function Variable ("sum")
+            Location Regions [
+                LocRegion (LocVar "l") (RegionVar "r") (IndexVar "")
+            ]
+            Vars [
+                Variable ("t")
+            ]
+            Case Statement (
+                ValVar (Var "t")
+                Patterns [
+                    Pattern (
+                        Data Constructor ("Leaf")
+                        Pattern Matches [
+                            Pattern Match (
+                                PatVar (Var "n")
+                                IntTy (LocRegion (LocVar "l_n") (RegionVar "r") (IndexVar ""))
+                            )
+                        ]
+                        ValVar (Var "n")
+                    )
+                    Pattern (
+                        Data Constructor ("Node")
+                        Pattern Matches [
+                            Pattern Match (
+                                PatVar (Var "a")
+                                PackedTy (TypeCon "Tree") (LocRegion (LocVar "l_a") (RegionVar "r") (IndexVar ""))
+                            )
+                            Pattern Match (
+                                PatVar (Var "b")
+                                PackedTy (TypeCon "Tree") (LocRegion (LocVar "l_b") (RegionVar "r") (IndexVar ""))
+                            )
+                        ]
+                        Primitive Application (
+                            Add
+                            Expressions [
+                                Function Application (
+                                    Function Variable ("sum")
+                                    Location Regions [
+                                        LocRegion (LocVar "l_a") (RegionVar "r") (IndexVar "")
+                                    ]
+                                    Expressions [
+                                        ValVar (Var "a")
+                                    ]
+                                )
+                                Function Application (
+                                    Function Variable ("sum")
+                                    Location Regions [
+                                        LocRegion (LocVar "l_b") (RegionVar "r") (IndexVar "")
+                                    ]
+                                    Expressions [
+                                        ValVar (Var "b")
+                                    ]
+                                )
+                            ]
+                        )
+                    )
+                ]
+            )
+        )
+    ]
+    Annotations []
+
+    Let Region Expression (
+        Region Variable ("r")
+        Let Location Expression (
+            LocRegion (LocVar "l") (RegionVar "r") (IndexVar "")
+            LocExpressStart (RegionVar "r")
+            Function Application (
+                Function Variable ("sum")
+                Location Regions [
+                    LocRegion (LocVar "l") (RegionVar "r") (IndexVar "")
+                ]
+                Expressions [
+                    Data Constructor Application (
+                        Data Constructor ("Leaf")
+                        LocRegion (LocVar "l") (RegionVar "r") (IndexVar "")
+                        Expressions [
+                            ValLit (IntLit 3)
+                        ]
+                    )
+                ]
+            )
+        )
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+data Tree = Leaf Int | 
+            Node (Packed Tree (Single "l")) (Packed Tree (Single "l"))
+{meta: FunMeta {funRec = Rec, funInline = NoInline, funCanTriggerGC = False}}
+sum :: Tree -> Int
+       {locvars [LRM {lrmLoc = Single "l",
+                      lrmReg = VarR "r",
+                      lrmMode = Input}],
+        effs:  [],
+        locrets:  [],
+        parallel:  False}
+sum t =
+    case t of
+        Leaf n::(Single "l_n") ->
+            n
+        Node a::(Single "l_a") b::(Single "l_b") ->
+            (sum (NotTailRec) [(Single "l_a")] a) + (sum (NotTailRec) [(Single "l_b")] b)
+
+gibbon_main :: Int
+gibbon_main = letregion Unbounded RegionImmutable VarR "r" in
+              letloc (Single "l") = (startOfRegion VarR "r") in
+              (sum (NotTailRec) [(Single "l")] (Leaf (Single "l") 3))
+

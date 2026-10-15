@@ -1,0 +1,57 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenMain (Pos {line = 1, column = 1})
+TokenAssign (Pos {line = 1, column = 6})
+TokenIntLit (Pos {line = 1, column = 8}) 0
+TokenAdd (Pos {line = 1, column = 10})
+TokenIntLit (Pos {line = 1, column = 12}) 1
+TokenNewLine (Pos {line = 1, column = 13})
+TokenEOF (Pos {line = 1, column = 13})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Primitive Application (
+        Add
+        Expressions [
+            ValLit (IntLit 0)
+            ValLit (IntLit 1)
+        ]
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: IntTy EmptyLocRegion
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Primitive Application (
+        Add
+        Expressions [
+            ValLit (IntLit 0)
+            ValLit (IntLit 1)
+        ]
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+gibbon_main :: Int
+gibbon_main = 0 + 1
+

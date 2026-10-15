@@ -1,0 +1,118 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenIdentLower (Pos {line = 1, column = 1}) "add1"
+TokenColon (Pos {line = 1, column = 6})
+TokenIntType (Pos {line = 1, column = 8})
+TokenArrow (Pos {line = 1, column = 12})
+TokenIntType (Pos {line = 1, column = 15})
+TokenNewLine (Pos {line = 1, column = 19})
+TokenIdentLower (Pos {line = 2, column = 1}) "add1"
+TokenLBracket (Pos {line = 2, column = 6})
+TokenRBracket (Pos {line = 2, column = 7})
+TokenIdentLower (Pos {line = 2, column = 9}) "x"
+TokenAssign (Pos {line = 2, column = 11})
+TokenIdentLower (Pos {line = 2, column = 13}) "x"
+TokenAdd (Pos {line = 2, column = 15})
+TokenIntLit (Pos {line = 2, column = 17}) 1
+TokenNewLine (Pos {line = 3, column = 1})
+TokenMain (Pos {line = 4, column = 1})
+TokenAssign (Pos {line = 4, column = 6})
+TokenIdentLower (Pos {line = 4, column = 8}) "add1"
+TokenLBracket (Pos {line = 4, column = 13})
+TokenRBracket (Pos {line = 4, column = 14})
+TokenIntLit (Pos {line = 4, column = 16}) 5
+TokenNewLine (Pos {line = 4, column = 17})
+TokenEOF (Pos {line = 4, column = 17})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations []
+
+    Function Declarations [
+        Function Declaration (
+            Function Variable ("add1")
+            TypeScheme (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion])
+            Function Variable ("add1")
+            Location Regions []
+
+            Vars [
+                Variable ("x")
+            ]
+            Primitive Application (
+                Add
+                Expressions [
+                    ValVar (Var "x")
+                    ValLit (IntLit 1)
+                ]
+            )
+        )
+    ]
+    Annotations []
+
+    Function Application (
+        Function Variable ("add1")
+        Location Regions []
+
+        Expressions [
+            ValLit (IntLit 5)
+        ]
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: IntTy EmptyLocRegion
+Program (
+    Data Type Declarations []
+
+    Function Declarations [
+        Function Declaration (
+            Function Variable ("add1")
+            TypeScheme (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion])
+            Function Variable ("add1")
+            Location Regions []
+
+            Vars [
+                Variable ("x")
+            ]
+            Primitive Application (
+                Add
+                Expressions [
+                    ValVar (Var "x")
+                    ValLit (IntLit 1)
+                ]
+            )
+        )
+    ]
+    Annotations []
+
+    Function Application (
+        Function Variable ("add1")
+        Location Regions []
+
+        Expressions [
+            ValLit (IntLit 5)
+        ]
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+{meta: FunMeta {funRec = Rec, funInline = NoInline, funCanTriggerGC = False}}
+add1 :: Int -> Int
+        {locvars [],
+         effs:  [],
+         locrets:  [],
+         parallel:  False}
+add1 x =
+    x + 1
+
+gibbon_main :: Int
+gibbon_main = (add1 (NotTailRec) [] 5)
+

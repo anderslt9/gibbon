@@ -1,0 +1,119 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenMain (Pos {line = 1, column = 1})
+TokenAssign (Pos {line = 1, column = 6})
+TokenLParen (Pos {line = 1, column = 8})
+TokenLParen (Pos {line = 1, column = 9})
+TokenIntLit (Pos {line = 1, column = 10}) 1
+TokenAdd (Pos {line = 1, column = 12})
+TokenIntLit (Pos {line = 1, column = 14}) 2
+TokenRParen (Pos {line = 1, column = 15})
+TokenMul (Pos {line = 1, column = 17})
+TokenLParen (Pos {line = 1, column = 19})
+TokenIntLit (Pos {line = 1, column = 20}) 5
+TokenSub (Pos {line = 1, column = 22})
+TokenIntLit (Pos {line = 1, column = 24}) 2
+TokenRParen (Pos {line = 1, column = 25})
+TokenDiv (Pos {line = 1, column = 27})
+TokenIntLit (Pos {line = 1, column = 29}) 3
+TokenRParen (Pos {line = 1, column = 30})
+TokenPow (Pos {line = 1, column = 32})
+TokenIntLit (Pos {line = 1, column = 34}) 2
+TokenNewLine (Pos {line = 1, column = 35})
+TokenEOF (Pos {line = 1, column = 35})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Primitive Application (
+        Pow
+        Expressions [
+            Primitive Application (
+                Div
+                Expressions [
+                    Primitive Application (
+                        Mul
+                        Expressions [
+                            Primitive Application (
+                                Add
+                                Expressions [
+                                    ValLit (IntLit 1)
+                                    ValLit (IntLit 2)
+                                ]
+                            )
+                            Primitive Application (
+                                Sub
+                                Expressions [
+                                    ValLit (IntLit 5)
+                                    ValLit (IntLit 2)
+                                ]
+                            )
+                        ]
+                    )
+                    ValLit (IntLit 3)
+                ]
+            )
+            ValLit (IntLit 2)
+        ]
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: IntTy EmptyLocRegion
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Primitive Application (
+        Pow
+        Expressions [
+            Primitive Application (
+                Div
+                Expressions [
+                    Primitive Application (
+                        Mul
+                        Expressions [
+                            Primitive Application (
+                                Add
+                                Expressions [
+                                    ValLit (IntLit 1)
+                                    ValLit (IntLit 2)
+                                ]
+                            )
+                            Primitive Application (
+                                Sub
+                                Expressions [
+                                    ValLit (IntLit 5)
+                                    ValLit (IntLit 2)
+                                ]
+                            )
+                        ]
+                    )
+                    ValLit (IntLit 3)
+                ]
+            )
+            ValLit (IntLit 2)
+        ]
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+gibbon_main :: Int
+gibbon_main = 1 + 2 * 5 - 2 div 3 ^ 2
+

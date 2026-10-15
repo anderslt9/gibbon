@@ -36,16 +36,9 @@ inferCallTypeFn :: NewL2.DDefs2 -> NewL2.FunDef2 -> PassM NewL2.FunDef2
 inferCallTypeFn _ddefs _f@FunDef{funName, funArgs, funTy, funMeta, funBody} = do
     dflags <- getDynFlags
     let meta@FunMeta{funRec} = funMeta
-    let isInputFunRec = case funRec of 
-                             Rec -> True
-                             TailRec -> True
-                             _ -> False
     let returnsPacked = hasPacked (unTy2 (arrOut funTy))
-    let hasPackedInput = any (hasPacked . unTy2) (arrIns funTy)
-    -- Vidush: 
-    -- We only want to use mutable cursors for recursive functions for now.
-    -- I don't think it worth it to make cursors mutable for non recursive functions at the moment.
-    let useMutableCursors = (gopt Opt_UseMutableCursors dflags) && isInputFunRec && (returnsPacked || hasPackedInput)
+    let useMutableCursors =
+          useMutableCursorsForFun (gopt Opt_UseMutableCursors dflags) meta funTy
     let _optimize_tail_calls = gopt Opt_TailCallOptimize dflags
     let (funBody', _env, _tailTy) = if useMutableCursors 
                                     then inferCallTypeExp useMutableCursors funName M.empty funBody
@@ -157,11 +150,9 @@ inferCallTypeMainExp mutLocs fundefs exp2 = do
                                 case fundef of 
                                         Nothing -> error "Expected function definition for function!"
                                         Just _f@FunDef{funTy, funMeta} -> do
-                                             let fnrecTy = funRec funMeta
-                                             let hasPackedInput = any (hasPacked . unTy2) (arrIns funTy)
-                                             let hasPackedOutput = hasPacked (unTy2 (arrOut funTy))
-                                            -- We only want to do this for Recursive functions.
-                                             if (fnrecTy == TailRec || fnrecTy == Rec) && (hasPackedInput || hasPackedOutput)
+                                             -- The predicate the callee's definition used. This site
+                                             -- does not test Opt_UseMutableCursors.
+                                             if useMutableCursorsForFun True funMeta funTy
                                              -- we need to find change locs to be output mutable
                                              then 
                                                 do
@@ -326,7 +317,7 @@ backTrackLocs env v accum visited = case M.lookup v env of
 inferCallTypeExp :: Bool -> Var -> TrackLocVariables -> NewL2.Exp2 -> (NewL2.Exp2, TrackLocVariables, Maybe TailRecType)
 inferCallTypeExp useMutableCursors funName env exp2 = case exp2 of
     VarE v -> (VarE v, env, Nothing)
-    LitE l -> (LitE l, env, Nothing)
+    LitE ann l -> (LitE ann l, env, Nothing)
     CharE c -> (CharE c, env, Nothing)
     FloatE f -> (FloatE f, env, Nothing)
     LitSymE v -> (LitSymE v, env, Nothing)
@@ -650,7 +641,7 @@ changeLocData _exp _var = case _exp of
 inferCallTypeFnBodyHelper :: Int -> NewL2.Exp2 -> TailRecType
 inferCallTypeFnBodyHelper depth exp2 = case exp2 of
     --   VarE v -> False
-    --   LitE _ -> False
+    --   LitE{} -> False
     --   CharE{} -> False
     --   FloatE{} -> False
     --   LitSymE _ -> False
@@ -662,11 +653,22 @@ inferCallTypeFnBodyHelper depth exp2 = case exp2 of
                 -- TODO
                 -- Here, check if the data con is the one that's in the return type.
                 -- Then, also return the output loc that in the datacon, only that loc should be marked as OutputMutable
-                Ext ext -> case ext of 
+                Ext ext -> case ext of
                              -- We also just skip TacCursor calls, since these just unpack random access nodes
                              TagCursor{} -> inferCallTypeFnBodyHelper depth bod
                              _ -> NotTailRec
                 DataConE _loc _d _args -> inferCallTypeFnBodyHelper (depth + 1) bod {-dbgTrace minChatLvl ("Here2!") dbgTrace minChatLvl (sdoc rhs)-}
+                -- A plain scalar computation (e.g. an Int32 narrowing cast
+                -- computed for a constructor field, like List.hs's
+                -- `toInt32 length`) does not itself produce packed data,
+                -- call another function, or branch, so it cannot break the
+                -- tail-modulo-cons shape being recognized here. Skip over it
+                -- at the same depth instead of bailing to NotTailRec, the
+                -- same way TagCursor{} above is skipped. Any actual
+                -- data-dependency or control-flow risk this introduces is
+                -- re-checked independently by reorderScalarWrites before any
+                -- write is actually hoisted.
+                PrimAppE _p _args -> inferCallTypeFnBodyHelper depth bod
                 -- TODO: figure out a way to get the return type of the function
                 --let tyConOfDataConE = getTyOfDataCon ddefs d
                 --    returnTy = outTy ty2

@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE CPP                   #-}
 
 -- | A higher-ordered surface language that supports Rank-1 parametric
 -- polymorphism.
@@ -37,39 +38,45 @@ type FunDef0  = FunDef Var Exp0
 type FunDefs0 = FunDefs Var Exp0
 type Prog0    = Prog Var Exp0
 
+#define EXP0 (PreExp E0Ext loc dec)
+
 --------------------------------------------------------------------------------
 
 -- | The extension point for L0.
 data E0Ext loc dec =
    LambdaE [(Var,dec)] -- Variable tagged with type
-           (PreExp E0Ext loc dec)
+           EXP0
    -- unused for much of L0, may be due to a bug
- | PolyAppE (PreExp E0Ext loc dec) -- Operator
-            (PreExp E0Ext loc dec) -- Operand
+ | PolyAppE EXP0 -- Operator
+            EXP0 -- Operand
  | FunRefE [loc] Var -- Reference to a function (toplevel or lambda),
                      -- along with its tyapps.
- | BenchE Var [loc] [(PreExp E0Ext loc dec)] Bool
- | ParE0 [(PreExp E0Ext loc dec)]
- | PrintPacked dec (PreExp E0Ext loc dec) -- ^ Print a packed value to standard out.
- | CopyPacked dec (PreExp E0Ext loc dec) -- ^ Copy a packed value.
- | TravPacked dec (PreExp E0Ext loc dec) -- ^ Traverse a packed value.
- | L Loc.Loc (PreExp E0Ext loc dec)
+ | BenchE Var [loc] [EXP0] Bool
+ | ParE0 [EXP0]
+ | PrintPacked dec EXP0 -- ^ Print a packed value to standard out.
+ | CopyPacked dec EXP0 -- ^ Copy a packed value.
+ | TravPacked dec EXP0 -- ^ Traverse a packed value.
+ | L Loc.Loc EXP0
+
+--  TODO verify this later
+ | TransformList [((Var, dec), (Var, dec), EXP0)] -- ((in cons, in type), (out cons, out type), transFunc)
+ | GMap dec EXP0 EXP0 -- map transformlist to packed type
  | LinearExt (LinearExt loc dec)
  deriving (Show, Ord, Eq, Read, Generic, NFData)
 
 -- | Linear types primitives.
 data LinearExt loc dec =
     -- (&) :: a %1 -> (a %1 -> b) %1 -> b
-  ReverseAppE (PreExp E0Ext loc dec) (PreExp E0Ext loc dec)
+  ReverseAppE EXP0 EXP0
 
 -- lseq :: a %1-> b %1-> b
-  | LseqE (PreExp E0Ext loc dec) (PreExp E0Ext loc dec)
+  | LseqE EXP0 EXP0
 
 -- unsafeAlias :: a %1-> (a,a)
-  | AliasE (PreExp E0Ext loc dec)
+  | AliasE EXP0
 
 -- unsafeToLinear :: (a %p-> b) %1-> (a %1-> b)
-  | ToLinearE (PreExp E0Ext loc dec)
+  | ToLinearE EXP0
   deriving (Show, Ord, Eq, Read, Generic, NFData)
 
 --------------------------------------------------------------------------------
@@ -111,6 +118,8 @@ instance FreeVars (E0Ext l d) where
       CopyPacked _ e1  -> gFreeVars e1
       TravPacked _ e1  -> gFreeVars e1
       L _ e1           -> gFreeVars e1
+      TransformList ls -> S.unions (map (gFreeVars . (\(_, _, c) -> c)) ls)
+      GMap _ e1 e2 -> gFreeVars e1 `S.union` gFreeVars e2
       LinearExt ext      -> gFreeVars ext
 
 instance (Out l, Out d, Show l, Show d) => Expression (E0Ext l d) where
@@ -134,6 +143,8 @@ instance HasSubstitutableExt E0Ext l d => SubstitutableExt (PreExp E0Ext l d) (E
       CopyPacked ty e1 -> CopyPacked ty (gSubst old new e1)
       TravPacked ty e1 -> TravPacked ty (gSubst old new e1)
       L p e1   -> L p (gSubst old new e1)
+      TransformList ls -> TransformList $ map (\(a,b,c) -> (a,b,gSubst old new c)) ls
+      GMap ty e1 e2 -> GMap ty (gSubst old new e1) (gSubst old new e2)
       LinearExt e -> LinearExt (gSubstExt old new e)
 
   gSubstEExt old new ext =
@@ -143,6 +154,8 @@ instance HasSubstitutableExt E0Ext l d => SubstitutableExt (PreExp E0Ext l d) (E
       FunRefE{}        -> ext
       BenchE fn tyapps args b -> BenchE fn tyapps (map (gSubstE old new) args) b
       ParE0 ls -> ParE0 $ map (gSubstE old new) ls
+      TransformList ls -> TransformList $ map (\(a,b,c) -> (a,b,gSubstE old new c)) ls
+      GMap ty e1 e2 -> GMap ty (gSubstE old new e1) (gSubstE old new e2)
       PrintPacked ty e -> PrintPacked ty $ (gSubstE old new e)
       CopyPacked ty e -> CopyPacked ty $ (gSubstE old new e)
       TravPacked ty e -> TravPacked ty $ (gSubstE old new e)
@@ -161,6 +174,8 @@ instance HasRenamable E0Ext l d => Renamable (E0Ext l d) where
       CopyPacked ty e -> CopyPacked ty (gRename env e)
       TravPacked ty e -> TravPacked ty (gRename env e)
       L p e    -> L p (gRename env e)
+      TransformList ls -> TransformList $ map (\((a,b),(c,d),e) -> ((go a, go b), (go c, go d), go e)) ls
+      GMap ty e1 e2 -> GMap ty (gRename env e1) (gRename env e2)
       LinearExt e -> LinearExt (gRename env e)
     where
       go :: forall a. Renamable a => a -> a
@@ -237,7 +252,7 @@ newTyVar :: MonadState Int m => m TyVar
 newTyVar = BoundTv <$> genLetter
 
 data Ty0
- = IntTy
+ = IntTy IntWidth
  | CharTy
  | FloatTy
  | SymTy0
@@ -255,6 +270,7 @@ data Ty0
  | VectorTy Ty0
  | ListTy Ty0
  | ArenaTy
+ | TransformListTy Ty0 Ty0
   deriving (Show, Read, Eq, Ord, Generic, NFData)
 
 instance FunctionTy Ty0 where
@@ -272,13 +288,14 @@ instance Renamable TyVar where
 instance Renamable Ty0 where
   gRename env ty =
     case ty of
-      IntTy  -> IntTy
+      IntTy w  -> IntTy w
       CharTy -> CharTy
       FloatTy-> FloatTy
       SymTy0 -> SymTy0
       BoolTy -> BoolTy
       TyVar tv  -> TyVar (go tv)
       MetaTv{}  -> ty
+      TransformListTy a b -> TransformListTy (go a) (go b)
       ProdTy ls -> ProdTy (map go ls)
       SymDictTy a t     -> SymDictTy a (go t)
       PDictTy k v       -> PDictTy (go k) (go v)
@@ -353,7 +370,7 @@ tyVarsInTys tys = foldr (go []) [] tys
     go :: [TyVar] -> Ty0 -> [TyVar] -> [TyVar]
     go bound ty acc =
       case ty of
-        IntTy  -> acc
+        IntTy{}  -> acc
         CharTy -> acc
         FloatTy-> acc
         SymTy0 -> acc
@@ -362,6 +379,7 @@ tyVarsInTys tys = foldr (go []) [] tys
                     then acc
                     else tv : acc
         MetaTv _ -> acc
+        TransformListTy a b -> go bound a (go bound b acc)
         ProdTy tys1     -> foldr (go bound) acc tys1
         SymDictTy _ ty1   -> go bound ty1 acc
         PDictTy k v -> foldr (go bound) acc [k,v]
@@ -388,12 +406,13 @@ metaTvsInTys tys = foldr go [] tys
         MetaTv tv -> if tv `elem` acc
                      then acc
                      else tv : acc
-        IntTy   -> acc
+        IntTy{}   -> acc
         CharTy  -> acc
         FloatTy -> acc
         SymTy0  -> acc
         BoolTy  -> acc
         TyVar{} -> acc
+        TransformListTy a b -> go b (go a acc)
         ProdTy tys1     -> foldr go acc tys1
         SymDictTy _ ty1   -> go ty1 acc
         PDictTy k v -> go v (go k acc)
@@ -423,7 +442,7 @@ arrowTysInTy = go []
   where
     go acc ty =
       case ty of
-        IntTy    -> acc
+        IntTy{}    -> acc
         CharTy   -> acc
         FloatTy  -> acc
         SymTy0   -> acc
@@ -431,6 +450,7 @@ arrowTysInTy = go []
         ArenaTy  -> acc
         TyVar{}  -> acc
         MetaTv{} -> acc
+        TransformListTy a b -> go (go acc a) b
         ProdTy tys -> foldl go acc tys
         SymDictTy _ a -> go acc a
         PDictTy k v   -> go (go acc k) v
@@ -447,13 +467,14 @@ arrowTysInTy = go []
 substTyVar :: M.Map TyVar Ty0 -> Ty0 -> Ty0
 substTyVar mp ty =
   case ty of
-    IntTy    -> ty
+    IntTy{}    -> ty
     CharTy   -> ty
     FloatTy  -> ty
     SymTy0   -> ty
     BoolTy   -> ty
     TyVar v  -> M.findWithDefault ty v mp
     MetaTv{} -> ty
+    TransformListTy a b -> TransformListTy (go a) (go b)
     ProdTy tys  -> ProdTy (map go tys)
     SymDictTy v t -> SymDictTy v (go t)
     PDictTy k v -> PDictTy (go k) (go v)
@@ -469,7 +490,7 @@ substTyVar mp ty =
     go = substTyVar mp
 
 isScalarTy0 :: Ty0 -> Bool
-isScalarTy0 IntTy  = True
+isScalarTy0 IntTy{}  = True
 isScalarTy0 CharTy = True
 isScalarTy0 SymTy0 = True
 isScalarTy0 BoolTy = True
@@ -502,10 +523,12 @@ recoverType :: DDefs0 -> Env2 Var Ty0 -> Exp0 -> Ty0
 recoverType ddfs env2 ex =
   case ex of
     VarE v       -> M.findWithDefault (error $ "recoverType: Unbound variable " ++ show v) v (vEnv env2)
-    LitE _       -> IntTy
+    -- L0 is the one IR where a literal may still be unresolved; report the
+    -- width it would default to rather than erroring.
+    LitE ann _   -> IntTy (litWidthL0 ann)
     CharE _      -> CharTy
     FloatE{}     -> FloatTy
-    LitSymE _    -> IntTy
+    LitSymE _    -> IntTy W64
     AppE v _ tyapps _ -> let (ForAll tyvars (ArrowTy _ retty)) = fEnv env2 # v
                        in substTyVar (M.fromList (fragileZip tyvars tyapps)) retty
     -- PrimAppE (DictInsertP ty) ((L _ (VarE v)):_) -> SymDictTy (Just v) ty
@@ -548,6 +571,15 @@ recoverType ddfs env2 ex =
         CopyPacked _ arg -> recoverType ddfs env2 arg
         TravPacked _ _ -> voidTy0
         ParE0 ls -> ProdTy $ map (recoverType ddfs env2) ls
+        -- uncertain, but currently representing TransformList type as function type
+        TransformList ls -> case ls of
+                              [] -> TransformListTy voidTy0 voidTy0
+                              (((_, inType), (_, outType), _):_) -> TransformListTy inType outType
+        GMap _ arg1 _ -> case recoverType ddfs env2 arg1 of
+                              -- TODO maybe add support for just regular function also
+                              -- ArrowTy _ outType -> outType
+                              TransformListTy _ outType -> outType
+                              _ -> error $ "recoverType: GMap expected TransformListTy, got: " ++ sdoc arg1
         LinearExt lin ->
           case lin of
             ReverseAppE fn _args -> case recoverType ddfs env2 fn of
@@ -561,16 +593,24 @@ recoverType ddfs env2 ex =
         L _ e    -> recoverType ddfs env2 e
   where
     -- Return type for a primitive operation.
+    -- L0 is the one IR where a width-sensitive primitive may still be
+    -- unresolved (before inference runs).  Report the width it would default
+    -- to rather than erroring; every later IR uses 'intPrimWidth', which does
+    -- not guess.
+    intPrimWidthL0 :: IntPrimAnn -> IntWidth
+    intPrimWidthL0 IntPrimUnresolved = W64
+    intPrimWidthL0 (IntPrimWidth w)  = w
+
     primRetTy1 :: Prim Ty0 -> Ty0
     primRetTy1 p =
       case p of
-        AddP -> IntTy
-        SubP -> IntTy
-        MulP -> IntTy
-        DivP -> IntTy
-        ModP -> IntTy
-        ExpP -> IntTy
-        RandP-> IntTy
+        AddP a -> IntTy (intPrimWidthL0 a)
+        SubP a -> IntTy (intPrimWidthL0 a)
+        MulP a -> IntTy (intPrimWidthL0 a)
+        DivP a -> IntTy (intPrimWidthL0 a)
+        ModP a -> IntTy (intPrimWidthL0 a)
+        ExpP a -> IntTy (intPrimWidthL0 a)
+        RandP-> IntTy W64
         FAddP -> FloatTy
         FSubP -> FloatTy
         FMulP -> FloatTy
@@ -579,18 +619,19 @@ recoverType ddfs env2 ex =
         FSqrtP-> FloatTy
         FRandP-> FloatTy
         FTanP -> FloatTy
-        FloatToIntP -> IntTy
-        IntToFloatP -> FloatTy
+        FloatToIntP -> IntTy W64
+        IntToFloatP{} -> FloatTy
+        IntConvertP _ dst -> IntTy dst
         EqSymP  -> BoolTy
         EqBenchProgP _ -> BoolTy
-        EqIntP  -> BoolTy
+        EqIntP{}  -> BoolTy
         EqFloatP-> BoolTy
         EqCharP -> BoolTy
-        LtP  -> BoolTy
-        GtP  -> BoolTy
+        LtP{}  -> BoolTy
+        GtP{}  -> BoolTy
         OrP  -> BoolTy
-        LtEqP-> BoolTy
-        GtEqP-> BoolTy
+        LtEqP{}-> BoolTy
+        GtEqP{}-> BoolTy
         FLtP  -> BoolTy
         FGtP  -> BoolTy
         FLtEqP-> BoolTy
@@ -599,7 +640,7 @@ recoverType ddfs env2 ex =
         MkTrue  -> BoolTy
         MkFalse -> BoolTy
         Gensym  -> SymTy0
-        SizeParam      -> IntTy
+        SizeParam      -> IntTy W64
         IsBig          -> BoolTy
         DictHasKeyP _  -> BoolTy
         DictEmptyP ty  -> SymDictTy Nothing ty
@@ -608,7 +649,7 @@ recoverType ddfs env2 ex =
         VAllocP elty   -> VectorTy elty
         VFreeP _elty   -> ProdTy []
         VFree2P _elty  -> ProdTy []
-        VLengthP _elty -> IntTy
+        VLengthP _elty -> IntTy W64
         VNthP elty     -> elty
         VSliceP elty   -> VectorTy elty
         InplaceVUpdateP elty -> VectorTy elty
@@ -630,17 +671,17 @@ recoverType ddfs env2 ex =
         LLFreeP _elty   -> ProdTy []
         LLFree2P _elty  -> ProdTy []
         LLCopyP elty -> ListTy elty
-        GetNumProcessors -> IntTy
+        GetNumProcessors -> IntTy W64
         (ErrorP _ ty)  -> ty
         ReadPackedFile _ _ _ ty -> ty
         WritePackedFile{} -> ProdTy []
         ReadArrayFile _ ty      -> ty
-        PrintInt     -> ProdTy []
+        PrintInt{}     -> ProdTy []
         PrintChar    -> ProdTy []
         PrintFloat   -> ProdTy []
         PrintBool    -> ProdTy []
         PrintSym     -> ProdTy []
-        ReadInt      -> IntTy
+        ReadInt      -> IntTy W64
         RequestSizeOf-> error "primRetTy1: RequestSizeOf not handled yet"
         RequestEndOf -> error "primRetTy1: RequestEndOf not handled yet"
         SymSetEmpty  -> error "primRetTy1: SymSetEmpty not handled yet"

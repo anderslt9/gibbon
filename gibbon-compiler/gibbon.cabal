@@ -56,6 +56,8 @@ library
                        Gibbon.L2.Interp
                        Gibbon.L2.Examples
                        Gibbon.L3.Syntax
+                       Gibbon.L3.Abi
+                       Gibbon.L3.Traverse
                        Gibbon.L3.Typecheck
                        Gibbon.L4.Syntax
                        Gibbon.L4.Interp
@@ -92,7 +94,9 @@ library
                        Gibbon.Passes.LoopifyFlatTraversals
                        Gibbon.Passes.LoopifiedTraversalFusion
                        Gibbon.Passes.VectorizeTraversals
+                       Gibbon.Passes.AssignScalarCountSlots
                        Gibbon.Passes.ScalarCountPropagation
+                       Gibbon.Passes.MutableCursorFutures
                        Gibbon.Passes.Unariser
                        Gibbon.Passes.Lower
                        Gibbon.Passes.RearrangeFree
@@ -182,17 +186,35 @@ test-suite test-gibbon
                        srcloc, pretty, time,
                        mtl, transformers,
                        tasty, tasty-hunit, tasty-th,
-                       text, bytestring
+                       text, bytestring, optparse-applicative
   other-modules:       RouteEnds
+                       OutputCompare
+                       OutputCompareTests
+                       TimingOutputContract
+                       IntWidths
+                       IntWidthsPipeline
+                       IntWidthsCompat
+                       IntConversions
+                       IntArithmetic
+                       CArithModes
                        InferEffects
                        InferLocations
                        Unariser
                        InferRegionScope
                        HoistBoundsCheck
+                       NonRecCursorReturns
                        AddRAN
                        LoopifyTraversals
+                       LoopifyFlatTraversals
+                       ReorderScalarWrites
+                       AssignScalarCountSlots
+                       L3Traverse
                        ScalarCountPropagation
                        SelectiveBufferSharing
+                       VectorizeTraversals
+                       CodegenSimd
+                       CodegenInvariants
+                       TagSpace
                        L1.Typecheck
                        L1.Interp
                        L2.Typecheck
@@ -215,6 +237,7 @@ executable test-gibbon-examples
 
   default-language:    Haskell2010
   other-modules:       TestRunner
+                       OutputCompare
   ghc-options:         -Wall -rtsopts -fdefer-typed-holes
                        -main-is BenchRunner
   default-extensions:  OverloadedStrings NamedFieldPuns

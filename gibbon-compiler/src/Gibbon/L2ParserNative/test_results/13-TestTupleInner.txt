@@ -1,0 +1,169 @@
+==================================================
+===================== Tokens =====================
+==================================================
+TokenMain (Pos {line = 1, column = 1})
+TokenAssign (Pos {line = 1, column = 6})
+TokenLet (Pos {line = 1, column = 9})
+TokenLParen (Pos {line = 1, column = 13})
+TokenIdentLower (Pos {line = 1, column = 14}) "x"
+TokenComma (Pos {line = 1, column = 15})
+TokenIdentLower (Pos {line = 1, column = 16}) "y"
+TokenRParen (Pos {line = 1, column = 17})
+TokenColon (Pos {line = 1, column = 19})
+TokenLParen (Pos {line = 1, column = 21})
+TokenLParen (Pos {line = 1, column = 22})
+TokenIntType (Pos {line = 1, column = 23})
+TokenComma (Pos {line = 1, column = 26})
+TokenIntType (Pos {line = 1, column = 28})
+TokenRParen (Pos {line = 1, column = 31})
+TokenComma (Pos {line = 1, column = 32})
+TokenIntType (Pos {line = 1, column = 34})
+TokenRParen (Pos {line = 1, column = 37})
+TokenAssign (Pos {line = 1, column = 39})
+TokenLParen (Pos {line = 1, column = 41})
+TokenLParen (Pos {line = 1, column = 42})
+TokenIntLit (Pos {line = 1, column = 43}) 1
+TokenComma (Pos {line = 1, column = 44})
+TokenIntLit (Pos {line = 1, column = 45}) 2
+TokenRParen (Pos {line = 1, column = 46})
+TokenComma (Pos {line = 1, column = 47})
+TokenIntLit (Pos {line = 1, column = 48}) 4
+TokenRParen (Pos {line = 1, column = 49})
+TokenIn (Pos {line = 1, column = 51})
+TokenLet (Pos {line = 2, column = 9})
+TokenLParen (Pos {line = 2, column = 13})
+TokenLParen (Pos {line = 2, column = 14})
+TokenIdentLower (Pos {line = 2, column = 15}) "a"
+TokenComma (Pos {line = 2, column = 16})
+TokenIdentLower (Pos {line = 2, column = 17}) "b"
+TokenRParen (Pos {line = 2, column = 18})
+TokenComma (Pos {line = 2, column = 19})
+TokenIdentLower (Pos {line = 2, column = 20}) "c"
+TokenRParen (Pos {line = 2, column = 21})
+TokenColon (Pos {line = 2, column = 23})
+TokenLParen (Pos {line = 2, column = 25})
+TokenLParen (Pos {line = 2, column = 26})
+TokenIntType (Pos {line = 2, column = 27})
+TokenComma (Pos {line = 2, column = 30})
+TokenIntType (Pos {line = 2, column = 32})
+TokenRParen (Pos {line = 2, column = 35})
+TokenComma (Pos {line = 2, column = 36})
+TokenIntType (Pos {line = 2, column = 38})
+TokenRParen (Pos {line = 2, column = 41})
+TokenAssign (Pos {line = 2, column = 43})
+TokenLParen (Pos {line = 2, column = 45})
+TokenIdentLower (Pos {line = 2, column = 46}) "x"
+TokenComma (Pos {line = 2, column = 47})
+TokenIdentLower (Pos {line = 2, column = 48}) "y"
+TokenRParen (Pos {line = 2, column = 49})
+TokenIn (Pos {line = 2, column = 51})
+TokenLParen (Pos {line = 3, column = 9})
+TokenIdentLower (Pos {line = 3, column = 10}) "a"
+TokenMul (Pos {line = 3, column = 12})
+TokenIdentLower (Pos {line = 3, column = 14}) "b"
+TokenAdd (Pos {line = 3, column = 16})
+TokenIdentLower (Pos {line = 3, column = 18}) "c"
+TokenRParen (Pos {line = 3, column = 19})
+TokenDiv (Pos {line = 3, column = 21})
+TokenIdentLower (Pos {line = 3, column = 23}) "b"
+TokenNewLine (Pos {line = 3, column = 24})
+TokenEOF (Pos {line = 4, column = 1})
+
+
+==================================================
+============== Pretty Parse Result ===============
+==================================================
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Let Expression (
+        PatTuple (PatDeconstructs [PatVar (Var "x"),PatVar (Var "y")])
+        ProdTy (MyTypes [ProdTy (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion]),IntTy EmptyLocRegion])
+        ValTuple (Exprs [ExprVal (ValTuple (Exprs [ExprVal (ValLit (IntLit 1)),ExprVal (ValLit (IntLit 2))])),ExprVal (ValLit (IntLit 4))])
+        Let Expression (
+            PatTuple (PatDeconstructs [PatTuple (PatDeconstructs [PatVar (Var "a"),PatVar (Var "b")]),PatVar (Var "c")])
+            ProdTy (MyTypes [ProdTy (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion]),IntTy EmptyLocRegion])
+            ValTuple (Exprs [ExprVal (ValVar (Var "x")),ExprVal (ValVar (Var "y"))])
+            Primitive Application (
+                Div
+                Expressions [
+                    Primitive Application (
+                        Add
+                        Expressions [
+                            Primitive Application (
+                                Mul
+                                Expressions [
+                                    ValVar (Var "a")
+                                    ValVar (Var "b")
+                                ]
+                            )
+                            ValVar (Var "c")
+                        ]
+                    )
+                    ValVar (Var "b")
+                ]
+            )
+        )
+    )
+)
+
+==================================================
+=================== Typed AST ====================
+==================================================
+Return type: IntTy EmptyLocRegion
+Program (
+    Data Type Declarations []
+
+    Function Declarations []
+
+    Annotations []
+
+    Let Expression (
+        PatTuple (PatDeconstructs [PatVar (Var "x"),PatVar (Var "y")])
+        ProdTy (MyTypes [ProdTy (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion]),IntTy EmptyLocRegion])
+        ValTuple (Exprs [ExprVal (ValTuple (Exprs [ExprVal (ValLit (IntLit 1)),ExprVal (ValLit (IntLit 2))])),ExprVal (ValLit (IntLit 4))])
+        Let Expression (
+            PatTuple (PatDeconstructs [PatTuple (PatDeconstructs [PatVar (Var "a"),PatVar (Var "b")]),PatVar (Var "c")])
+            ProdTy (MyTypes [ProdTy (MyTypes [IntTy EmptyLocRegion,IntTy EmptyLocRegion]),IntTy EmptyLocRegion])
+            ValTuple (Exprs [ExprVal (ValVar (Var "x")),ExprVal (ValVar (Var "y"))])
+            Primitive Application (
+                Div
+                Expressions [
+                    Primitive Application (
+                        Add
+                        Expressions [
+                            Primitive Application (
+                                Mul
+                                Expressions [
+                                    ValVar (Var "a")
+                                    ValVar (Var "b")
+                                ]
+                            )
+                            ValVar (Var "c")
+                        ]
+                    )
+                    ValVar (Var "b")
+                ]
+            )
+        )
+    )
+)
+
+==================================================
+===================== L2 AST =====================
+==================================================
+gibbon_main :: Int
+gibbon_main = let tup_x_y_ :: ((Int,Int),Int) = ((1, 2), 4) in
+              let x :: (Int,Int) = (#0 tup_x_y_) in
+              let y :: Int = (#1 tup_x_y_) in
+              let tuptup_a_b__c_ :: ((Int,Int),Int) = (x, y) in
+              let tup_a_b_ :: (Int,Int) = (#0 tuptup_a_b__c_) in
+              let a :: Int = (#0 tup_a_b_) in
+              let b :: Int = (#1 tup_a_b_) in
+              let c :: Int = (#1 tuptup_a_b__c_) in
+              a * b + c div b
+

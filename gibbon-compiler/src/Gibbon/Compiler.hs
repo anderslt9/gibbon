@@ -12,9 +12,15 @@ module Gibbon.Compiler
       compile, compileCmd
       -- * Configuration options and parsing
      , Config (..), Mode(..), Input(..)
-     , configParser, configWithArgs, defaultConfig
+     , configParser, configWithArgs, defaultConfig, int32TombstoneOption
       -- * Some other helper fns
      , compileAndRunExe
+      -- * Stage runners
+      --
+      -- | 'passesThroughL3' is the production pass sequence stopping just
+      -- before the L3 -> L4 lowering.  Tests use it so that there is only one
+      -- definition of the pass ordering.
+     , passes, passesThroughL3, parseInput, CompileState(..)
     )
   where
 
@@ -61,6 +67,7 @@ import qualified Gibbon.L0.Specialize2 as L0
 import qualified Gibbon.L1.Typecheck as L1
 import qualified Gibbon.L2.Typecheck as L2
 import qualified Gibbon.L3.Typecheck as L3
+import qualified Gibbon.L3.Syntax as L3Syn
 import           Gibbon.Passes.Freshen        (freshNames)
 import           Gibbon.Passes.Flatten        (flattenL1, flattenL2, flattenL3)
 import           Gibbon.Passes.InlineTriv     (inlineTriv)
@@ -92,8 +99,10 @@ import           Gibbon.Passes.ReorderScalarWrites  ( reorderScalarWrites, write
 import           Gibbon.Passes.LoopifyTraversals (loopifyTraversals)
 import           Gibbon.Passes.LoopifyFlatTraversals (loopifyFlatTraversals)
 import           Gibbon.Passes.LoopifiedTraversalFusion (fuseLoopifiedTraversals)
-import           Gibbon.Passes.VectorizeTraversals (vectorizeTraversals)
+import           Gibbon.Passes.VectorizeTraversals (vectorizeTraversals, validateVectorizationFired)
+import           Gibbon.Passes.AssignScalarCountSlots (assignScalarCountSlots)
 import           Gibbon.Passes.ScalarCountPropagation (propagateScalarCounts)
+import           Gibbon.Passes.MutableCursorFutures (repairMutableCursorFutures)
 import           Gibbon.Passes.SelectiveBufferSharing (selectiveBufferSharing)
 import           Gibbon.Passes.Unariser       (unariser)
 import           Gibbon.Passes.Lower          (lower)
@@ -141,6 +150,7 @@ configParser = Config <$> inputParser
                            <|> pure (cc defaultConfig))
                       <*> (strOption (long "optc" <> help "Set C compiler options, default '-std=gnu11 -O3'")
                            <|> pure (optc defaultConfig))
+                      <*> cArithModeParser
                       <*> (fmap Just (strOption $ long "cfile" <> help "Set the destination file for generated C code")
                            <|> pure (cfile defaultConfig))
                       <*> (fmap Just (strOption $ mconcat
@@ -180,11 +190,50 @@ configParser = Config <$> inputParser
   backendParser :: Parser Backend
   backendParser = flag C LLVM (long "llvm" <> help "use the llvm backend for compilation")
 
+  -- | Global mode for generated scalar integer arithmetic.
+  -- Rejects anything but the three exact spellings with an actionable
+  -- message (via 'parseCArithMode'/'eitherReader') rather than silently
+  -- defaulting; a REPEATED occurrence is rejected outright ("Invalid
+  -- option"), the same precedence every other single-valued Gibbon flag
+  -- already has (e.g. a repeated --cc) -- there is no "last one wins" here,
+  -- measured against the real parser in CArithModes.hs, not assumed. Absent
+  -- entirely, this defaults to 'ArithPortable' -- the Gibbon default stays
+  -- portable.
+  cArithModeParser :: Parser CArithMode
+  cArithModeParser =
+    option (eitherReader parseCArithMode) (mconcat
+      [ long "c-arithmetic"
+      , metavar "MODE"
+      , help $ mconcat
+          [ "Global mode for generated scalar integer add/sub/mul (and "
+          , "negate, via SubP): 'portable' (default; deterministic RTS "
+          , "helpers, no C signed-overflow UB at any width), 'wrapv' "
+          , "(native C arithmetic, -fwrapv supplied on every C compile/link "
+          , "path Gibbon controls), or 'unsafe' (native C arithmetic, no "
+          , "wrapping flag -- W32/W64 overflow is then C UB). Division, "
+          , "remainder and exponentiation are unaffected by this mode in "
+          , "every case."
+          ]
+      ]) <|> pure ArithPortable
+
 
 -- | Parse configuration as well as file arguments.
 configWithArgs :: Parser (Config,[FilePath])
 configWithArgs = (,) <$> configParser
                      <*> some (argument str (metavar "FILES..." <> help "Files to compile."))
+
+-- | '--int32' used to switch the whole backend to 32-bit 'GibInt'.  Integer
+-- width is now a source-language type (bare 'Int' is 'Int64'; write 'Int32'
+-- explicitly for a 32-bit value), so the flag has no compiler behavior left
+-- to have.  This tombstone only rejects it with an actionable message; it
+-- does not parse into 'Config' or affect compilation in any way.
+int32TombstoneOption :: Parser (a -> a)
+int32TombstoneOption =
+  abortOption (ErrorMsg "--int32 has been removed; use the Int32 source type explicitly.")
+              (long "int32" <>
+               long "gibbon-int32" <>
+               hidden <>
+               help "REMOVED: use the Int32 source type explicitly.")
 
 --------------------------------------------------------------------------------
 
@@ -202,7 +251,7 @@ compileCmd args = withArgs args $
          _ -> do dbgPrintLn 1 $ "Compiling multiple files:  " ++ show files
                  mapM_ (compile cfg) files
   where
-    opts = info (helper <*> configWithArgs) $ mconcat
+    opts = info (helper <*> int32TombstoneOption <*> configWithArgs) $ mconcat
       [ fullDesc
       , progDesc "Compile FILES according to the below options."
       , header "A compiler for a minature tree traversal language"
@@ -220,10 +269,47 @@ data CompileState a = CompileState
 
 -- | Compiler entrypoint, given a full configuration and a list of
 -- files to process, do the thing.
+-- | Flag combinations that cannot do what they say, rejected before any
+-- pipeline runs.
+--
+-- These belong here rather than in the pass that consumes them, because a
+-- pass only runs on the pipeline that reaches it: 'assignScalarCountSlots'
+-- sits in the packed branch, so a @--pointer@ build never reached the
+-- @--gen-gc@ rejection it used to carry, and a @--defer-scalar-counts@ build
+-- without @--store-scalar-field-counts@ reached no scalar-count pass at all
+-- and silently produced a binary with no counts in it.
+validateDynFlags :: DynFlags -> IO ()
+validateDynFlags dflags
+  | deferring && not (gopt Opt_StoreScalarFieldCounts dflags) =
+      error $
+        requested ++ " was passed without --store-scalar-field-counts.\n" ++
+        "Deferred counting maintains the scalar-count footers that\n" ++
+        "--store-scalar-field-counts creates; with no footers to maintain it has\n" ++
+        "nothing to do, and the build silently contains no scalar counts at all.\n" ++
+        "Add --store-scalar-field-counts to the compile command."
+  | deferring && gopt Opt_GenGc dflags =
+      error $
+        requested ++ " is not compatible with --gen-gc.\n" ++
+        "A deferred slot caches the GibRegionInfo * of the region it counts for, but under\n" ++
+        "the generational GC a region is nursery-allocated and the copying collector\n" ++
+        "relocates it and rewrites reg_info, with no hook back into the C-side slot\n" ++
+        "table.  The cached binding then goes stale and every count after the\n" ++
+        "collection is written to a footer nothing reads -- silently.\n" ++
+        "The per-element bump does not have this problem because it re-resolves the\n" ++
+        "footer on every element.\n" ++
+        "Drop the deferred counting (counts stay correct, just slower), or drop --gen-gc."
+  | otherwise = pure ()
+  where
+    deferring = gopt Opt_DeferScalarCounts dflags || gopt Opt_ScalarCountDiff dflags
+    requested
+      | gopt Opt_ScalarCountDiff dflags = "--scalar-counts-diff (which implies deferred counting)"
+      | otherwise = "--defer-scalar-counts"
+
 compile :: Config -> FilePath -> IO ()
 compile config@Config{mode,input,verbosity,backend,cfile} fp0 = do
   -- set the env var DEBUG, to verbosity, when > 1
   setDebugEnvVar verbosity
+  validateDynFlags (dynflags config)
 
   -- Use absolute path
   dir <- getCurrentDirectory
@@ -240,12 +326,14 @@ compile config@Config{mode,input,verbosity,backend,cfile} fp0 = do
                  (\fresh -> dbgTrace 5 ("\nFreshen:\n"++sepline++ "\n" ++pprender fresh) (L0.tcProg fresh)))
 
   case mode of
+    -- 'runL0' prints the interpreter's output log as well as the return value.
+    -- Discarding the log here dropped every `printint`, `printPacked`, float
+    -- and bool the program produced, leaving only the return value and
+    -- whatever the interpreter happened to write to stdout directly.
     Interp1 -> do
         dbgTrace passChatterLvl ("\nParsed:\n"++sepline++ "\n" ++ sdoc l0) (pure ())
         dbgTrace passChatterLvl ("\nTypechecked:\n"++sepline++ "\n" ++ pprender initTypeChecked) (pure ())
-        runConf <- getRunConfig []
-        (_s1,val,_stdout) <- gInterpProg () runConf initTypeChecked
-        print val
+        runL0 initTypeChecked
 
 
     ToParse -> dbgPrintLn 0 $ pprender l0
@@ -378,7 +466,7 @@ withPrintInterpProg l0 =
     return Nothing
 
 compileRTS :: Config -> IO ()
-compileRTS Config{verbosity,optc,dynflags,cc=ccCmd} = do
+compileRTS Config{verbosity,optc,dynflags,cc=ccCmd,cArithMode} = do
   gibbon_dir <- getGibbonDir
   archiver <- chooseArchiver ccCmd
   when (isClangCompiler ccCmd && not ("llvm-ar" `isInfixOf` takeFileName archiver)) $
@@ -400,7 +488,14 @@ compileRTS Config{verbosity,optc,dynflags,cc=ccCmd} = do
               ]
       _ -> pure ()
   let rtsmk = gibbon_dir </> "gibbon-rts/Makefile"
-      userCFlags = optc
+      -- The RTS's own arithmetic never relies on signed-
+      -- overflow UB (the GIB_DEFINE_INT_ARITH helpers are unsigned-based),
+      -- so -fwrapv changes nothing about RTS correctness. It is still
+      -- appended here for wrapv mode so that EVERY C compile/link path
+      -- Gibbon controls -- not only the generated program's own -- actually
+      -- carries the flag, provable from a real argv rather than merely
+      -- documented.
+      userCFlags = optc ++ (if cArithMode == ArithWrapv then " -fwrapv " else "")
       rtsmkcmd = "make -f " ++ rtsmk ++ " "
                  ++ (if rts_debug then " MODE=debug " else " MODE=release ")
                  ++ (if rts_debug && pointer then " -DGC_DEBUG " else "")
@@ -410,6 +505,15 @@ compileRTS Config{verbosity,optc,dynflags,cc=ccCmd} = do
                  ++ (if parallel then " PARALLEL=1 " else "")
                  ++ (if bumpAlloc then " BUMPALLOC=1 " else "")
                  ++ (if papi || papi_native then " PAPI=1 " else "")
+                 -- Must agree with the -D_GIBBON_REGIONRESET passed to the
+                 -- generated program below: gib_grow_region_on_heap is an
+                 -- INLINE_HEADER, so the call site is compiled into the
+                 -- program while the log itself lives in libgibbon_rts.
+                 ++ (if reclaimIterRegions then " REGIONRESET=1 " else " REGIONRESET=0 ")
+                 -- Differential scalar counts: the flush that VERIFIES rather
+                 -- than applies lives in libgibbon_rts, so the library has to
+                 -- agree with the -D passed to the generated program below.
+                 ++ (if scalarCountDiff then " SCALARCOUNTDIFF=1 " else " SCALARCOUNTDIFF=0 ")
                  ++ (" USER_CFLAGS=\"" ++ userCFlags ++ "\"")
                  ++ (" VERBOSITY=" ++ show verbosity)
                  ++ (" CC=\"" ++ ccCmd ++ "\"")
@@ -427,6 +531,8 @@ compileRTS Config{verbosity,optc,dynflags,cc=ccCmd} = do
     rts_debug = gopt Opt_RtsDebug dynflags
     print_gc_stats = gopt Opt_PrintGcStats dynflags
     genGC = gopt Opt_GenGc dynflags
+    reclaimIterRegions = gopt Opt_ReclaimIterateRegions dynflags
+    scalarCountDiff = gopt Opt_ScalarCountDiff dynflags
     papi = gopt Opt_PapiInstrumentation dynflags
     papi_native = gopt Opt_PapiNativeInstrumentation dynflags
 
@@ -519,6 +625,21 @@ chooseArchiver ccCmd = pick candidates
 isClangCompiler :: String -> Bool
 isClangCompiler = ("clang" `isInfixOf`) . takeFileName
 
+-- | The flags that disable the C compiler's own automatic vectorization --
+-- both its loop vectorizer and its SLP (basic-block) vectorizer -- for
+-- 'Opt_NoGccVectorize'.  Named explicitly per sub-kind rather than relying on
+-- an umbrella flag's default propagation to its sub-flags, and per compiler
+-- since gcc and clang do not share these spellings: gcc has no
+-- @-fvectorize@/@-fslp-vectorize@, and clang does not recognize
+-- @-ftree-vectorize@ at all (it silently ignores it with an "argument
+-- unused" driver warning, so passing only the gcc spelling under clang is a
+-- silent no-op, not an error -- exactly the kind of failure this flag exists
+-- to prevent).
+noAutoVectorizeFlags :: String -> String
+noAutoVectorizeFlags ccCmd
+  | isClangCompiler ccCmd = " -fno-vectorize -fno-slp-vectorize "
+  | otherwise             = " -fno-tree-loop-vectorize -fno-tree-slp-vectorize "
+
 toolVersionMajor :: String -> IO (Maybe Int)
 toolVersionMajor toolString = do
   let exe = takeWhile (not . isSpace) (dropWhile isSpace toolString)
@@ -610,10 +731,20 @@ compilationCmd C config = (cc config) ++" -std=gnu11 "
                           ++ (if rts_debug && pointer then " -DGC_DEBUG " else "")
                           ++ (if print_gc_stats then " -D_GIBBON_GCSTATS " else "")
                           ++ (if not genGC then " -D_GIBBON_GENGC=0 " else " -D_GIBBON_GENGC=1 ")
+                          ++ (if reclaimIterRegions then " -D_GIBBON_REGIONRESET=1 " else " -D_GIBBON_REGIONRESET=0 ")
+                          ++ (if scalarCountDiff then " -D_GIBBON_SCALAR_COUNT_DIFF " else "")
                           ++ (if simpleWriteBarrier then " -D_GIBBON_SIMPLE_WRITE_BARRIER=1 " else " -D_GIBBON_SIMPLE_WRITE_BARRIER=0 ")
                           ++ (if lazyPromote then " -D_GIBBON_EAGER_PROMOTION=0 " else " -D_GIBBON_EAGER_PROMOTION=1 ")
                           ++ (if papi || papi_native then " -D_GIBBON_ENABLE_PAPI " else "")
                           ++ (if papi_native then " -D_GIBBON_ENABLE_PAPI_NATIVE " else "")
+                          -- @--sse4.1@ raises the selected ISA, and the ISA
+                          -- carries its own C flags; a second -msse4.1 here
+                          -- would let the two disagree about what was asked
+                          -- for.
+                          ++ simdIsaCcFlags (simdIsaOf dflags)
+                          ++ (if noGccVec then noAutoVectorizeFlags (cc config) else "")
+                          ++ (if noGccTailCalls then " -fno-optimize-sibling-calls " else "")
+                          ++ (if cArithMode config == ArithWrapv then " -fwrapv " else "")
   where dflags = dynflags config
         bumpAlloc = gopt Opt_BumpAlloc dflags
         pointer = gopt Opt_Pointer dflags
@@ -622,10 +753,14 @@ compilationCmd C config = (cc config) ++" -std=gnu11 "
         rts_debug = gopt Opt_RtsDebug dflags
         print_gc_stats = gopt Opt_PrintGcStats dflags
         genGC = gopt Opt_GenGc dflags
+        reclaimIterRegions = gopt Opt_ReclaimIterateRegions dflags
+        scalarCountDiff = gopt Opt_ScalarCountDiff dflags
         simpleWriteBarrier = gopt Opt_SimpleWriteBarrier dflags
         lazyPromote = gopt Opt_NoEagerPromote dflags
         papi = gopt Opt_PapiInstrumentation dflags
         papi_native = gopt Opt_PapiNativeInstrumentation dflags
+        noGccVec = gopt Opt_NoGccVectorize dflags
+        noGccTailCalls = gopt Opt_NoGccTailCalls dflags
 
 -- |
 isBench :: Mode -> Bool
@@ -647,8 +782,11 @@ clearFile fileName = removeFile fileName `catch` handleErr
 
 -- | SML Codegen
 
+-- | @-default-type int64@ is required, not cosmetic: MLton's default @Int@ is
+-- 32 bits and traps on overflow, so without it every @Int64@ in the emitted
+-- program is silently computed in 32 bits.
 mplCompiler :: String
-mplCompiler = "mlton"  -- temporary until mpl is installed
+mplCompiler = "mlton -default-type int64"  -- temporary until mpl is installed
 
 goIO :: Functor m => a1 -> m a2 -> StateT b m a1
 goIO prog io = StateT $ \x -> io $> (prog, x)
@@ -721,9 +859,15 @@ addRedirectionCon p@Prog{ddefs} = do
             ddefs
   return $ p { ddefs = ddefs' }
 
--- | The main compiler pipeline
-passes :: (Show v) => Config -> L0.Prog0 -> StateT (CompileState v) IO L4.Prog
-passes config@Config{dynflags} l0 = do
+-- | The compiler pipeline up to, but not including, the L3 -> L4 lowering.
+--
+-- Split out of 'passes' so that tests can drive real narrow-width programs
+-- through the *production* pass sequence and stop at a verified L3 program,
+-- instead of maintaining a second copy of the ordering that would silently
+-- drift.  'passes' is this function followed by the L4 tail; there is exactly
+-- one definition of the order.
+passesThroughL3 :: (Show v) => Config -> L0.Prog0 -> StateT (CompileState v) IO L3Syn.Prog3
+passesThroughL3 config@Config{dynflags} l0 = do
       let isPacked   = gopt Opt_Packed dynflags
           noRAN      = gopt Opt_No_RAN dynflags
           biginf     = gopt Opt_BigInfiniteRegions dynflags
@@ -939,8 +1083,13 @@ Also see Note [Adding dummy traversals] and Note [Adding random access nodes].
               l3 <- go "selectiveBufferSharing" selectiveBufferSharing l3
               l3 <- go "fuseLoopifiedTraversals" fuseLoopifiedTraversals l3
               l3 <- go "vectorizeTraversals" vectorizeTraversals l3
+              lift $ validateVectorizationFired dynflags l3
+              l3 <- go "assignScalarCountSlots" assignScalarCountSlots l3
               -- _ <- lift $ putStrLn (pprender l3)
               l3 <- go "L3.flatten"       flattenL3     l3
+              l3 <- if gopt Opt_UseMutableCursors dynflags && not noRAN
+                    then go "repairMutableCursorFutures" repairMutableCursorFutures l3
+                    else pure l3
               -- l3 <- go "addCasts"         addCasts      l3
               l3 <- go "L3.typecheck"     tcProg3       l3
               l3 <- go "hoistNewBuf"      hoistNewBuf   l3
@@ -956,7 +1105,27 @@ Also see Note [Adding dummy traversals] and Note [Adding random access nodes].
       l3 <- go "L3.typecheck"   tcProg3                 l3
       l3 <- go "L3.flatten"     flattenL3               l3
       l3 <- go "L3.typecheck"   tcProg3                 l3
+      return l3
+  where
+      go :: PassRunner a b v
+      go = pass config
 
+      goE2 :: (InterpProg Store b Var, Show v) => InterpPassRunner a b Store v
+      goE2 = passE emptyStore config
+
+      goE0 :: (InterpProg () b Var, Show v) => InterpPassRunner a b () v
+      goE0 = passE () config
+
+      goE1 :: (InterpProg () b Var, Show v) => InterpPassRunner a b () v
+      goE1 = passE () config
+
+
+-- | The main compiler pipeline
+passes :: (Show v) => Config -> L0.Prog0 -> StateT (CompileState v) IO L4.Prog
+passes config@Config{dynflags} l0 = do
+      let isPacked   = gopt Opt_Packed dynflags
+          gibbon1    = gopt Opt_Gibbon1 dynflags
+      l3 <- passesThroughL3 config l0
       -- Note: L3 -> L4
       l4 <- go "lower"          lower                   l3
       l4 <- go "lateInlineTriv" lateInlineTriv          l4

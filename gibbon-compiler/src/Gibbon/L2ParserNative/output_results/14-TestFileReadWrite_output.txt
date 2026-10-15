@@ -1,0 +1,102 @@
+Output from L2 Parser: 
+C compiler failed! 
+In file included from /home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/14-TestFileReadWrite.c:3:
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h: In function ‘gib_indirection_barrier’:
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h:19:23: note: ‘#pragma message: Simple write barrier is disabled.’
+   19 | #define GIB_PRAGMA(x) _Pragma(#x)
+      |                       ^~~~~~~
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h:28:33: note: in expansion of macro ‘GIB_PRAGMA’
+   28 | #define GIB_PRAGMA_MESSAGE(msg) GIB_PRAGMA(message msg)
+      |                                 ^~~~~~~~~~
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h:1144:5: note: in expansion of macro ‘GIB_PRAGMA_MESSAGE’
+ 1144 |     GIB_PRAGMA_MESSAGE("Simple write barrier is disabled.")
+      |     ^~~~~~~~~~~~~~~~~~
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/14-TestFileReadWrite.c: In function ‘main’:
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/14-TestFileReadWrite.c:216:5: error: unknown type name ‘GibCursorGibCursorGibCursorGibCursorProd’; did you mean ‘GibCursorGibCursorGibCursorProd’?
+  216 |     GibCursorGibCursorGibCursorGibCursorProd tmp_struct_9 =
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |     GibCursorGibCursorGibCursorProd
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/14-TestFileReadWrite.c:217:47: warning: implicit declaration of function ‘_copy_without_ptrs_Tree’ [-Wimplicit-function-declaration]
+  217 |                                               _copy_without_ptrs_Tree(end_inreg_3, end_outreg_2, start_outreg_1, r1);
+      |                                               ^~~~~~~~~~~~~~~~~~~~~~~
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/14-TestFileReadWrite.c:218:43: error: request for member ‘field0’ in something not a structure or union
+  218 |     GibCursor end_outreg2_4 = tmp_struct_9.field0;
+      |                                           ^
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/14-TestFileReadWrite.c:219:42: error: request for member ‘field1’ in something not a structure or union
+  219 |     GibCursor end_inreg2_5 = tmp_struct_9.field1;
+      |                                          ^
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/14-TestFileReadWrite.c:220:42: error: request for member ‘field2’ in something not a structure or union
+  220 |     GibCursor copy_start_6 = tmp_struct_9.field2;
+      |                                          ^
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/14-TestFileReadWrite.c:221:40: error: request for member ‘field3’ in something not a structure or union
+  221 |     GibCursor copy_end_7 = tmp_struct_9.field3;
+      |                                        ^
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/14-TestFileReadWrite.c:229:10: error: incompatible type for argument 1 of ‘free’
+  229 |     free(outreg_0);
+      |          ^~~~~~~~
+      |          |
+      |          GibChunk {aka struct gib_chunk}
+In file included from /usr/local/include/uthash.h:31,
+                 from /home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h:8:
+/usr/include/stdlib.h:687:25: note: expected ‘void *’ but argument is of type ‘GibChunk’ {aka ‘struct gib_chunk’}
+  687 | extern void free (void *__ptr) __THROW;
+      |                   ~~~~~~^~~~~
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h: At top level:
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h:348:50: warning: inline function ‘gib_array_alloc’ declared but never defined
+  348 | inline __attribute__((always_inline)) GibCursor *gib_array_alloc(GibCursor *data, size_t arr_size);
+      |                                                  ^~~~~~~~~~~~~~~
+
+Code: 1
+Running pass: Replace Location Region Names
+Running pass: Replace Location Region Names in After Expressions
+Running pass: Replace Not Equal with If-Then-Else
+
+Output from Native Gibbon: 
+C compiler failed! 
+In file included from /home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/gibbon-native/14-TestFileReadWrite.c:3:
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h: In function ‘gib_indirection_barrier’:
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h:19:23: note: ‘#pragma message: Simple write barrier is disabled.’
+   19 | #define GIB_PRAGMA(x) _Pragma(#x)
+      |                       ^~~~~~~
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h:28:33: note: in expansion of macro ‘GIB_PRAGMA’
+   28 | #define GIB_PRAGMA_MESSAGE(msg) GIB_PRAGMA(message msg)
+      |                                 ^~~~~~~~~~
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h:1144:5: note: in expansion of macro ‘GIB_PRAGMA_MESSAGE’
+ 1144 |     GIB_PRAGMA_MESSAGE("Simple write barrier is disabled.")
+      |     ^~~~~~~~~~~~~~~~~~
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/gibbon-native/14-TestFileReadWrite.c: In function ‘main’:
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/gibbon-native/14-TestFileReadWrite.c:597:5: error: unknown type name ‘GibCursorGibCursorGibCursorGibCursorProd’; did you mean ‘GibCursorGibCursorGibCursorGibCursorGibCursorProd’?
+  597 |     GibCursorGibCursorGibCursorGibCursorProd tmp_struct_50 =
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |     GibCursorGibCursorGibCursorGibCursorGibCursorProd
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/gibbon-native/14-TestFileReadWrite.c:598:47: warning: implicit declaration of function ‘_copy_without_ptrs_Tree’ [-Wimplicit-function-declaration]
+  598 |                                               _copy_without_ptrs_Tree(end_inreg_44, end_outreg_43, start_outreg_42, pvrtmp_441);
+      |                                               ^~~~~~~~~~~~~~~~~~~~~~~
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/gibbon-native/14-TestFileReadWrite.c:599:45: error: request for member ‘field0’ in something not a structure or union
+  599 |     GibCursor end_outreg2_45 = tmp_struct_50.field0;
+      |                                             ^
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/gibbon-native/14-TestFileReadWrite.c:600:44: error: request for member ‘field1’ in something not a structure or union
+  600 |     GibCursor end_inreg2_46 = tmp_struct_50.field1;
+      |                                            ^
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/gibbon-native/14-TestFileReadWrite.c:601:44: error: request for member ‘field2’ in something not a structure or union
+  601 |     GibCursor copy_start_47 = tmp_struct_50.field2;
+      |                                            ^
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/gibbon-native/14-TestFileReadWrite.c:602:42: error: request for member ‘field3’ in something not a structure or union
+  602 |     GibCursor copy_end_48 = tmp_struct_50.field3;
+      |                                          ^
+/home/anderslt/gibbon-compiler/gibbon-compiler/src/Gibbon/L2ParserNative/tests/gibbon-native/14-TestFileReadWrite.c:610:10: error: incompatible type for argument 1 of ‘free’
+  610 |     free(outreg_41);
+      |          ^~~~~~~~~
+      |          |
+      |          GibChunk {aka struct gib_chunk}
+In file included from /usr/local/include/uthash.h:31,
+                 from /home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h:8:
+/usr/include/stdlib.h:687:25: note: expected ‘void *’ but argument is of type ‘GibChunk’ {aka ‘struct gib_chunk’}
+  687 | extern void free (void *__ptr) __THROW;
+      |                   ~~~~~~^~~~~
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h: At top level:
+/home/anderslt/gibbon-compiler/gibbon-rts/build/gibbon_rts.h:348:50: warning: inline function ‘gib_array_alloc’ declared but never defined
+  348 | inline __attribute__((always_inline)) GibCursor *gib_array_alloc(GibCursor *data, size_t arr_size);
+      |                                                  ^~~~~~~~~~~~~~~
+
+Code: 1

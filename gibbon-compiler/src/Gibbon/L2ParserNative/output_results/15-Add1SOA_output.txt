@@ -1,0 +1,15 @@
+Output from L2 Parser: 
+Running pass: Replace Location Region Names
+Running pass: Replace Location Region Names in After Expressions
+Running pass: Replace Not Equal with If-Then-Else
+Running pass: Load Memory Layouts
+gibbon: Uncaught exception ghc-internal:GHC.Internal.Exception.ErrorCall:
+
+unpackRegularDataCon: Unexpected field (indr_12, FL (Single "case_loc_13")):CursorArrayTy 2
+
+HasCallStack backtrace:
+  error, called at src/Gibbon/Passes/Cursorize.hs:5757:30 in gibbon-0.3-inplace:Gibbon.Passes.Cursorize
+
+
+Output from Native Gibbon: 
+'#()

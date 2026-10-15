@@ -20,13 +20,29 @@ import qualified Gibbon.L4.Syntax as T
 
 -- |
 import RouteEnds
+import OutputCompareTests
+import TimingOutputContract
+import IntWidths
+import IntWidthsPipeline
+import IntWidthsCompat
+import IntConversions
+import IntArithmetic
+import CArithModes
 import InferEffects
 import InferRegionScope
 import Unariser
 import AddRAN
 import LoopifyTraversals
+import LoopifyFlatTraversals
+import ReorderScalarWrites
+import AssignScalarCountSlots
+import L3Traverse
 import ScalarCountPropagation
 import SelectiveBufferSharing
+import VectorizeTraversals
+import CodegenSimd
+import CodegenInvariants
+import TagSpace
 import L1.Typecheck
 import L1.Interp
 import L2.Typecheck
@@ -34,16 +50,32 @@ import L2.Interp
 -- import L0.Specialize
 import InferLocations
 import HoistBoundsCheck
+import NonRecCursorReturns
 
 main :: IO ()
 main = defaultMain allTests
   where allTests = testGroup "All"
                    [ tests
+                   , outputCompareTests
+                   , timingOutputContractTests
                    , addRANTests
                    , loopifyTraversalsTests
-                   , scalarCountPropagationTests
+                   , loopifyFlatTraversalsTests
+                   , reorderScalarWritesTests
+                   , assignScalarCountSlotsTests, scalarCountPropagationTests
+                   , l3TraverseTests
                    , selectiveBufferSharingTests
+                   , vectorizeTraversalsTests
+                   , codegenSimdTests
+                   , codegenInvariantsTests
+                   , tagSpaceTests
                    , routeEnds2Tests
+                   , intWidthTests
+                   , intWidthPipelineTests
+                   , intWidthsCompatTests
+                   , intConversionsTests
+                   , intArithmeticTests
+                   , cArithModesTests
                    , inferLocations2Tests
                    , inferEffects2Tests
                    , inferRegScopeTests
@@ -54,6 +86,7 @@ main = defaultMain allTests
                    , l2InterpTests
                    -- , specializeTests
                    , hoistBoundsCheckTests
+                   , nonRecCursorReturnsTests
                    ]
 
 tests :: TestTree
