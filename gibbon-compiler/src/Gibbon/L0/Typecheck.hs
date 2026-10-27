@@ -1078,6 +1078,74 @@ tcExp ddefs sbst venv fenv bound_tyvars is_main ex = (\(a,b,c) -> (a,b,c)) <$>
 
     Ext (L0.L _ e) -> go e
 
+    Ext (TransformList ls) -> do
+      (s1, in_ty, out_ty, ls_tc) <-
+        foldlM
+          (\(s, mb_in_ty, mb_out_ty, ls_acc)
+                  ((in_con, in_decl), (out_con, out_decl), arg) -> do
+            
+            -- get the in and out data constructors
+            let in_tycon  = getTyOfDataCon ddefs in_con
+                out_tycon = getTyOfDataCon ddefs out_con
+            
+            -- get in and out return types/fields
+            (_in_tyapps, in_fields, in_ret_ty) <- instDataConTy ddefs in_con
+            (_out_tyapps, out_fields, out_ret_ty) <- instDataConTy ddefs out_con
+            
+            -- unify in and out return types
+            in_s1 <- unify ex in_decl in_ret_ty
+            out_s1 <- unify ex out_decl out_ret_ty
+            
+            -- define expected payload types
+            let in_payload_ty = payloadTy in_tycon in_fields
+                out_payload_ty = payloadTy out_tycon out_fields
+                expected_arg_ty = ArrowTy [in_payload_ty] out_payload_ty
+            
+            -- typecheck expression
+            (s1, arg_ty, arg_tc) <-
+              tcExpChecked ddefs (s <> in_s1 <> out_s1) venv fenv
+                            bound_tyvars is_main expected_arg_ty arg
+            arg_s <- unify arg expected_arg_ty arg_ty
+            
+            -- ensure in and out types agree between transforms
+            in_s2 <- case mb_in_ty of
+                       Nothing -> pure emptySubst
+                       Just ty -> unify ex ty in_ret_ty
+            out_s2 <- case mb_out_ty of
+                        Nothing -> pure emptySubst
+                        Just ty -> unify ex ty out_ret_ty
+            
+            -- combine substitutions and zonk types
+            let s' = s <> in_s1 <> out_s1 <> s1 <> arg_s <> in_s2 <> out_s2
+                in_ty' = zonkTy s' in_ret_ty
+                out_ty' = zonkTy s' out_ret_ty
+            pure (s', Just in_ty', Just out_ty',
+                  ls_acc ++ [((in_con, zonkTy s' in_ret_ty),
+                              (out_con, zonkTy s' out_ret_ty),
+                              zonkExp s' arg_tc)])
+          )
+          (sbst, Nothing, Nothing, [])
+          ls
+      let in_ty' = maybe (TransformListTy (ProdTy []) (ProdTy [])) id
+                   (TransformListTy <$> in_ty <*> out_ty)
+      pure (s1, in_ty', Ext (TransformList ls_tc))
+
+    Ext (GMap ty transforms object) -> do
+      (s1, transforms_ty, transforms_tc) <- go transforms
+      (s2, object_ty, object_tc) <- tcExp ddefs s1 venv fenv bound_tyvars is_main object
+      case zonkTy (s1 <> s2) transforms_ty of
+        TransformListTy in_ty out_ty -> do
+          s3 <- unify object in_ty object_ty
+          s4_ty <- unify ex ty out_ty
+          let s4 = s1 <> s2 <> s3 <> s4_ty
+          pure (s4, zonkTy s4 out_ty,
+                Ext (GMap (zonkTy s4 ty)
+                          (zonkExp s4 transforms_tc)
+                          (zonkExp s4 object_tc)))
+        transforms_ty' ->
+          err $ text "gmap expected a transform list, but got:"
+               <+> doc transforms_ty'
+
     Ext (LinearExt{}) -> err $ text "a linear types extension wasn't desugared: " <+> exp_doc
 
     TimeIt a ty b -> do
@@ -1104,6 +1172,18 @@ tcExp ddefs sbst venv fenv bound_tyvars is_main ex = (\(a,b,c) -> (a,b,c)) <$>
   where
     go = tcExp ddefs sbst venv fenv bound_tyvars is_main
     exp_doc = "In the expression: " <+> doc ex
+
+    payloadTy tycon =
+      payloadTy' . filter (not . isRecursiveField)
+      where
+        isRecursiveField ty =
+          case ty of
+            PackedTy field_tycon _ -> field_tycon == tycon
+            _ -> False
+
+        payloadTy' []  = ProdTy []
+        payloadTy' [ty] = ty
+        payloadTy' tys = ProdTy tys
 
 
 -- | The 'Maybe Ty0' is the type the surrounding context expects the case to
@@ -1287,6 +1367,7 @@ zonkTy s@(Subst mp) ty =
     SymSetTy -> ty
     SymHashTy -> ty
     IntHashTy -> ty
+    TransformListTy in_ty out_ty -> TransformListTy (go in_ty) (go out_ty)
   where
     go = zonkTy s
 
@@ -1365,6 +1446,12 @@ zonkExp s ex =
     Ext (PrintPacked ty arg) -> Ext $ PrintPacked (zonkTy s ty) (go arg)
     Ext (CopyPacked ty arg) -> Ext $ CopyPacked (zonkTy s ty) (go arg)
     Ext (TravPacked ty arg) -> Ext $ TravPacked (zonkTy s ty) (go arg)
+    Ext (TransformList ls) ->
+      Ext $ TransformList
+        [ ((in_con, zonkTy s in_ty), (out_con, zonkTy s out_ty), go arg)
+        | ((in_con, in_ty), (out_con, out_ty), arg) <- ls ]
+    Ext (GMap ty transforms object) ->
+      Ext $ GMap (zonkTy s ty) (go transforms) (go object)
     Ext (LinearExt{}) -> error $ "zonkExp: a linear types extension wasn't desugared: " ++ sdoc ex
     SpawnE fn tyapps args -> let tyapps1 = map (zonkTy s) tyapps
                              in SpawnE fn tyapps1 (map go args)
@@ -1429,6 +1516,12 @@ substTyVarExp s ex =
     Ext (PrintPacked ty arg) -> Ext $ PrintPacked (substTyVar s ty) (go arg)
     Ext (CopyPacked ty arg) -> Ext $ CopyPacked (substTyVar s ty) (go arg)
     Ext (TravPacked ty arg) -> Ext $ TravPacked (substTyVar s ty) (go arg)
+    Ext (TransformList ls) ->
+      Ext $ TransformList
+        [ ((in_con, substTyVar s in_ty), (out_con, substTyVar s out_ty), go arg)
+        | ((in_con, in_ty), (out_con, out_ty), arg) <- ls ]
+    Ext (GMap ty transforms object) ->
+      Ext $ GMap (substTyVar s ty) (go transforms) (go object)
     Ext (L0.L p e)    -> Ext $ L0.L p (go e)
     Ext (LinearExt{}) -> error $ "substTyVarExp: a linear types extension wasn't desugared: " ++ sdoc ex
     WithArenaE{} -> error "substTyVarExp: WithArenaE not handled."
@@ -1516,6 +1609,10 @@ tyVarToMetaTy = go M.empty
        SymSetTy -> pure (env, ty)
        SymHashTy-> pure (env, ty)
        IntHashTy-> pure (env, ty)
+       TransformListTy in_ty out_ty -> do
+                        (env', in_ty') <- go env in_ty
+                        (env'', out_ty') <- go env' out_ty
+                        pure (env'', TransformListTy in_ty' out_ty')
 
     gol :: M.Map TyVar Ty0 -> [Ty0] -> TcM (M.Map TyVar Ty0, [Ty0])
     gol env tys = foldlM

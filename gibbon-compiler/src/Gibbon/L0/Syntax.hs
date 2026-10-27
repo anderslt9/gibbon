@@ -59,7 +59,7 @@ data E0Ext loc dec =
  | L Loc.Loc EXP0
 
 --  TODO verify this later
- | TransformList [((Var, dec), (Var, dec), EXP0)] -- ((in cons, in type), (out cons, out type), transFunc)
+ | TransformList [((DataCon, dec), (DataCon, dec), EXP0)] -- ((in cons, in type), (out cons, out type), transFunc)
  | GMap dec EXP0 EXP0 -- map transformlist to packed type
  | LinearExt (LinearExt loc dec)
  deriving (Show, Ord, Eq, Read, Generic, NFData)
@@ -174,7 +174,7 @@ instance HasRenamable E0Ext l d => Renamable (E0Ext l d) where
       CopyPacked ty e -> CopyPacked ty (gRename env e)
       TravPacked ty e -> TravPacked ty (gRename env e)
       L p e    -> L p (gRename env e)
-      TransformList ls -> TransformList $ map (\((a,b),(c,d),e) -> ((go a, go b), (go c, go d), go e)) ls
+      TransformList ls -> TransformList $ map (\((a,b),(c,d),e) -> ((a, go b), (c, go d), go e)) ls
       GMap ty e1 e2 -> GMap ty (gRename env e1) (gRename env e2)
       LinearExt e -> LinearExt (gRename env e)
     where

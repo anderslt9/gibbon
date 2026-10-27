@@ -702,7 +702,7 @@ desugarExp type_syns toplevel e =
                                   Tuple _ Boxed ((Con _ q1) : (Con _ q2) : [H.Var _ v]) -> do
                                     ty1 <- newMetaTy
                                     ty2 <- newMetaTy
-                                    pure  (((toVar . qnameToStr) q1, ty1), ((toVar . qnameToStr) q2, ty2), VarE (toVar $ qnameToStr v))                                  
+                                    pure  ((qnameToStr q1, ty1), (qnameToStr q2, ty2), VarE (toVar $ qnameToStr v))                                  
                                   -- TODO handle when variable not used
                                   _ -> error $ "desugarExp: couldn't parse tlist; " ++ show e0
                     
