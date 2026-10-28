@@ -670,7 +670,7 @@ examplePass1 =
 
 -- how I might actually have it written on frontend:
 -- ***note it can imply the type from the constructor, and I don't need to include empty mappings
--- transformList [
+-- tlist [
 --    (NodeA, NodeB, fITTtoFTT)
 -- ]
 -- -->
