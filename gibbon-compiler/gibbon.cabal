@@ -67,6 +67,7 @@ library
 
                        -- compiler passes, roughly in the order they're run
                        Gibbon.Passes.Freshen
+                       Gibbon.Passes.RemoveGMap
                        Gibbon.Passes.Flatten
                        Gibbon.Passes.InlineTriv
                        Gibbon.Passes.Simplifier
