@@ -204,6 +204,8 @@ toL1 Prog{ddefs, fundefs, mainExp} =
             PrintPacked{} -> error "toL1: PrintPacked"
             CopyPacked{} -> error "toL1: CopyPacked"
             TravPacked{} -> error "toL1: TravPacked"
+            TransformList{} -> error "toL1: TransformList"
+            GMap{} -> error "toL1: GMap"
             LinearExt{} -> error $ "toL1: a linear types extension wasn't desugared: " ++ sdoc ex
             -- Erase srclocs while going to L1
             L _ e   -> toL1Exp e
@@ -242,6 +244,7 @@ toL1 Prog{ddefs, fundefs, mainExp} =
         IntHashTy -> L1.IntHashTy
         VectorTy a  -> L1.VectorTy (toL1Ty a)
         ListTy a  -> L1.ListTy (toL1Ty a)
+        TransformListTy{} -> error "toL1: TransformListTy encountered"
 
     toL1TyS :: ArrowTy Ty0 -> ArrowTy L1.Ty1
     toL1TyS t@(ForAll tyvars (ArrowTy as b))
@@ -474,6 +477,7 @@ monoOblsTy ddefs1 t = do
     SymSetTy -> pure t
     SymHashTy-> pure t
     IntHashTy-> pure t
+    TransformListTy{} -> pure t
 
 
 -- | Collect monomorphization obligations.
@@ -636,6 +640,15 @@ collectMonoObls ddefs env2 toplevel ex =
         L p e -> do
           e' <- go e
           pure $ Ext $ L p e'
+        TransformList ls -> do
+          ls' <- mapM (\(inCons, outCons, e) -> do
+                         e' <- go e
+                         pure (inCons, outCons, e')) ls
+          pure $ Ext $ TransformList ls'
+        GMap dec e1 e2 -> do
+          e1' <- go e1
+          e2' <- go e2
+          pure $ Ext $ GMap dec e1' e2'
         LinearExt{} -> error $ "collectMonoObls: a linear types extension wasn't desugared: " ++ sdoc ex
     SpawnE f [] args -> do
       args' <- mapM (collectMonoObls ddefs env2 toplevel) args
@@ -744,6 +757,15 @@ monoLambdas ex =
     Ext (CopyPacked ty arg)-> Ext <$> (CopyPacked ty) <$> monoLambdas arg
     Ext (TravPacked ty arg)-> Ext <$> (TravPacked ty) <$> monoLambdas arg
     Ext (L p e)      -> Ext <$> (L p) <$> monoLambdas e
+    Ext (TransformList ls) -> do
+      ls' <- mapM (\(inCons, outCons, e) -> do
+                     e' <- go e
+                     pure (inCons, outCons, e')) ls
+      pure $ Ext $ TransformList ls'
+    Ext (GMap dec e1 e2) -> do
+      e1' <- go e1
+      e2' <- go e2
+      pure $ Ext $ GMap dec e1' e2'
     Ext (LinearExt{}) -> error $ "monoLambdas: a linear types extension wasn't desugared: " ++ sdoc ex
     SpawnE f tyapps args ->
       case tyapps of
@@ -836,6 +858,8 @@ updateTyConsExp ddefs mono_st ex =
     Ext (FunRefE{})    -> ex
     Ext (BenchE{})     -> ex
     Ext (ParE0 ls)     -> Ext $ ParE0 $ map go ls
+    Ext (TransformList ls) -> Ext $ TransformList $ map (\(inCons, outCons, e) -> (inCons, outCons, go e)) ls
+    Ext (GMap dec e1 e2) -> Ext $ GMap dec (go e1) (go e2)
     Ext (PrintPacked ty arg) -> Ext $ PrintPacked (updateTyConsTy ddefs mono_st ty) (go arg)
     Ext (CopyPacked ty arg) -> Ext $ CopyPacked (updateTyConsTy ddefs mono_st ty) (go arg)
     Ext (TravPacked ty arg) -> Ext $ TravPacked (updateTyConsTy ddefs mono_st ty) (go arg)
@@ -871,6 +895,7 @@ updateTyConsTy ddefs mono_st ty =
     SymSetTy -> ty
     SymHashTy -> ty
     IntHashTy -> ty
+    TransformListTy{} -> ty
   where
     go = updateTyConsTy ddefs mono_st
 
@@ -1217,6 +1242,10 @@ specLambdasExp ddefs env2 ex =
         PrintPacked ty arg -> Ext <$> (PrintPacked ty) <$> go arg
         CopyPacked ty arg -> Ext <$> (CopyPacked ty) <$> go arg
         TravPacked ty arg -> Ext <$> (TravPacked ty) <$> go arg
+        TransformList ls -> Ext <$> (TransformList <$> mapM (\(inCons, outCons, e) -> do
+                                                               e' <- go e
+                                                               pure (inCons, outCons, e')) ls)
+        GMap dec e1 e2 -> Ext <$> (GMap dec <$> go e1 <*> go e2)
         LinearExt{}  -> error $ "specLambdasExp: a linear types extension wasn't desugared: " ++ sdoc ex
         L p e -> Ext <$> (L p) <$> go e
   where
@@ -1270,6 +1299,9 @@ specLambdasExp ddefs env2 ex =
             CopyPacked _ty arg -> collectFunRefs arg acc
             TravPacked _ty arg -> collectFunRefs arg acc
             L _ e1 -> collectFunRefs e1 acc
+            TransformList ls ->
+              foldr (\(_,_,arg) acc2 -> collectFunRefs arg acc2) acc ls
+            GMap _ e1 e2 -> collectFunRefs e2 (collectFunRefs e1 acc)
             LinearExt {} ->
               error $
               "collectFunRefs: a linear types extension wasn't desugared: " ++
@@ -1312,6 +1344,8 @@ specLambdasExp ddefs env2 ex =
             CopyPacked _ty arg -> collectAllFuns arg acc
             TravPacked _ty arg -> collectAllFuns arg acc
             L _ e1              -> collectAllFuns e1 acc
+            TransformList ls    -> foldr (\(_,_,arg) acc2 -> collectAllFuns arg acc2) acc ls
+            GMap _ e1 e2        -> collectAllFuns e2 (collectAllFuns e1 acc)
             LinearExt{}         -> error $ "collectAllFuns: a linear types extension wasn't desugared: " ++ sdoc ex
 
 addArgsToTy :: [Ty0] -> TyScheme -> TyScheme
@@ -1383,7 +1417,17 @@ bindLambdas prg@Prog{fundefs,mainExp} = do
         (Ext (L p e1))     -> do
           (ls, e1') <- go e1
           pure (ls, Ext $ L p e1')
+        (Ext (TransformList ls)) -> do
+          (ltss,args') <- unzip <$> mapM (\(inCons, outCons, e) -> do
+                                             (lts, e') <- go e
+                                             pure (lts, (inCons, outCons, e'))) ls
+          pure (concat ltss, Ext (TransformList args'))
+        (Ext (GMap dec e1 e2)) -> do
+          (lts1, e1') <- go e1
+          (lts2, e2') <- go e2
+          pure (lts1 ++ lts2, Ext (GMap dec e1' e2'))
         (Ext (LinearExt{})) -> error $ "bindLambdas: a linear types extension wasn't desugared: " ++ sdoc e0
+        -- (Ext (TransformList))
         (LitE{})      -> pure ([], e0)
         (CharE _)     -> pure ([], e0)
         (FloatE{})    -> pure ([], e0)
@@ -1582,6 +1626,10 @@ desugarL0 (Prog ddefs fundefs' mainExp') = do
                   pure $ AppE f UnknownTailType [] [arg]
               | otherwise -> err1 $ "printPacked without a packed type. Got " ++ sdoc ty
             L p e   -> Ext <$> (L p) <$> (go e)
+            TransformList ls -> Ext <$> (TransformList <$> mapM (\(inCons, outCons, e) -> do
+                                                                   e' <- go e
+                                                                   pure (inCons, outCons, e')) ls)
+            GMap dec e1 e2 -> Ext <$> (GMap dec <$> go e1 <*> go e2)
             LinearExt{} -> err1 (sdoc ex)
 
 --------------------------------------------------------------------------------

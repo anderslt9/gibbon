@@ -69,6 +69,7 @@ import qualified Gibbon.L2.Typecheck as L2
 import qualified Gibbon.L3.Typecheck as L3
 import qualified Gibbon.L3.Syntax as L3Syn
 import           Gibbon.Passes.Freshen        (freshNames)
+import           Gibbon.Passes.RemoveGMap    (rmGMap)
 import           Gibbon.Passes.Flatten        (flattenL1, flattenL2, flattenL3)
 import           Gibbon.Passes.InlineTriv     (inlineTriv)
 import           Gibbon.Passes.Simplifier     (simplifyL1, lateInlineTriv, simplifyLocBinds)
@@ -884,6 +885,7 @@ passesThroughL3 config@Config{dynflags} l0 = do
       l0 <- goE0 "monomorphize"    L0.monomorphize      l0
       -- l0 <- goE0 "closureConvert"  L0.closureConvert    l0
       l0 <- goE0 "specLambdas"     L0.specLambdas       l0
+      l0 <- goE0 "removeGMap"      rmGMap                l0
       l0 <- goE0 "desugarL0"       L0.desugarL0         l0
       l0 <- goE0 "floatOutCase"    L0.floatOutCase      l0
       -- Note: L0 -> L1

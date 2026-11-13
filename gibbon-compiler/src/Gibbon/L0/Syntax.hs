@@ -58,7 +58,7 @@ data E0Ext loc dec =
  | TravPacked dec EXP0 -- ^ Traverse a packed value.
  | L Loc.Loc EXP0
 
---  TODO verify this later
+--  TODO move dec to the outside of list
  | TransformList [((DataCon, dec), (DataCon, dec), EXP0)] -- ((in cons, in type), (out cons, out type), transFunc)
  | GMap dec EXP0 EXP0 -- map transformlist to packed type
  | LinearExt (LinearExt loc dec)
