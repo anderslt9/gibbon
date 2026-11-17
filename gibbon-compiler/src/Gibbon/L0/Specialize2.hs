@@ -640,11 +640,11 @@ collectMonoObls ddefs env2 toplevel ex =
         L p e -> do
           e' <- go e
           pure $ Ext $ L p e'
-        TransformList ls -> do
+        TransformList inty outty ls -> do
           ls' <- mapM (\(inCons, outCons, e) -> do
                          e' <- go e
                          pure (inCons, outCons, e')) ls
-          pure $ Ext $ TransformList ls'
+          pure $ Ext $ TransformList inty outty ls'
         GMap dec e1 e2 -> do
           e1' <- go e1
           e2' <- go e2
@@ -757,11 +757,11 @@ monoLambdas ex =
     Ext (CopyPacked ty arg)-> Ext <$> (CopyPacked ty) <$> monoLambdas arg
     Ext (TravPacked ty arg)-> Ext <$> (TravPacked ty) <$> monoLambdas arg
     Ext (L p e)      -> Ext <$> (L p) <$> monoLambdas e
-    Ext (TransformList ls) -> do
+    Ext (TransformList inty outty ls) -> do
       ls' <- mapM (\(inCons, outCons, e) -> do
                      e' <- go e
                      pure (inCons, outCons, e')) ls
-      pure $ Ext $ TransformList ls'
+      pure $ Ext $ TransformList inty outty ls'
     Ext (GMap dec e1 e2) -> do
       e1' <- go e1
       e2' <- go e2
@@ -858,7 +858,7 @@ updateTyConsExp ddefs mono_st ex =
     Ext (FunRefE{})    -> ex
     Ext (BenchE{})     -> ex
     Ext (ParE0 ls)     -> Ext $ ParE0 $ map go ls
-    Ext (TransformList ls) -> Ext $ TransformList $ map (\(inCons, outCons, e) -> (inCons, outCons, go e)) ls
+    Ext (TransformList inty outty ls) -> Ext $ TransformList (updateTyConsTy ddefs mono_st inty) (updateTyConsTy ddefs mono_st outty) $ map (\(inCons, outCons, e) -> (inCons, outCons, go e)) ls
     Ext (GMap dec e1 e2) -> Ext $ GMap dec (go e1) (go e2)
     Ext (PrintPacked ty arg) -> Ext $ PrintPacked (updateTyConsTy ddefs mono_st ty) (go arg)
     Ext (CopyPacked ty arg) -> Ext $ CopyPacked (updateTyConsTy ddefs mono_st ty) (go arg)
@@ -1242,7 +1242,7 @@ specLambdasExp ddefs env2 ex =
         PrintPacked ty arg -> Ext <$> (PrintPacked ty) <$> go arg
         CopyPacked ty arg -> Ext <$> (CopyPacked ty) <$> go arg
         TravPacked ty arg -> Ext <$> (TravPacked ty) <$> go arg
-        TransformList ls -> Ext <$> (TransformList <$> mapM (\(inCons, outCons, e) -> do
+        TransformList inty outty ls -> Ext <$> (TransformList inty outty <$> mapM (\(inCons, outCons, e) -> do
                                                                e' <- go e
                                                                pure (inCons, outCons, e')) ls)
         GMap dec e1 e2 -> Ext <$> (GMap dec <$> go e1 <*> go e2)
@@ -1299,7 +1299,7 @@ specLambdasExp ddefs env2 ex =
             CopyPacked _ty arg -> collectFunRefs arg acc
             TravPacked _ty arg -> collectFunRefs arg acc
             L _ e1 -> collectFunRefs e1 acc
-            TransformList ls ->
+            TransformList _ _ ls ->
               foldr (\(_,_,arg) acc2 -> collectFunRefs arg acc2) acc ls
             GMap _ e1 e2 -> collectFunRefs e2 (collectFunRefs e1 acc)
             LinearExt {} ->
@@ -1344,7 +1344,7 @@ specLambdasExp ddefs env2 ex =
             CopyPacked _ty arg -> collectAllFuns arg acc
             TravPacked _ty arg -> collectAllFuns arg acc
             L _ e1              -> collectAllFuns e1 acc
-            TransformList ls    -> foldr (\(_,_,arg) acc2 -> collectAllFuns arg acc2) acc ls
+            TransformList _ _ ls -> foldr (\(_,_,arg) acc2 -> collectAllFuns arg acc2) acc ls
             GMap _ e1 e2        -> collectAllFuns e2 (collectAllFuns e1 acc)
             LinearExt{}         -> error $ "collectAllFuns: a linear types extension wasn't desugared: " ++ sdoc ex
 
@@ -1417,11 +1417,11 @@ bindLambdas prg@Prog{fundefs,mainExp} = do
         (Ext (L p e1))     -> do
           (ls, e1') <- go e1
           pure (ls, Ext $ L p e1')
-        (Ext (TransformList ls)) -> do
+        (Ext (TransformList inty outty ls)) -> do
           (ltss,args') <- unzip <$> mapM (\(inCons, outCons, e) -> do
                                              (lts, e') <- go e
                                              pure (lts, (inCons, outCons, e'))) ls
-          pure (concat ltss, Ext (TransformList args'))
+          pure (concat ltss, Ext (TransformList inty outty args'))
         (Ext (GMap dec e1 e2)) -> do
           (lts1, e1') <- go e1
           (lts2, e2') <- go e2
@@ -1626,7 +1626,7 @@ desugarL0 (Prog ddefs fundefs' mainExp') = do
                   pure $ AppE f UnknownTailType [] [arg]
               | otherwise -> err1 $ "printPacked without a packed type. Got " ++ sdoc ty
             L p e   -> Ext <$> (L p) <$> (go e)
-            TransformList ls -> Ext <$> (TransformList <$> mapM (\(inCons, outCons, e) -> do
+            TransformList inty outty ls -> Ext <$> (TransformList inty outty <$> mapM (\(inCons, outCons, e) -> do
                                                                    e' <- go e
                                                                    pure (inCons, outCons, e')) ls)
             GMap dec e1 e2 -> Ext <$> (GMap dec <$> go e1 <*> go e2)

@@ -699,10 +699,8 @@ desugarExp type_syns toplevel e =
                   else if f == "tlist"
                   then do
                     let go e0 = case e0 of
-                                  Tuple _ Boxed ((Con _ q1) : (Con _ q2) : [H.Var _ v]) -> do
-                                    ty1 <- newMetaTy
-                                    ty2 <- newMetaTy
-                                    pure  ((qnameToStr q1, ty1), (qnameToStr q2, ty2), VarE (toVar $ qnameToStr v))                                  
+                                  Tuple _ Boxed ((Con _ q1) : (Con _ q2) : [H.Var _ v]) -> do                            
+                                    pure  (qnameToStr q1, qnameToStr q2, VarE (toVar $ qnameToStr v))                                  
                                   -- TODO handle when variable not used
                                   _ -> error $ "desugarExp: couldn't parse tlist; " ++ show e0
                     
@@ -710,8 +708,9 @@ desugarExp type_syns toplevel e =
                       List _ ls -> mapM go ls
                       -- TODO include variables as well
                       _ -> error $ "desugarExp: tlist expects a list of Just (name, len) or Nothing; got " ++ show e2
-                    
-                    pure $ Ext $ TransformList e2'
+                    inty <- newMetaTy
+                    outty <- newMetaTy
+                    pure $ Ext $ TransformList inty outty e2'
                   else if f == "gmap" 
                   then do
                     e2' <- desugarExp type_syns toplevel e2
@@ -1380,7 +1379,7 @@ fixupSpawn ex =
     Ext (CopyPacked ty arg) -> Ext (CopyPacked ty (go arg))
     Ext (TravPacked ty arg) -> Ext (TravPacked ty (go arg))
     Ext (L0.L p e)    -> Ext (L0.L p (go e))
-    Ext (TransformList ls) -> Ext (TransformList (map (\case (ininfo, outinfo, f) ->  (ininfo, outinfo, go f)) ls))
+    Ext (TransformList inty outty ls) -> Ext (TransformList inty outty (map (\(a,b,c) -> (a,b,go c)) ls))
     Ext (GMap ty transforms object) -> Ext (GMap ty (go transforms) (go object))
     Ext (LinearExt ext) ->
       case ext of
@@ -1432,7 +1431,7 @@ verifyBenchEAssumptions bench_allowed ex =
     Ext (CopyPacked ty arg) -> Ext (CopyPacked ty (not_allowed arg))
     Ext (TravPacked ty arg) -> Ext (TravPacked ty (not_allowed arg))
     Ext (L0.L p e)    -> Ext (L0.L p (go e))
-    Ext (TransformList ls) -> Ext $ TransformList (map (\case (ininfo, outinfo, f) ->  (ininfo, outinfo, go f)) ls)
+    Ext (TransformList inty outty ls) -> Ext $ TransformList inty outty (map (\(a,b,c) -> (a,b,go c)) ls)
     Ext (GMap ty transforms object) -> Ext $ GMap ty (go transforms) (go object)
     Ext (LinearExt{}) -> error "verifyBenchEAssumptions: LinearExt not handled."
     -- Straightforward recursion ...
@@ -1557,8 +1556,8 @@ desugarLinearExts (Prog ddefs fundefs main) = do
                                     pure (Ext (TravPacked ty arg'))
             L0.L p e -> do e' <- go e
                            pure (Ext (L0.L p e'))
-            TransformList ls -> do ls' <- mapM (\(ininfo, outinfo, f) -> do f' <- go f; pure (ininfo, outinfo, f')) ls
-                                   pure (Ext (TransformList ls'))                         
+            TransformList inty outty ls -> do ls' <- mapM (\(a,b,c) -> do c' <- go c; pure (a,b,c')) ls
+                                              pure (Ext (TransformList inty outty ls'))
             GMap ty transforms object -> do
               transforms' <- go transforms
               object' <- go object

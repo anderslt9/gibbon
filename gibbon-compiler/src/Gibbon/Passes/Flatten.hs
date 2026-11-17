@@ -312,4 +312,6 @@ flattenExp0 ddfs env2 e0 =
         L0.L p e -> do
           (bnd1,e') <- flattenExp0 ddfs env2 e
           pure (bnd1, Ext $ L0.L p e')
+        L0.TransformList{} -> error "flattenL0: TransformList not handled."
+        L0.GMap{} -> error "flattenL0: GMap not handled."
         L0.LinearExt{} -> error $ "flattenExp0: a linear types extension wasn't desugared: " ++ sdoc e0

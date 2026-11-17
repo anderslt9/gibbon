@@ -181,6 +181,8 @@ tagDataCons ddefs = go allCons
        Ext (CopyPacked ty arg) -> Ext <$> (CopyPacked ty) <$> go cons arg
        Ext (TravPacked ty arg) -> Ext <$> (TravPacked ty) <$> go cons arg
        Ext (L p e)    -> Ext <$> (L p) <$> go cons e
+       Ext (TransformList _ _ _ls) -> error "SExpFrontend: TransformList not handled."
+       Ext (GMap _ _e1 _e2) -> error "SExpFrontend: GMap not handled."
        Ext (LinearExt{}) -> error $ "tagDataCons: SExpFrontend doesn't support linear types yet."
 
 

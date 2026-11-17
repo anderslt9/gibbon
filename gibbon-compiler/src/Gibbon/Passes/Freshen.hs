@@ -300,13 +300,14 @@ freshExp venv tvenv exp =
           (tvenv', ty') <- freshTy tvenv ty
           arg' <- freshExp venv tvenv' arg
           pure $ Ext $ TravPacked ty' arg'
-        TransformList ls -> do
-          ls' <- mapM (\((v1, ty1), (v2, ty2), f) -> do
-                         (tvenv', ty1') <- freshTy tvenv ty1
-                         (tvenv'', ty2') <- freshTy tvenv' ty2
-                         f' <- freshExp venv tvenv'' f
-                         pure ((v1, ty1'), (v2, ty2'), f')) ls
-          pure $ Ext $ TransformList ls'
+        TransformList inty outty ls -> do
+          ls' <- mapM (\(v1, v2, f) -> do
+                         f' <- freshExp venv tvenv f
+                         pure (v1, v2, f')) ls
+          
+          (tvenv', inty') <- freshTy tvenv inty
+          (_, outty') <- freshTy tvenv' outty
+          pure $ Ext $ TransformList inty' outty' ls'
         GMap ty arg1 arg2 -> do
           (tvenv', ty') <- freshTy tvenv ty
           arg1' <- freshExp venv tvenv' arg1

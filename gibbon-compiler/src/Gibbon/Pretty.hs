@@ -604,6 +604,7 @@ instance Pretty L0.Ty0 where
         L0.SymSetTy   -> text "SymSet"
         L0.SymHashTy  -> text "SymHash"
         L0.IntHashTy  -> text "IntHash"
+        L0.TransformListTy inty outty -> text "TransformList" <+> pprintWithStyle sty inty <+> text "->" <+> pprintWithStyle sty outty
 
 
 instance Pretty L0.TyScheme where
@@ -627,6 +628,10 @@ instance (Out a, Pretty a) => Pretty (L0.E0Ext a L0.Ty0) where
                               parens (pprintWithStyle sty arg <> text "::" <> pprintWithStyle sty ty)
       L0.TravPacked ty arg -> text "travPacked" <+>
                               parens (pprintWithStyle sty arg <> text "::" <> pprintWithStyle sty ty)
+      L0.TransformList inty outty ls -> text "tlist" <+> parens (pprintWithStyle sty inty <+> text "->" <+> pprintWithStyle sty outty) 
+                                        <+> lbrack <> hcat (punctuate (text ", ") (map (\(inCon, outCon, e) -> parens (text inCon <+> text "->" 
+                                        <+> text outCon <+> text ":" <+> pprintWithStyle sty e)) ls)) <> rbrack
+      L0.GMap _ e1 e2 -> text "gmap" <+> parens (pprintWithStyle sty e1 <+> text "," <+> pprintWithStyle sty e2)
       L0.LinearExt ext ->
         case ext of
           L0.ReverseAppE fn arg -> (pprintWithStyle sty arg <+> text "&") $$ pprintWithStyle sty fn

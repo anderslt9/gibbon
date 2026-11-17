@@ -91,6 +91,8 @@ elimExt cns tns dds ext0 = case ext0 of
   CopyPacked dec preexp -> CopyPacked (g dec) (f preexp)
   TravPacked dec preexp -> TravPacked (g dec) (f preexp)
   Gibbon.L0.Syntax.L loc preexp -> Gibbon.L0.Syntax.L loc (f preexp)
+  TransformList{} -> error "L0.ElimNewtype: TransformList not handled."
+  GMap{} -> error "L0.ElimNewtype: GMap not handled."
   LinearExt (ReverseAppE pe1 pe2) -> LinearExt (ReverseAppE (f pe1) (f pe2))
   LinearExt (LseqE pe1 pe2) -> LinearExt (LseqE (f pe1) (f pe2))
   LinearExt (AliasE pe) -> LinearExt (AliasE (f pe))

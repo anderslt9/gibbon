@@ -58,8 +58,8 @@ data E0Ext loc dec =
  | TravPacked dec EXP0 -- ^ Traverse a packed value.
  | L Loc.Loc EXP0
 
---  TODO move dec to the outside of list
- | TransformList [((DataCon, dec), (DataCon, dec), EXP0)] -- ((in cons, in type), (out cons, out type), transFunc)
+-- TODO move dec to the outside of list
+ | TransformList dec dec [(DataCon, DataCon, EXP0)] -- ((in cons, in type), (out cons, out type), transFunc)
  | GMap dec EXP0 EXP0 -- map transformlist to packed type
  | LinearExt (LinearExt loc dec)
  deriving (Show, Ord, Eq, Read, Generic, NFData)
@@ -118,7 +118,7 @@ instance FreeVars (E0Ext l d) where
       CopyPacked _ e1  -> gFreeVars e1
       TravPacked _ e1  -> gFreeVars e1
       L _ e1           -> gFreeVars e1
-      TransformList ls -> S.unions (map (gFreeVars . (\(_, _, c) -> c)) ls)
+      TransformList _ _ ls -> S.unions (map (gFreeVars . (\(_, _, c) -> c)) ls)
       GMap _ e1 e2 -> gFreeVars e1 `S.union` gFreeVars e2
       LinearExt ext      -> gFreeVars ext
 
@@ -143,7 +143,7 @@ instance HasSubstitutableExt E0Ext l d => SubstitutableExt (PreExp E0Ext l d) (E
       CopyPacked ty e1 -> CopyPacked ty (gSubst old new e1)
       TravPacked ty e1 -> TravPacked ty (gSubst old new e1)
       L p e1   -> L p (gSubst old new e1)
-      TransformList ls -> TransformList $ map (\(a,b,c) -> (a,b,gSubst old new c)) ls
+      TransformList inty outty ls -> TransformList inty outty $ map (\(a,b,c) -> (a,b,gSubst old new c)) ls
       GMap ty e1 e2 -> GMap ty (gSubst old new e1) (gSubst old new e2)
       LinearExt e -> LinearExt (gSubstExt old new e)
 
@@ -154,7 +154,7 @@ instance HasSubstitutableExt E0Ext l d => SubstitutableExt (PreExp E0Ext l d) (E
       FunRefE{}        -> ext
       BenchE fn tyapps args b -> BenchE fn tyapps (map (gSubstE old new) args) b
       ParE0 ls -> ParE0 $ map (gSubstE old new) ls
-      TransformList ls -> TransformList $ map (\(a,b,c) -> (a,b,gSubstE old new c)) ls
+      TransformList inty outty ls -> TransformList inty outty $ map (\(a,b,c) -> (a,b,gSubstE old new c)) ls
       GMap ty e1 e2 -> GMap ty (gSubstE old new e1) (gSubstE old new e2)
       PrintPacked ty e -> PrintPacked ty $ (gSubstE old new e)
       CopyPacked ty e -> CopyPacked ty $ (gSubstE old new e)
@@ -174,7 +174,7 @@ instance HasRenamable E0Ext l d => Renamable (E0Ext l d) where
       CopyPacked ty e -> CopyPacked ty (gRename env e)
       TravPacked ty e -> TravPacked ty (gRename env e)
       L p e    -> L p (gRename env e)
-      TransformList ls -> TransformList $ map (\((a,b),(c,d),e) -> ((a, go b), (c, go d), go e)) ls
+      TransformList inty outty ls -> TransformList inty outty $ map (\(a,b,c) -> (a,b,go c)) ls
       GMap ty e1 e2 -> GMap ty (gRename env e1) (gRename env e2)
       LinearExt e -> LinearExt (gRename env e)
     where
@@ -572,9 +572,7 @@ recoverType ddfs env2 ex =
         TravPacked _ _ -> voidTy0
         ParE0 ls -> ProdTy $ map (recoverType ddfs env2) ls
         -- uncertain, but currently representing TransformList type as function type
-        TransformList ls -> case ls of
-                              [] -> TransformListTy voidTy0 voidTy0
-                              (((_, inType), (_, outType), _):_) -> TransformListTy inType outType
+        TransformList inty outty _ -> TransformListTy inty outty
         GMap _ arg1 _ -> case recoverType ddfs env2 arg1 of
                               -- TODO maybe add support for just regular function also
                               -- ArrowTy _ outType -> outType

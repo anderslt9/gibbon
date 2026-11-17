@@ -132,7 +132,7 @@ defaultLitWidthsExp ex =
     Ext (PrintPacked ty arg)  -> Ext . PrintPacked ty <$> go arg
     Ext (CopyPacked ty arg)   -> Ext . CopyPacked ty <$> go arg
     Ext (TravPacked ty arg)   -> Ext . TravPacked ty <$> go arg
-    Ext (TransformList ls)    -> Ext . TransformList <$> mapM (\(con1, con2, e) ->  
+    Ext (TransformList inty outty ls)    -> Ext . TransformList inty outty <$> mapM (\(con1, con2, e) ->
                                                                   do e' <- go e
                                                                      pure (con1, con2, e')) ls   
     Ext (GMap ty e1 e2) -> (\a b -> Ext (GMap ty a b)) <$> go e1 <*> go e2                           
@@ -1078,11 +1078,11 @@ tcExp ddefs sbst venv fenv bound_tyvars is_main ex = (\(a,b,c) -> (a,b,c)) <$>
 
     Ext (L0.L _ e) -> go e
 
-    Ext (TransformList ls) -> do
+    Ext (TransformList inty outty ls) -> do
       (s1, in_ty, out_ty, ls_tc) <-
         foldlM
           (\(s, mb_in_ty, mb_out_ty, ls_acc)
-                  ((in_con, in_decl), (out_con, out_decl), arg) -> do
+                  (in_con, out_con, arg) -> do
             
             -- get the in and out data constructors
             let in_tycon  = getTyOfDataCon ddefs in_con
@@ -1093,8 +1093,8 @@ tcExp ddefs sbst venv fenv bound_tyvars is_main ex = (\(a,b,c) -> (a,b,c)) <$>
             (_out_tyapps, out_fields, out_ret_ty) <- instDataConTy ddefs out_con
             
             -- unify in and out return types
-            in_s1 <- unify ex in_decl in_ret_ty
-            out_s1 <- unify ex out_decl out_ret_ty
+            in_s1 <- unify ex inty in_ret_ty
+            out_s1 <- unify ex outty out_ret_ty
             
             -- define expected payload types
             let in_payload_ty = payloadTy in_tycon in_fields
@@ -1120,15 +1120,15 @@ tcExp ddefs sbst venv fenv bound_tyvars is_main ex = (\(a,b,c) -> (a,b,c)) <$>
                 in_ty' = zonkTy s' in_ret_ty
                 out_ty' = zonkTy s' out_ret_ty
             pure (s', Just in_ty', Just out_ty',
-                  ls_acc ++ [((in_con, zonkTy s' in_ret_ty),
-                              (out_con, zonkTy s' out_ret_ty),
+                  ls_acc ++ [(in_con,
+                              out_con,
                               zonkExp s' arg_tc)])
           )
-          (sbst, Nothing, Nothing, [])
+          (sbst, Just inty, Just outty, [])
           ls
-      let in_ty' = maybe (TransformListTy (ProdTy []) (ProdTy [])) id
-                   (TransformListTy <$> in_ty <*> out_ty)
-      pure (s1, in_ty', Ext (TransformList ls_tc))
+      let in_ty' = maybe (ProdTy []) id in_ty
+          out_ty' = maybe (ProdTy []) id out_ty
+      pure (s1, TransformListTy in_ty' out_ty', Ext (TransformList in_ty' out_ty' ls_tc))
 
     Ext (GMap ty transforms object) -> do
       (s1, transforms_ty, transforms_tc) <- go transforms
@@ -1446,10 +1446,11 @@ zonkExp s ex =
     Ext (PrintPacked ty arg) -> Ext $ PrintPacked (zonkTy s ty) (go arg)
     Ext (CopyPacked ty arg) -> Ext $ CopyPacked (zonkTy s ty) (go arg)
     Ext (TravPacked ty arg) -> Ext $ TravPacked (zonkTy s ty) (go arg)
-    Ext (TransformList ls) ->
+    Ext (TransformList inty outty ls) ->
       Ext $ TransformList
-        [ ((in_con, zonkTy s in_ty), (out_con, zonkTy s out_ty), go arg)
-        | ((in_con, in_ty), (out_con, out_ty), arg) <- ls ]
+        (zonkTy s inty)
+        (zonkTy s outty)
+        [(in_con, out_con, go arg) | (in_con, out_con, arg) <- ls]
     Ext (GMap ty transforms object) ->
       Ext $ GMap (zonkTy s ty) (go transforms) (go object)
     Ext (LinearExt{}) -> error $ "zonkExp: a linear types extension wasn't desugared: " ++ sdoc ex
@@ -1516,10 +1517,11 @@ substTyVarExp s ex =
     Ext (PrintPacked ty arg) -> Ext $ PrintPacked (substTyVar s ty) (go arg)
     Ext (CopyPacked ty arg) -> Ext $ CopyPacked (substTyVar s ty) (go arg)
     Ext (TravPacked ty arg) -> Ext $ TravPacked (substTyVar s ty) (go arg)
-    Ext (TransformList ls) ->
+    Ext (TransformList inty outty ls) ->
       Ext $ TransformList
-        [ ((in_con, substTyVar s in_ty), (out_con, substTyVar s out_ty), go arg)
-        | ((in_con, in_ty), (out_con, out_ty), arg) <- ls ]
+        (substTyVar s inty)
+        (substTyVar s outty)
+        [(in_con, out_con, go arg) | (in_con, out_con, arg) <- ls]
     Ext (GMap ty transforms object) ->
       Ext $ GMap (substTyVar s ty) (go transforms) (go object)
     Ext (L0.L p e)    -> Ext $ L0.L p (go e)
