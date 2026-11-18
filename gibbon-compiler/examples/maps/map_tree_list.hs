@@ -10,6 +10,9 @@ f ls = case ls of
     ConsInt x xs -> ConsFloat ((intToFloat x) .*. 1.5) (f xs)
 
 -- I think that I could make it work recursively
+-- h :: int -> float
+-- h x = (intToFloat x) .*. 1.5
+-- gmap (tlist [(NodeA, NodeB, tlist [ConsInt, ConstFloat, h])]) a
 g :: TreeA -> TreeB
 g a = gmap (tlist [(NodeA, NodeB, f)]) a
 
