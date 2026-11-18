@@ -9,4 +9,7 @@ gibbon_main =
     let tr1 = NodeA 1 (NodeA 2 EmptyA EmptyA) (NodeA 3 EmptyA EmptyA)
         transformList = tlist [(NodeA, NodeB, f)]
         tr2 = gmap transformList tr1
-    in 0
+        _ = printPacked tr1
+        _ = print_newline()
+        _ = printPacked tr2
+    in ()

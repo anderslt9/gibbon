@@ -58,6 +58,14 @@ import           Gibbon.L0.Syntax
 type MainExp = Maybe (Exp0, TyOf Exp0)
 type TransformEnv = M.Map Var Exp0
 
+isTransformListType :: Ty0 -> Bool
+isTransformListType (TransformListTy _ _) = True
+isTransformListType _ = False
+
+isTransformListAlias :: Exp0 -> TransformEnv -> Bool
+isTransformListAlias (VarE v) tenv = M.member v tenv
+isTransformListAlias _ _ = False
+
 rmGMap :: Prog0 -> PassM Prog0
 rmGMap (Prog ddefs funs main) = do
   let fenv = M.map funTy funs
@@ -94,9 +102,20 @@ rmGmapExp ddefs = go
         LetE (v, ls, ty, rhs) bod -> do
           (rhs', fs1) <- go env tenv rhs
           let env' = extendVEnv v ty env
-          let tenv' = M.insert v rhs' tenv
+              tenvWithoutV = M.delete v tenv
+              tenv' =
+                if isTransformListType ty
+                then M.insert v rhs' tenvWithoutV
+                else case rhs' of
+                       VarE w ->
+                         case M.lookup w tenv of
+                           Just wrhs -> M.insert v wrhs tenvWithoutV
+                           Nothing -> tenvWithoutV
+                       _ -> tenvWithoutV
           (bod', fs2) <- go env' tenv' bod
-          pure (LetE (v, ls, ty, rhs') bod', M.union fs1 fs2)
+          if isTransformListType ty || isTransformListAlias rhs' tenv
+          then pure (bod', M.union fs1 fs2)
+          else pure (LetE (v, ls, ty, rhs') bod', M.union fs1 fs2)
         IfE a b c -> mapArgs3 IfE a b c
         MkProdE es -> mapArgs MkProdE es
         ProjE i e -> mapOne (ProjE i) e
@@ -200,6 +219,7 @@ rmGmapExp ddefs = go
               (e', fs1) <- go env tenv e
               pure (acc ++ [e'], M.union fs0 fs1)
 
+-- TODO expand this to make better name
 createFuncName :: Exp0 -> Var
 createFuncName _ex = "gmap"
 
@@ -210,16 +230,15 @@ createMapFunc ddefs env tenv inTy resultTy transforms = do
   arg <- gensym "input"
   body <- createMapFuncBody ddefs env tenv mapFuncName arg inTy resultTy transforms
   let fd = FunDef mapFuncName [arg] (ForAll [] (ArrowTy [inTy] resultTy)) body
-                  (FunMeta Rec NoInline False [] Nothing)
+                  (FunMeta Rec NoInline False [MayVectorize] Nothing)
   pure (mapFuncName, M.singleton mapFuncName fd)
 
 -- | Create a body which should just be a case expression
 createMapFuncBody :: DDefs0 -> Env2 Var Ty0 -> TransformEnv -> Var -> Var -> Ty0 -> Ty0 -> Exp0 -> PassM Exp0
 createMapFuncBody ddefs _env tenv mapFuncName arg inTy resultTy transforms =
   case (inTy, resultTy) of
-    (PackedTy inCon _, PackedTy outCon _) -> do
+    (PackedTy inCon _, PackedTy _ _) -> do
       let inDDef = lookupDDef ddefs inCon
-          outDDef = lookupDDef ddefs outCon
       alts <- mapM mapPattern (dataCons inDDef)
       pure $ CaseE (VarE arg) alts
     _ -> error $ "rmGMap: GMap currently requires packed types, got "
@@ -229,13 +248,14 @@ createMapFuncBody ddefs _env tenv mapFuncName arg inTy resultTy transforms =
       -- create variables for each field in given constructor
       vars <- mapM (const (gensym "field")) fields
 
-      -- find transform corresponding to this constructor
-      let match = find (\(i, _, _) -> i == inDCon) (transformEntries tenv transforms)
-      (_, outDCon, fn) <- case match of
-        Just x -> pure x
-        Nothing -> error $ "rmGMap: no transform for constructor " ++ sdoc inDCon
-      args <- mapM (fieldExpr fn) (zip vars (map snd fields))
-      pure (inDCon, zip vars (map snd fields), DataConE (ProdTy []) outDCon args)
+      case find (\(i, _, _) -> i == inDCon) (transformEntries tenv transforms) of
+        Just (_, outDCon, fn) -> do
+          args <- mapM (fieldExpr fn) (zip vars (map snd fields))
+          pure (inDCon, zip vars (map snd fields), DataConE (ProdTy []) outDCon args)
+        Nothing -> do
+          (outDCon, outFields) <- inferImplicitTransform inDCon fields
+          args <- implicitFieldExpr (zip3 vars (map snd fields) (map snd outFields))
+          pure (inDCon, zip vars (map snd fields), DataConE (ProdTy []) outDCon args)
 
     fieldExpr fn (v, ty)
       | recursive ty = pure $ AppE mapFuncName NotTailRec [] [VarE v]
@@ -243,33 +263,56 @@ createMapFuncBody ddefs _env tenv mapFuncName arg inTy resultTy transforms =
           f <- extractTransform fn
           pure $ AppE f NotTailRec [] [VarE v]
 
-    recursive (PackedTy tc _) =
+    recursiveInput (PackedTy tc _) =
       case inTy of
         PackedTy inputTc _ -> tc == inputTc
         _ -> False
-    recursive _ = False
+    recursiveInput _ = False
 
-    -- consLengthMatch :: [(IsBoxed, Ty0)] -> [(IsBoxed, Ty0)] -> Bool
+    recursiveOutput (PackedTy tc _) =
+      case resultTy of
+        PackedTy outputTc _ -> tc == outputTc
+        _ -> False
+    recursiveOutput _ = False
 
--- TODO define a series of possible comparisons between recList objects 
-    recList :: [(IsBoxed, Ty0)] -> ([Ty0], Int)
-    recList [] = ([], 0)
-    recList xs = recList' xs 0
+    recursive = recursiveInput
 
-    recList' :: [(IsBoxed, Ty0)] -> Int -> ([Ty0], Int)
-    recList' [] x = ([], x)
-    recList' ((_, ty):rest) n = if recursive ty then recList' rest (n + 1) else (ty : fst (recList' rest n), n)
+    -- TODO maybe this should not care about positioning of the fields
+    implicitShapeMatches :: [(IsBoxed, Ty0)] -> [(IsBoxed, Ty0)] -> Bool
+    implicitShapeMatches inputFields outputFields =
+      length inputFields == length outputFields &&
+      and (zipWith fieldMatches inputFields outputFields)
+      where
+        fieldMatches (_, inputTy) (_, outputTy)
+          | recursiveInput inputTy = recursiveOutput outputTy
+          | otherwise = not (recursiveOutput outputTy) && inputTy == outputTy
 
-    -- addImplicitTransform :: DataCon -> PassM (DataCon, DataCon, Maybe Exp0)
-    addImplicitTransform inCon outDDef = do
-      -- Implementation for adding implicit transforms
-      mapM (addImplicitTransform' inCon) (dataCons outDDef)
+    inferImplicitTransform :: DataCon -> [(IsBoxed, Ty0)] -> PassM (DataCon, [(IsBoxed, Ty0)])
+    inferImplicitTransform inDCon inFields =
+      case resultTy of
+        PackedTy outTyCon _ -> do
+          let DDef{dataCons = outConstructors} = lookupDDef ddefs outTyCon
+              candidates = [(outDCon, outFields) | (outDCon, outFields) <- outConstructors, implicitShapeMatches inFields outFields]
+          case candidates of
+            [(outDCon, outFields)] -> pure (outDCon, outFields)
+            [] ->
+              error $ "rmGMap: no implicit transform for constructor "
+                   ++ sdoc inDCon ++ " to " ++ sdoc outTyCon
+            _ ->
+              error $ "rmGMap: multiple implicit transforms for constructor "
+                   ++ sdoc inDCon ++ " to " ++ sdoc outTyCon
+        _ -> error $ "rmGMap: GMap result must be a packed type, got "
+                  ++ sdoc resultTy
 
-    -- addImplicitTransform' :: DataCon -> (DataCon, [(IsBoxed, Ty0)]) -> PassM (DataCon, DataCon, Maybe Exp0)
-    addImplicitTransform' inCon (outCon, fields) = do
-      error ""
-
-      -- let num_fields = 
+    implicitFieldExpr :: [(Var, Ty0, Ty0)] -> PassM [Exp0]
+    implicitFieldExpr = mapM implicitOne
+      where
+        implicitOne (v, inputTy, outputTy)
+          | recursiveInput inputTy && recursiveOutput outputTy = pure $ AppE mapFuncName NotTailRec [] [VarE v]
+          | inputTy == outputTy = pure $ VarE v
+          | otherwise =
+              error $ "rmGMap: implicit transform cannot copy field "
+                   ++ sdoc inputTy ++ " to " ++ sdoc outputTy
 
 
 
